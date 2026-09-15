@@ -314,13 +314,6 @@ fun AudioPlayerScreen(
     BackHandler(onBack = onBack)
 
     val context = LocalContext.current
-    
-    // Performance Check: Fallback for low-end devices
-    val isLowEndDevice = remember(context) {
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        activityManager.isLowRamDevice || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
-    }
-
     val scope = rememberCoroutineScope()
     var showMoreOptions by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
@@ -358,15 +351,7 @@ fun AudioPlayerScreen(
     var repeatMode by remember { mutableStateOf(controller?.repeatMode ?: Player.REPEAT_MODE_OFF) }
     var playbackSpeed by remember { mutableFloatStateOf(controller?.playbackParameters?.speed ?: 1.0f) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
-    
-    var dominantColor by remember { mutableStateOf(Color(0xFF1A1A1A)) }
-    val animatedBgColor by animateColorAsState(
-        targetValue = dominantColor,
-        animationSpec = tween(durationMillis = 2000),
-        label = "bgColor"
-    )
 
-    // Breathing Animation for Album Art
     val infiniteTransition = rememberInfiniteTransition(label = "breathing")
     val artScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -384,32 +369,6 @@ fun AudioPlayerScreen(
                 Uri.parse("content://media/external/audio/albumart"),
                 it.albumId
             )
-        }
-    }
-
-    LaunchedEffect(albumArtUri) {
-        if (albumArtUri != null) {
-            val loader = context.imageLoader
-            val request = ImageRequest.Builder(context)
-                .data(albumArtUri)
-                .allowHardware(false) // Palette needs software bitmap
-                .build()
-            
-            val result = loader.execute(request)
-            if (result is SuccessResult) {
-                val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
-                if (bitmap != null) {
-                    val palette = Palette.from(bitmap).generate()
-                    val color = palette.getVibrantColor(
-                        palette.getMutedColor(
-                            palette.getDominantColor(0xFF1A1A1A.toInt())
-                        )
-                    )
-                    dominantColor = Color(color).copy(alpha = 0.6f)
-                }
-            }
-        } else {
-            dominantColor = Color(0xFF1A1A1A)
         }
     }
 
@@ -542,75 +501,13 @@ fun AudioPlayerScreen(
         }
     }
 
-        Box(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F0F0F))
+            .background(Color.Black)
     ) {
-        // Animated Background Gradients
-        if (!isLowEndDevice) {
-            val transition = rememberInfiniteTransition(label = "mesh")
-            val offset1 by transition.animateFloat(
-                initialValue = 0f, targetValue = 1000f,
-                animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse), label = "o1"
-            )
-            val offset2 by transition.animateFloat(
-                initialValue = 1000f, targetValue = 0f,
-                animationSpec = infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Reverse), label = "o2"
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(alpha = 0.6f)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(animatedBgColor.copy(alpha = 0.4f), Color.Transparent),
-                            center = androidx.compose.ui.geometry.Offset(offset1, offset2),
-                            radius = 1200f
-                        )
-                    )
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(alpha = 0.4f)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), Color.Transparent),
-                            center = androidx.compose.ui.geometry.Offset(offset2, offset1),
-                            radius = 1000f
-                        )
-                    )
-            )
-        }
-
-        // Background Image with Conditional Blur
-        AsyncImage(
-            model = albumArtUri,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (isLowEndDevice) Modifier else Modifier.blur(radius = 60.dp)),
-            contentScale = ContentScale.Crop,
-            alpha = if (isLowEndDevice) 0.15f else 0.3f
-        )
-        
-        // Gradient Overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            if (isLowEndDevice) Color.Black.copy(alpha = 0.7f) else animatedBgColor.copy(alpha = 0.5f),
-                            Color(0xFF0F0F0F)
-                        )
-                    )
-                )
-        )
-
         Scaffold(
+            containerColor = Color.Black,
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.now_playing), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.White) },
@@ -654,7 +551,6 @@ fun AudioPlayerScreen(
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.playback_speed_format, playbackSpeed.toString())) },
                                 onClick = { 
-                                    // Cycles speeds
                                     val nextSpeed = when(playbackSpeed) {
                                         1.0f -> 1.25f
                                         1.25f -> 1.5f
@@ -682,8 +578,7 @@ fun AudioPlayerScreen(
                         containerColor = Color.Transparent
                     )
                 )
-            },
-            containerColor = Color.Transparent
+            }
         ) { padding ->
             if (controller == null) {
                 Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {

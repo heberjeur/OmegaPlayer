@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.Playlist
+import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import com.arslandaim.omegaplayer.ui.common.ModernLoadingDialog
@@ -164,22 +165,95 @@ fun HomeScreen(
         else selectedPlaylistForDetails = null
     }
 
-    val filteredFolders = remember(currentFolders, searchQuery, currentSelectedFolder) {
-        if (currentSelectedFolder != null) emptyMap()
-        else if (searchQuery.isEmpty()) currentFolders
-        else currentFolders.filterKeys { it.contains(searchQuery, ignoreCase = true) }
+    val currentSortOrder = if (selectedTab == MediaTab.VIDEOS) videoSortOrder else audioSortOrder
+
+    val sortedFolders = remember(currentFolders, searchQuery, currentSelectedFolder, currentSortOrder) {
+        if (currentSelectedFolder != null) emptyList()
+        else {
+            val baseList = if (searchQuery.isEmpty()) currentFolders.toList()
+            else currentFolders.filterKeys { it.contains(searchQuery, ignoreCase = true) }.toList()
+            when (currentSortOrder) {
+                MediaSortOrder.NAME_ASC -> baseList.sortedBy { it.first.lowercase() }
+                MediaSortOrder.NAME_DESC -> baseList.sortedByDescending { it.first.lowercase() }
+                MediaSortOrder.SIZE_DESC -> baseList.sortedByDescending { it.second }
+                MediaSortOrder.DURATION_DESC -> baseList.sortedByDescending { it.second }
+                MediaSortOrder.DATE_DESC -> baseList
+                MediaSortOrder.DATE_ASC -> baseList.reversed()
+            }
+        }
     }
 
-    val filteredVideos = remember(videosInFolder, searchQuery, selectedVideoFolder, selectedTab) {
+    val sortedVideos = remember(videosInFolder, searchQuery, selectedVideoFolder, selectedTab, videoSortOrder) {
         if (selectedVideoFolder == null || selectedTab != MediaTab.VIDEOS) emptyList()
-        else if (searchQuery.isEmpty()) videosInFolder
-        else videosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        else {
+            val list = if (searchQuery.isEmpty()) videosInFolder
+            else videosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            when (videoSortOrder) {
+                MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.id }
+                MediaSortOrder.DATE_ASC -> list.sortedBy { it.id }
+                MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
+                MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
+                MediaSortOrder.SIZE_DESC -> list.sortedByDescending { it.size }
+                MediaSortOrder.DURATION_DESC -> list.sortedByDescending { it.duration }
+            }
+        }
     }
     
-    val filteredAudios = remember(audiosInFolder, searchQuery, selectedAudioFolder, selectedTab) {
+    val sortedAudios = remember(audiosInFolder, searchQuery, selectedAudioFolder, selectedTab, audioSortOrder) {
         if (selectedAudioFolder == null || selectedTab != MediaTab.AUDIOS) emptyList()
-        else if (searchQuery.isEmpty()) audiosInFolder
-        else audiosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        else {
+            val list = if (searchQuery.isEmpty()) audiosInFolder
+            else audiosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            when (audioSortOrder) {
+                MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.id }
+                MediaSortOrder.DATE_ASC -> list.sortedBy { it.id }
+                MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
+                MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
+                MediaSortOrder.SIZE_DESC -> list.sortedByDescending { it.size }
+                MediaSortOrder.DURATION_DESC -> list.sortedByDescending { it.duration }
+            }
+        }
+    }
+
+    val sortedPlaylists = remember(playlists, searchQuery, currentSortOrder) {
+        val list = if (searchQuery.isEmpty()) playlists
+        else playlists.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        when (currentSortOrder) {
+            MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
+            MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
+            MediaSortOrder.DATE_ASC -> list.sortedBy { it.createdAt }
+            MediaSortOrder.DATE_DESC, MediaSortOrder.SIZE_DESC, MediaSortOrder.DURATION_DESC -> list.sortedByDescending { it.createdAt }
+        }
+    }
+
+    val sortedHistory = remember(fullHistory, searchQuery, currentSortOrder) {
+        val list = if (searchQuery.isEmpty()) fullHistory
+        else fullHistory.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        when (currentSortOrder) {
+            MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
+            MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
+            MediaSortOrder.DATE_ASC -> list.sortedBy { it.lastPlayed }
+            MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.lastPlayed }
+            MediaSortOrder.DURATION_DESC, MediaSortOrder.SIZE_DESC -> list.sortedByDescending { it.duration }
+        }
+    }
+
+    val sortedPlaylistItems = remember(playlistItems, searchQuery, currentSortOrder, videos, audios) {
+        fun getItemName(item: PlaylistItem): String {
+            return if (item.mediaType == "video") {
+                videos.find { it.uri.toString() == item.mediaUri }?.name ?: ""
+            } else {
+                audios.find { it.uri.toString() == item.mediaUri }?.name ?: ""
+            }
+        }
+        val list = if (searchQuery.isEmpty()) playlistItems
+        else playlistItems.filter { getItemName(it).contains(searchQuery, ignoreCase = true) }
+        when (currentSortOrder) {
+            MediaSortOrder.NAME_ASC -> list.sortedBy { getItemName(it).lowercase() }
+            MediaSortOrder.NAME_DESC -> list.sortedByDescending { getItemName(it).lowercase() }
+            MediaSortOrder.DATE_ASC -> list.sortedBy { it.addedAt }
+            MediaSortOrder.DATE_DESC, MediaSortOrder.SIZE_DESC, MediaSortOrder.DURATION_DESC -> list.sortedByDescending { it.addedAt }
+        }
     }
 
     val deleteLauncher = rememberLauncherForActivityResult(
@@ -453,9 +527,9 @@ fun HomeScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                } else if (currentSelectedFolder == null && selectedPlaylistForDetails == null && filteredFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY) {
+                } else if (currentSelectedFolder == null && selectedPlaylistForDetails == null && sortedFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY) {
                     EmptyState(searchQuery.isNotEmpty(), true)
-                } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) filteredVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) filteredAudios.isEmpty() else playlistItems.isEmpty())) {
+                } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) sortedVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) sortedAudios.isEmpty() else sortedPlaylistItems.isEmpty())) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
                     if (isGridView) {
@@ -463,10 +537,10 @@ fun HomeScreen(
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
                                 if (showRecentHistoryOnHome && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item(span = { GridItemSpan(2) }) { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
                                 if (pageTab == MediaTab.HISTORY) {
-                                    if (fullHistory.isEmpty()) {
+                                    if (sortedHistory.isEmpty()) {
                                         item(span = { GridItemSpan(2) }) { EmptyState(searchQuery.isNotEmpty(), false) }
                                     } else {
-                                        items(fullHistory, key = { it.uri }, span = { GridItemSpan(2) }) { item ->
+                                        items(sortedHistory, key = { it.uri }, span = { GridItemSpan(2) }) { item ->
                                             HistoryItem(item = item, onClick = {
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                                                 if (item.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
@@ -474,12 +548,12 @@ fun HomeScreen(
                                         }
                                     }
                                 } else if (pageTab == MediaTab.PLAYLISTS) {
-                                    if (playlists.isNotEmpty()) { items(playlists, key = { it.id }, span = { GridItemSpan(2) }) { playlist -> PlaylistListItem(playlist, { selectedPlaylistForDetails = playlist }, { audioViewModel.deletePlaylist(playlist) }) } }
+                                    if (sortedPlaylists.isNotEmpty()) { items(sortedPlaylists, key = { it.id }, span = { GridItemSpan(2) }) { playlist -> PlaylistListItem(playlist, { selectedPlaylistForDetails = playlist }, { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
-                                    items(filteredFolders.keys.toList(), key = { it }) { folderName ->
+                                    items(sortedFolders, key = { it.first }) { (folderName, count) ->
                                         FolderGridItem(
                                             name = folderName,
-                                            count = filteredFolders[folderName] ?: 0,
+                                            count = count,
                                             onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) },
                                             onExclude = {
                                                 if (pageTab == MediaTab.VIDEOS) viewModel.excludeFolder(folderName) else audioViewModel.excludeFolder(folderName)
@@ -490,7 +564,7 @@ fun HomeScreen(
                                 }
                             } else if (selectedPlaylistForDetails != null) {
                                 val currentPlaylist = selectedPlaylistForDetails!!
-                                items(playlistItems, key = { it.id }) { item ->
+                                items(sortedPlaylistItems, key = { it.id }) { item ->
                                     PlaylistGridItem(
                                         item = item,
                                         videos = videos,
@@ -500,8 +574,8 @@ fun HomeScreen(
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope,
                                         onPlayItem = { clickedItem ->
-                                            val index = playlistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
-                                            audioViewModel.playPlaylist(playlistItems, index, videos, audios)
+                                            val index = sortedPlaylistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
+                                            audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios)
                                             val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
                                             if (clickedItem.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
                                         },
@@ -509,19 +583,20 @@ fun HomeScreen(
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(filteredVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(filteredAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, onAudioClick, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, onAudioClick, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
+                    } else {
                         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (showRecentHistoryOnHome && currentSelectedFolder == null && selectedPlaylistForDetails == null && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
                                 if (pageTab == MediaTab.HISTORY) {
-                                    if (fullHistory.isEmpty()) {
+                                    if (sortedHistory.isEmpty()) {
                                         item { EmptyState(searchQuery.isNotEmpty(), false) }
                                     } else {
-                                        items(fullHistory, key = { it.uri }) { item ->
+                                        items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryItem(item = item, onClick = {
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                                                 if (item.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
@@ -529,13 +604,13 @@ fun HomeScreen(
                                         }
                                     }
                                 } else if (pageTab == MediaTab.PLAYLISTS) {
-                                    if (playlists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
-                                    else { items(playlists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
+                                    if (sortedPlaylists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+                                    else { items(sortedPlaylists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
-                                    items(filteredFolders.keys.toList(), key = { it }) { folderName ->
+                                    items(sortedFolders, key = { it.first }) { (folderName, count) ->
                                         FolderListItem(
                                             name = folderName,
-                                            count = filteredFolders[folderName] ?: 0,
+                                            count = count,
                                             onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) },
                                             onDelete = { folderToDelete = folderName },
                                             onExclude = {
@@ -547,7 +622,7 @@ fun HomeScreen(
                                 }
                             } else if (selectedPlaylistForDetails != null) {
                                 val currentPlaylist = selectedPlaylistForDetails!!
-                                items(playlistItems, key = { it.id }) { item ->
+                                items(sortedPlaylistItems, key = { it.id }) { item ->
                                     MediaListItemInPlaylist(
                                         item = item,
                                         videos = videos,
@@ -557,8 +632,8 @@ fun HomeScreen(
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope,
                                         onPlayItem = { clickedItem ->
-                                            val index = playlistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
-                                            audioViewModel.playPlaylist(playlistItems, index, videos, audios)
+                                            val index = sortedPlaylistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
+                                            audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios)
                                             val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
                                             if (clickedItem.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
                                         },
@@ -568,9 +643,9 @@ fun HomeScreen(
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(filteredVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri) }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(sortedVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri) }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(filteredAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString()); onAudioClick(encodedUri) }, onPlayPauseClick = { audioViewModel.togglePlayPause(audio) }, onDeleteClick = { selectedAudioForDelete = audio }, onPlaylistClick = { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(sortedAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString()); onAudioClick(encodedUri) }, onDeleteClick = { selectedAudioForDelete = audio }, onPlaylistClick = { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
                     }

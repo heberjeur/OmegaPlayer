@@ -226,7 +226,6 @@ fun PlayerScreen(
         }
     }
 
-    // Handles Screen Disposal (Back Button)
     DisposableEffect(Unit) {
         val window = activity?.window
         if (window != null) {
@@ -244,7 +243,6 @@ fun PlayerScreen(
             controller?.isAppearanceLightStatusBars = !isDarkTheme
             controller?.isAppearanceLightNavigationBars = !isDarkTheme
             
-            // Restore system brightness (set to -1f to return to system default)
             val layoutParams = activity?.window?.attributes
             layoutParams?.screenBrightness = -1f
             activity?.window?.attributes = layoutParams
@@ -538,7 +536,6 @@ fun PlayerScreen(
                     duration = duration,
                     aspectRatio = aspectRatio,
                     isHardwareAccelerated = isHardwareAccelerated,
-                    isBackgroundPlayEnabled = isBackgroundPlayEnabled,
                     onBack = onBack,
                     onSpeedChange = { speed ->
                         playbackSpeed = speed
@@ -559,12 +556,6 @@ fun PlayerScreen(
                         isHardwareAccelerated = !isHardwareAccelerated
                         val mode = if (isHardwareAccelerated) "Hardware" else "Software"
                         Toast.makeText(context, "$mode Decoding Active", Toast.LENGTH_SHORT).show()
-                    },
-                    onBackgroundPlayToggle = {
-                        val willEnable = !isBackgroundPlayEnabled
-                        viewModel.toggleBackgroundPlay(context, willEnable)
-                        val msgRes = if (willEnable) R.string.background_play_enabled else R.string.background_play_disabled
-                        Toast.makeText(context, context.getString(msgRes), Toast.LENGTH_SHORT).show()
                     },
                     onInfoClick = { showInfoDialog = true },
                     onSubtitleClick = {
@@ -719,13 +710,11 @@ fun PlayerControls(
     duration: Long,
     aspectRatio: Int,
     isHardwareAccelerated: Boolean,
-    isBackgroundPlayEnabled: Boolean,
     onBack: () -> Unit,
     onSpeedChange: (Float) -> Unit,
     onRotationChange: () -> Unit,
     onAspectRatioToggle: () -> Unit,
     onHardwareToggle: () -> Unit,
-    onBackgroundPlayToggle: () -> Unit,
     onInfoClick: () -> Unit,
     onSubtitleClick: () -> Unit,
     onSleepTimerClick: () -> Unit,
@@ -757,13 +746,6 @@ fun PlayerControls(
                     .padding(horizontal = 8.dp)
                     .basicMarquee()
             )
-            IconButton(onClick = onBackgroundPlayToggle) {
-                Icon(
-                    imageVector = Icons.Default.Headset, 
-                    contentDescription = "Background Play", 
-                    tint = if (isBackgroundPlayEnabled) Color(0xFF4CAF50) else Color.White
-                )
-            }
             IconButton(onClick = onSubtitleClick) {
                 Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
             }

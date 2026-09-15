@@ -61,7 +61,7 @@ class VideoViewModel @Inject constructor(
         .map { it?.localConfiguration?.uri?.toString() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val _isBackgroundPlayEnabled = MutableStateFlow(false)
+    private val _isBackgroundPlayEnabled = MutableStateFlow(true)
     val isBackgroundPlayEnabled: StateFlow<Boolean> = _isBackgroundPlayEnabled.asStateFlow()
 
     val isPlaying: StateFlow<Boolean> = playbackConnection.isPlaying

@@ -66,7 +66,6 @@ fun MediaListItemInPlaylist(
                 audio = audio,
                 isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsState().value,
                 onClick = { onPlayItem(item) },
-                onPlayPauseClick = { onPlayItem(item) },
                 onDeleteClick = { onAudioDelete(audio) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
                 isInPlaylistView = true
