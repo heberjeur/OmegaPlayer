@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,6 +28,7 @@ class ThemePreferences(private val context: Context) {
     private val THEME_KEY = stringPreferencesKey("app_theme")
     private val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
     private val HISTORY_PAUSED_KEY = booleanPreferencesKey("history_paused")
+    private val EXCLUDED_FOLDERS_KEY = stringSetPreferencesKey("excluded_folders")
 
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
@@ -45,6 +47,10 @@ class ThemePreferences(private val context: Context) {
         preferences[HISTORY_PAUSED_KEY] ?: false
     }
 
+    val excludedFolders: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[EXCLUDED_FOLDERS_KEY] ?: emptySet()
+    }
+
     suspend fun saveTheme(theme: AppTheme) {
         context.dataStore.edit { preferences ->
             preferences[THEME_KEY] = theme.name
@@ -60,6 +66,26 @@ class ThemePreferences(private val context: Context) {
     suspend fun saveHistoryPaused(paused: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[HISTORY_PAUSED_KEY] = paused
+        }
+    }
+
+    suspend fun addExcludedFolder(folderName: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[EXCLUDED_FOLDERS_KEY] ?: emptySet()
+            preferences[EXCLUDED_FOLDERS_KEY] = current + folderName
+        }
+    }
+
+    suspend fun removeExcludedFolder(folderName: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[EXCLUDED_FOLDERS_KEY] ?: emptySet()
+            preferences[EXCLUDED_FOLDERS_KEY] = current - folderName
+        }
+    }
+
+    suspend fun clearExcludedFolders() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(EXCLUDED_FOLDERS_KEY)
         }
     }
 }

@@ -10,6 +10,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.net.Uri
+import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
 import android.widget.Toast
@@ -72,6 +73,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 
+import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 
 @OptIn(UnstableApi::class, ExperimentalSharedTransitionApi::class)
@@ -82,7 +84,8 @@ fun PlayerScreen(
     isDarkTheme: Boolean, 
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onAudioTransition: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -150,10 +153,21 @@ fun PlayerScreen(
         val currentUri = player.currentMediaItem?.localConfiguration?.uri
         if (currentUri != newUri) {
             playbackError = null
-            player.stop()
-            player.clearMediaItems()
-            player.setMediaItem(MediaItem.fromUri(newUri))
-            player.prepare()
+            var matchedIndex = -1
+            for (i in 0 until player.mediaItemCount) {
+                if (player.getMediaItemAt(i).localConfiguration?.uri == newUri) {
+                    matchedIndex = i
+                    break
+                }
+            }
+            if (matchedIndex != -1) {
+                player.seekToDefaultPosition(matchedIndex)
+            } else {
+                player.stop()
+                player.clearMediaItems()
+                player.setMediaItem(MediaItem.fromUri(newUri))
+                player.prepare()
+            }
         }
         player.playWhenReady = true
     }
@@ -171,7 +185,6 @@ fun PlayerScreen(
                 playbackError = "$errorType: ${error.message}"
                 Log.e("PlayerScreen", "ExoPlayer Error ($errorType): ${error.message}", error)
                 
-                // Auto-retry once for common transient errors
                 if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
                     error.errorCode == PlaybackException.ERROR_CODE_TIMEOUT) {
                     player.prepare()
@@ -181,6 +194,14 @@ fun PlayerScreen(
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) {
                     playbackError = null
+                }
+            }
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (mediaItem != null) {
+                    val uri = mediaItem.localConfiguration?.uri?.toString() ?: ""
+                    if (uri.isNotEmpty() && uri != videoUri && MediaUtils.isAudioMediaItem(mediaItem)) {
+                        onAudioTransition(uri)
+                    }
                 }
             }
         }
@@ -292,7 +313,30 @@ fun PlayerScreen(
         }
     }
 
-    val videoName = videoUri.substringAfterLast("/").substringBeforeLast(".")
+    val videoName = remember(videoUri, videosList, currentVideo) {
+        val foundName = currentVideo?.name ?: videosList.find { it.uri.toString() == videoUri }?.name
+        if (!foundName.isNullOrBlank()) {
+            foundName
+        } else {
+            var queriedName: String? = null
+            try {
+                val parsedUri = Uri.parse(videoUri)
+                if (parsedUri.scheme == "content") {
+                    context.contentResolver.query(parsedUri, arrayOf(MediaStore.Video.Media.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val col = cursor.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                            if (col != -1) {
+                                queriedName = cursor.getString(col)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("PlayerScreen", "Error resolving video name", e)
+            }
+            queriedName ?: videoUri.substringAfterLast("/").substringBeforeLast(".")
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         with(sharedTransitionScope) {
@@ -423,11 +467,12 @@ fun PlayerScreen(
                 }
         )
 
-        // Lock Icon HUD
         if (isControlsVisible || isLocked) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                contentAlignment = Alignment.CenterStart
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 24.dp, bottom = 80.dp),
+                contentAlignment = Alignment.BottomStart
             ) {
                 IconButton(
                     onClick = { 
@@ -503,6 +548,7 @@ fun PlayerScreen(
                 PlayerControls(
                     player = mediaController,
                     videoName = videoName,
+                    playbackSpeed = playbackSpeed,
                     currentPosition = currentPosition,
                     duration = duration,
                     aspectRatio = aspectRatio,
@@ -736,6 +782,7 @@ fun formatDuration(durationMs: Long): String {
 fun PlayerControls(
     player: Player?,
     videoName: String,
+    playbackSpeed: Float,
     currentPosition: Long,
     duration: Long,
     aspectRatio: Int,
@@ -772,8 +819,6 @@ fun PlayerControls(
                 text = videoName,
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
             )
             IconButton(onClick = onBackgroundPlayToggle) {
@@ -865,10 +910,10 @@ fun PlayerControls(
                     Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, null, tint = Color.White)
                 }
                 TextButton(onClick = { 
-                    val currentSpeed = player?.playbackParameters?.speed ?: 1f
-                    onSpeedChange(if (currentSpeed >= 2f) 1f else currentSpeed + 0.5f) 
+                    val nextSpeed = if (playbackSpeed >= 2f) 0.5f else (playbackSpeed + 0.25f)
+                    onSpeedChange(nextSpeed) 
                 }) {
-                    Text("${player?.playbackParameters?.speed ?: 1f}x", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("${playbackSpeed}x", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

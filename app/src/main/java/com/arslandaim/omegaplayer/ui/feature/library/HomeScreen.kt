@@ -413,11 +413,38 @@ fun HomeScreen(
                                 if (pageTab == MediaTab.PLAYLISTS) {
                                     if (playlists.isNotEmpty()) { items(playlists, key = { it.id }, span = { GridItemSpan(2) }) { playlist -> PlaylistListItem(playlist, { selectedPlaylistForDetails = playlist }, { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
-                                    items(filteredFolders.keys.toList(), key = { it }) { folderName -> FolderGridItem(name = folderName, count = filteredFolders[folderName] ?: 0, onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) }) }
+                                    items(filteredFolders.keys.toList(), key = { it }) { folderName ->
+                                        FolderGridItem(
+                                            name = folderName,
+                                            count = filteredFolders[folderName] ?: 0,
+                                            onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) },
+                                            onExclude = {
+                                                if (pageTab == MediaTab.VIDEOS) viewModel.excludeFolder(folderName) else audioViewModel.excludeFolder(folderName)
+                                                Toast.makeText(context, context.getString(R.string.folder_excluded_toast), Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
                                 }
                             } else if (selectedPlaylistForDetails != null) {
                                 val currentPlaylist = selectedPlaylistForDetails!!
-                                items(playlistItems, key = { it.id }) { item -> PlaylistGridItem(item, videos, audios, viewModel, audioViewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, onAudioClick, currentPlaylist) }
+                                items(playlistItems, key = { it.id }) { item ->
+                                    PlaylistGridItem(
+                                        item = item,
+                                        videos = videos,
+                                        audios = audios,
+                                        videoViewModel = viewModel,
+                                        audioViewModel = audioViewModel,
+                                        sharedTransitionScope = sharedTransitionScope,
+                                        animatedVisibilityScope = animatedVisibilityScope,
+                                        onPlayItem = { clickedItem ->
+                                            val index = playlistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
+                                            audioViewModel.playPlaylist(playlistItems, index, videos, audios)
+                                            val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
+                                            if (clickedItem.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                        },
+                                        playlist = currentPlaylist
+                                    )
+                                }
                             } else if (pageTab == MediaTab.VIDEOS) {
                                 items(filteredVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
@@ -432,11 +459,41 @@ fun HomeScreen(
                                     if (playlists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                                     else { items(playlists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
-                                    items(filteredFolders.keys.toList(), key = { it }) { folderName -> FolderListItem(name = folderName, count = filteredFolders[folderName] ?: 0, onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) }, onDelete = { folderToDelete = folderName }) }
+                                    items(filteredFolders.keys.toList(), key = { it }) { folderName ->
+                                        FolderListItem(
+                                            name = folderName,
+                                            count = filteredFolders[folderName] ?: 0,
+                                            onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) },
+                                            onDelete = { folderToDelete = folderName },
+                                            onExclude = {
+                                                if (pageTab == MediaTab.VIDEOS) viewModel.excludeFolder(folderName) else audioViewModel.excludeFolder(folderName)
+                                                Toast.makeText(context, context.getString(R.string.folder_excluded_toast), Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
                                 }
                             } else if (selectedPlaylistForDetails != null) {
                                 val currentPlaylist = selectedPlaylistForDetails!!
-                                items(playlistItems, key = { it.id }) { item -> MediaListItemInPlaylist(item = item, videos = videos, audios = audios, videoViewModel = viewModel, audioViewModel = audioViewModel, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onVideoClick = onVideoClick, onAudioClick = onAudioClick, playlist = currentPlaylist, onVideoDelete = { selectedVideoForDelete = it }, onAudioDelete = { selectedAudioForDelete = it }) }
+                                items(playlistItems, key = { it.id }) { item ->
+                                    MediaListItemInPlaylist(
+                                        item = item,
+                                        videos = videos,
+                                        audios = audios,
+                                        videoViewModel = viewModel,
+                                        audioViewModel = audioViewModel,
+                                        sharedTransitionScope = sharedTransitionScope,
+                                        animatedVisibilityScope = animatedVisibilityScope,
+                                        onPlayItem = { clickedItem ->
+                                            val index = playlistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
+                                            audioViewModel.playPlaylist(playlistItems, index, videos, audios)
+                                            val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
+                                            if (clickedItem.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                        },
+                                        playlist = currentPlaylist,
+                                        onVideoDelete = { selectedVideoForDelete = it },
+                                        onAudioDelete = { selectedAudioForDelete = it }
+                                    )
+                                }
                             } else if (pageTab == MediaTab.VIDEOS) {
                                 items(filteredVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri) }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {

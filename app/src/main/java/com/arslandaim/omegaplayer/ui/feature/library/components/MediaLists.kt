@@ -40,8 +40,7 @@ fun MediaListItemInPlaylist(
     audioViewModel: AudioViewModel,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onVideoClick: (String) -> Unit,
-    onAudioClick: (String) -> Unit,
+    onPlayItem: (PlaylistItem) -> Unit,
     playlist: Playlist,
     onVideoDelete: (VideoModel) -> Unit,
     onAudioDelete: (AudioModel) -> Unit
@@ -54,10 +53,7 @@ fun MediaListItemInPlaylist(
                 isPlaying = videoViewModel.activeVideoUri.collectAsState().value == video.uri.toString() && videoViewModel.isPlaying.collectAsState().value,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
-                onClick = {
-                    val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString())
-                    onVideoClick(encodedUri)
-                },
+                onClick = { onPlayItem(item) },
                 onDeleteClick = { onVideoDelete(video) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, video.uri.toString()) },
                 isInPlaylistView = true
@@ -69,11 +65,8 @@ fun MediaListItemInPlaylist(
             AudioListItem(
                 audio = audio,
                 isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsState().value,
-                onClick = {
-                    val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString())
-                    onAudioClick(encodedUri)
-                },
-                onPlayPauseClick = { audioViewModel.togglePlayPause(audio) },
+                onClick = { onPlayItem(item) },
+                onPlayPauseClick = { onPlayItem(item) },
                 onDeleteClick = { onAudioDelete(audio) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
                 isInPlaylistView = true
@@ -92,19 +85,18 @@ fun PlaylistGridItem(
     audioViewModel: AudioViewModel,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onVideoClick: (String) -> Unit,
-    onAudioClick: (String) -> Unit,
+    onPlayItem: (PlaylistItem) -> Unit,
     playlist: Playlist
 ) {
     if (item.mediaType == "video") {
         val video = videos.find { it.uri.toString() == item.mediaUri }
         if (video != null) {
-            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, {}, {})
+            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, { onPlayItem(item) }, {}, {})
         }
     } else {
         val audio = audios.find { it.uri.toString() == item.mediaUri }
         if (audio != null) {
-            AudioGridItem(audio, audioViewModel, onAudioClick, {}, {})
+            AudioGridItem(audio, audioViewModel, { onPlayItem(item) }, {}, {})
         }
     }
 }

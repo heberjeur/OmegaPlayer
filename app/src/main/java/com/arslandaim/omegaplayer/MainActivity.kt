@@ -157,6 +157,12 @@ class MainActivity : FragmentActivity() {
                                                 popUpTo(Screen.Main.route) { inclusive = false }
                                             }
                                         }
+                                    },
+                                    onAudioTransition = { audioUri ->
+                                        val encoded = URLEncoder.encode(audioUri, StandardCharsets.UTF_8.toString())
+                                        navController.navigate(Screen.AudioPlayer.createRoute(encoded)) {
+                                            popUpTo(Screen.Player.route) { inclusive = true }
+                                        }
                                     }
                                 )
                             }
@@ -174,6 +180,12 @@ class MainActivity : FragmentActivity() {
                                             navController.navigate(Screen.Main.createRoute("audios")) {
                                                 popUpTo(Screen.Main.route) { inclusive = false }
                                             }
+                                        }
+                                    },
+                                    onVideoTransition = { videoUri ->
+                                        val encoded = URLEncoder.encode(videoUri, StandardCharsets.UTF_8.toString())
+                                        navController.navigate(Screen.Player.createRoute(encoded)) {
+                                            popUpTo(Screen.AudioPlayer.route) { inclusive = true }
                                         }
                                     }
                                 )

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.palette.graphics.Palette
+import com.arslandaim.omegaplayer.util.MediaUtils
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -307,7 +308,8 @@ fun AudioEqualizerDialog(
 fun AudioPlayerScreen(
     audioUri: String,
     viewModel: AudioViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onVideoTransition: (String) -> Unit = {}
 ) {
     BackHandler(onBack = onBack)
 
@@ -426,47 +428,59 @@ fun AudioPlayerScreen(
             }
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 val currentUri = mediaItem?.localConfiguration?.uri?.toString()
-                currentAudio = audios.find { it.uri.toString() == currentUri }
+                currentAudio = audios.find { it.uri.toString() == currentUri } ?: globalAudios.find { it.uri.toString() == currentUri }
+                if (currentUri != null && currentUri != audioUri && MediaUtils.isVideoMediaItem(mediaItem)) {
+                    onVideoTransition(currentUri)
+                }
             }
         }
         player.addListener(listener)
         
-        // Initial state
         isPlaying = player.isPlaying
         duration = player.duration.coerceAtLeast(0L)
         repeatMode = player.repeatMode
         
-        // Only set playlist and play if it's not already playing this specific URI or if it's a new session
         val currentUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
         if (currentUri != audioUri) {
-            val mediaItems = audios.map { audioItem ->
-                val artUri = ContentUris.withAppendedId(
-                    Uri.parse("content://media/external/audio/albumart"),
-                    audioItem.albumId
-                )
-                androidx.media3.common.MediaItem.Builder()
-                    .setUri(audioItem.uri)
-                    .setMediaId(audioItem.id.toString())
-                    .setMediaMetadata(
-                        androidx.media3.common.MediaMetadata.Builder()
-                            .setTitle(audioItem.name)
-                            .setArtist(audioItem.artist)
-                            .setAlbumTitle(audioItem.album)
-                            .setArtworkUri(artUri)
-                            .build()
-                    )
-                    .build()
+            var matchedIndex = -1
+            for (i in 0 until player.mediaItemCount) {
+                if (player.getMediaItemAt(i).localConfiguration?.uri?.toString() == audioUri) {
+                    matchedIndex = i
+                    break
+                }
             }
-            val index = audios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
-            
-            if (mediaItems.isNotEmpty()) {
-                player.setMediaItems(mediaItems, index, 0L)
-                player.prepare()
+            if (matchedIndex != -1) {
+                player.seekToDefaultPosition(matchedIndex)
                 player.play()
+            } else {
+                val mediaItems = audios.map { audioItem ->
+                    val artUri = ContentUris.withAppendedId(
+                        Uri.parse("content://media/external/audio/albumart"),
+                        audioItem.albumId
+                    )
+                    androidx.media3.common.MediaItem.Builder()
+                        .setUri(audioItem.uri)
+                        .setMediaId(audioItem.id.toString())
+                        .setMediaMetadata(
+                            androidx.media3.common.MediaMetadata.Builder()
+                                .setTitle(audioItem.name)
+                                .setArtist(audioItem.artist)
+                                .setAlbumTitle(audioItem.album)
+                                .setArtworkUri(artUri)
+                                .build()
+                        )
+                        .build()
+                }
+                val index = audios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
+                
+                if (mediaItems.isNotEmpty()) {
+                    player.setMediaItems(mediaItems, index, 0L)
+                    player.prepare()
+                    player.play()
+                }
             }
         } else {
-            // Update currentAudio if already playing
-            currentAudio = audios.find { it.uri.toString() == audioUri }
+            currentAudio = audios.find { it.uri.toString() == audioUri } ?: globalAudios.find { it.uri.toString() == audioUri }
         }
         
         try {
@@ -715,8 +729,6 @@ fun AudioPlayerScreen(
                             text = currentAudio?.name ?: "Unknown Title",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
                             color = Color.White
                         )

@@ -111,16 +111,12 @@ fun RecentPlaybackItem(
                     text = item.name,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     color = if (item.mediaType == "video") Color.White else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else item.artist ?: stringResource(R.string.media_type_audio),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (item.mediaType == "video") Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = if (item.mediaType == "video") Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 
@@ -144,7 +140,8 @@ fun FolderListItem(
     name: String,
     count: Int,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onExclude: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -205,6 +202,14 @@ fun FolderListItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_exclude_folder)) },
+                        onClick = {
+                            showMenu = false
+                            onExclude()
+                        },
+                        leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_delete_folder), color = MaterialTheme.colorScheme.error) },
                         onClick = {
                             showMenu = false
@@ -222,8 +227,10 @@ fun FolderListItem(
 fun FolderGridItem(
     name: String,
     count: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onExclude: (() -> Unit)? = null
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -233,39 +240,64 @@ fun FolderGridItem(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Surface(
-                modifier = Modifier.size(64.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp)
-                    )
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (onExclude != null) {
+                Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.action_more),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_exclude_folder)) },
+                            onClick = {
+                                showMenu = false
+                                onExclude()
+                            },
+                            leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) }
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = stringResource(R.string.items_count, count),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(R.string.items_count, count),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -369,9 +401,7 @@ fun VideoGridItem(
                     Text(
                         text = video.name,
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = Color.White
                     )
                 }
             }
@@ -431,9 +461,7 @@ fun AudioGridItem(
                 Text(
                     text = audio.name,
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = Color.White
                 )
             }
         }
@@ -475,13 +503,13 @@ fun VideoListItem(
                 modifier = Modifier
                     .padding(10.dp)
                     .fillMaxWidth()
-                    .height(90.dp),
+                    .heightIn(min = 90.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
                         .width(130.dp)
-                        .fillMaxHeight()
+                        .height(80.dp)
                         .clip(RoundedCornerShape(18.dp))
                 ) {
                     val context = LocalContext.current
@@ -522,14 +550,30 @@ fun VideoListItem(
                         color = Color.Black.copy(alpha = 0.7f),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp)
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp)
                     ) {
                         Text(
                             text = formatDuration(video.duration),
                             color = Color.White,
                             style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                    ) {
+                        Text(
+                            text = "${video.size / (1024 * 1024)} MB",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -538,17 +582,9 @@ fun VideoListItem(
                 Column(modifier = Modifier.padding(horizontal = 16.dp).weight(1f)) {
                     Text(
                         text = video.name,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${video.size / (1024 * 1024)} MB",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -666,16 +702,12 @@ fun AudioListItem(
                     text = audio.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = audio.artist,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             

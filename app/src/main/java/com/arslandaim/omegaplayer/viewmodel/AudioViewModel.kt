@@ -15,6 +15,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 import com.arslandaim.omegaplayer.data.AudioModel
+import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.data.RecentPlayback
@@ -66,8 +67,11 @@ class AudioViewModel @Inject constructor(
 
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1).apply { tryEmit(Unit) }
 
+    val excludedFolders: StateFlow<Set<String>> = themePreferences.excludedFolders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val audios: StateFlow<List<AudioModel>> = refreshTrigger
+    private val rawAudios: Flow<List<AudioModel>> = refreshTrigger
         .flatMapLatest { getAudiosUseCase() }
         .onEach { resource ->
             when (resource) {
@@ -83,7 +87,14 @@ class AudioViewModel @Inject constructor(
             }
         }
         .map { resource -> if (resource is Resource.Success) resource.data else emptyList() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val audios: StateFlow<List<AudioModel>> = combine(rawAudios, excludedFolders) { audioList, excluded ->
+        if (excluded.isEmpty()) audioList
+        else audioList.filter {
+            val folder = File(it.path).parentFile?.name ?: "Internal"
+            !excluded.contains(folder)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -259,6 +270,87 @@ class AudioViewModel @Inject constructor(
 
     fun setSelectedFolder(folderName: String?) {
         _selectedFolder.value = folderName
+    }
+
+    fun playPlaylist(
+        playlistItems: List<PlaylistItem>,
+        startIndex: Int,
+        videos: List<VideoModel>,
+        audios: List<AudioModel>
+    ) {
+        val controller = playbackConnection.mediaController.value ?: return
+        if (playlistItems.isEmpty()) return
+
+        val mediaItems = playlistItems.map { item ->
+            if (item.mediaType == "video") {
+                val video = videos.find { it.uri.toString() == item.mediaUri }
+                val title = video?.name ?: item.mediaUri.substringAfterLast("/")
+                MediaItem.Builder()
+                    .setUri(item.mediaUri)
+                    .setMediaId(item.mediaUri)
+                    .setMimeType("video/*")
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(title)
+                            .setMediaType(MediaMetadata.MEDIA_TYPE_VIDEO)
+                            .build()
+                    )
+                    .build()
+            } else {
+                val audio = audios.find { it.uri.toString() == item.mediaUri }
+                val title = audio?.name ?: item.mediaUri.substringAfterLast("/")
+                val albumArtUri = audio?.let {
+                    ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), it.albumId)
+                }
+                MediaItem.Builder()
+                    .setUri(item.mediaUri)
+                    .setMediaId(item.mediaUri)
+                    .setMimeType("audio/*")
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(title)
+                            .setArtist(audio?.artist ?: "")
+                            .setAlbumTitle(audio?.album ?: "")
+                            .setArtworkUri(albumArtUri)
+                            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+                            .build()
+                    )
+                    .build()
+            }
+        }
+
+        val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        controller.stop()
+        controller.clearMediaItems()
+        controller.setMediaItems(mediaItems, safeIndex, 0L)
+        controller.prepare()
+        controller.play()
+    }
+
+    fun excludeFolder(folderName: String) {
+        viewModelScope.launch {
+            themePreferences.addExcludedFolder(folderName)
+            val currentUri = playbackConnection.mediaController.value?.currentMediaItem?.localConfiguration?.uri
+            if (currentUri != null) {
+                val current = audios.value.find { it.uri == currentUri }
+                val currentFolder = current?.let { File(it.path).parentFile?.name ?: "Internal" }
+                if (currentFolder == folderName) {
+                    stopIfPlaying(currentUri)
+                }
+            }
+        }
+    }
+
+    fun restoreFolder(folderName: String) {
+        viewModelScope.launch {
+            themePreferences.removeExcludedFolder(folderName)
+        }
+    }
+
+    fun clearExcludedFolders() {
+        viewModelScope.launch {
+            themePreferences.clearExcludedFolders()
+        }
     }
 
     fun stopIfPlaying(uri: Uri) {

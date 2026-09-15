@@ -185,9 +185,7 @@ fun HistoryItem(
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else item.artist ?: stringResource(R.string.media_type_audio),

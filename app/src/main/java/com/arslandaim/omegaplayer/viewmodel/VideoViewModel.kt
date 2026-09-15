@@ -74,8 +74,11 @@ class VideoViewModel @Inject constructor(
 
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1).apply { tryEmit(Unit) }
 
+    val excludedFolders: StateFlow<Set<String>> = themePreferences.excludedFolders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val videos: StateFlow<List<VideoModel>> = refreshTrigger
+    private val rawVideos: Flow<List<VideoModel>> = refreshTrigger
         .flatMapLatest { getVideosUseCase() }
         .onEach { resource ->
             when (resource) {
@@ -91,7 +94,14 @@ class VideoViewModel @Inject constructor(
             }
         }
         .map { resource -> if (resource is Resource.Success) resource.data else emptyList() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val videos: StateFlow<List<VideoModel>> = combine(rawVideos, excludedFolders) { videoList, excluded ->
+        if (excluded.isEmpty()) videoList
+        else videoList.filter {
+            val folder = File(it.path).parentFile?.name ?: "Internal"
+            !excluded.contains(folder)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val recentPlayback: StateFlow<List<RecentPlayback>> = getRecentPlaybackUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -198,9 +208,35 @@ class VideoViewModel @Inject constructor(
         _selectedFolder.value = folderName
     }
 
-    fun getCurrentVideo(): VideoModel? {
-        val uri = activeVideoUri.value ?: return null
+    fun getCurrentVideo(targetUri: String? = null): VideoModel? {
+        val uri = targetUri ?: activeVideoUri.value ?: return null
         return videos.value.find { it.uri.toString() == uri }
+    }
+
+    fun excludeFolder(folderName: String) {
+        viewModelScope.launch {
+            themePreferences.addExcludedFolder(folderName)
+            val currentUri = playbackConnection.mediaController.value?.currentMediaItem?.localConfiguration?.uri
+            if (currentUri != null) {
+                val current = videos.value.find { it.uri == currentUri }
+                val currentFolder = current?.let { File(it.path).parentFile?.name ?: "Internal" }
+                if (currentFolder == folderName) {
+                    stopIfPlaying(currentUri)
+                }
+            }
+        }
+    }
+
+    fun restoreFolder(folderName: String) {
+        viewModelScope.launch {
+            themePreferences.removeExcludedFolder(folderName)
+        }
+    }
+
+    fun clearExcludedFolders() {
+        viewModelScope.launch {
+            themePreferences.clearExcludedFolders()
+        }
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)

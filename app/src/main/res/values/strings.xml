@@ -119,4 +119,12 @@
     <string name="unknown_title">Unknown Title</string>
     <string name="queue">Queue</string>
     <string name="next_track">Next Track</string>
+    <string name="menu_exclude_folder">Exclude Folder</string>
+    <string name="exclude_folder_confirm">Exclude folder \'%1$s\' from library and playback?</string>
+    <string name="folder_excluded_toast">Folder excluded</string>
+    <string name="section_excluded_folders">Excluded Folders</string>
+    <string name="excluded_folders_sub">Folders hidden from library and playback</string>
+    <string name="no_excluded_folders">No excluded folders</string>
+    <string name="restore_folder">Restore</string>
+    <string name="restore_all_folders">Restore All</string>
 </resources>
