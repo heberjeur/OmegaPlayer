@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
@@ -76,6 +77,12 @@ class VideoViewModel @Inject constructor(
 
     val excludedFolders: StateFlow<Set<String>> = themePreferences.excludedFolders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val showRecentHistoryOnHome: StateFlow<Boolean> = themePreferences.showRecentHistoryOnHome
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showHistoryTab: StateFlow<Boolean> = themePreferences.showHistoryTab
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawVideos: Flow<List<VideoModel>> = refreshTrigger
@@ -198,10 +205,20 @@ class VideoViewModel @Inject constructor(
     @androidx.annotation.OptIn(UnstableApi::class)
     fun toggleBackgroundPlay(context: Context, enabled: Boolean) {
         _isBackgroundPlayEnabled.value = enabled
-        if (!enabled) {
-            val intent = Intent(context.applicationContext, PlaybackService::class.java)
+        val intent = Intent(context.applicationContext, PlaybackService::class.java)
+        if (enabled) {
+            ContextCompat.startForegroundService(context.applicationContext, intent)
+        } else {
             context.applicationContext.stopService(intent)
         }
+    }
+
+    fun toggleShowRecentHistoryOnHome(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowRecentHistoryOnHome(show) }
+    }
+
+    fun toggleShowHistoryTab(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowHistoryTab(show) }
     }
 
     fun setSelectedFolder(folderName: String?) {

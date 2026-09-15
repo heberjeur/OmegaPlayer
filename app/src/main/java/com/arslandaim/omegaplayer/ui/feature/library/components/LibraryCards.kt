@@ -451,6 +451,40 @@ fun AudioGridItem(
                 }
             }
 
+            Surface(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+            ) {
+                Text(
+                    text = formatDuration(audio.duration),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+            }
+
+            Surface(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+            ) {
+                Text(
+                    text = "${audio.size / (1024 * 1024)} MB",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -501,16 +535,16 @@ fun VideoListItem(
         ) {
             Row(
                 modifier = Modifier
-                    .padding(10.dp)
+                    .padding(8.dp)
                     .fillMaxWidth()
-                    .heightIn(min = 90.dp),
+                    .heightIn(min = 84.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .width(130.dp)
-                        .height(80.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .width(118.dp)
+                        .height(74.dp)
+                        .clip(RoundedCornerShape(16.dp))
                 ) {
                     val context = LocalContext.current
                     val imageRequest = remember(video.id) {
@@ -579,7 +613,7 @@ fun VideoListItem(
                     }
                 }
                 
-                Column(modifier = Modifier.padding(horizontal = 16.dp).weight(1f)) {
+                Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
                     Text(
                         text = video.name,
                         style = MaterialTheme.typography.titleMedium,
@@ -659,13 +693,14 @@ fun AudioListItem(
     ) {
         Row(
             modifier = Modifier
-                .padding(10.dp)
-                .fillMaxWidth(),
+                .padding(8.dp)
+                .fillMaxWidth()
+                .heightIn(min = 84.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(76.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center
@@ -695,9 +730,43 @@ fun AudioListItem(
                         PlayingVisualizer()
                     }
                 }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(4.dp)
+                ) {
+                    Text(
+                        text = formatDuration(audio.duration),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp
+                    )
+                }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                ) {
+                    Text(
+                        text = "${audio.size / (1024 * 1024)} MB",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp
+                    )
+                }
             }
             
-            Column(modifier = Modifier.padding(horizontal = 16.dp).weight(1f)) {
+            Column(modifier = Modifier.padding(start = 12.dp, end = 4.dp).weight(1f)) {
                 Text(
                     text = audio.name,
                     style = MaterialTheme.typography.titleMedium,

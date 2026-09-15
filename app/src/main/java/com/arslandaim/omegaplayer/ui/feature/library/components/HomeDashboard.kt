@@ -30,8 +30,12 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun HomeDashboard(
     selectedTab: MediaTab,
-    onTabSelected: (MediaTab) -> Unit
+    onTabSelected: (MediaTab) -> Unit,
+    showHistoryTab: Boolean = false
 ) {
+    val availableTabs = remember(showHistoryTab) {
+        if (showHistoryTab) MediaTab.entries else MediaTab.entries.filter { it != MediaTab.HISTORY }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -48,7 +52,7 @@ fun HomeDashboard(
                 modifier = Modifier.fillMaxSize().padding(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MediaTab.entries.forEach { tab ->
+                availableTabs.forEach { tab ->
                     val isSelected = selectedTab == tab
                     val background by animateColorAsState(
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
@@ -72,12 +76,14 @@ fun HomeDashboard(
                                 MediaTab.VIDEOS -> stringResource(R.string.tab_videos)
                                 MediaTab.AUDIOS -> stringResource(R.string.tab_audios)
                                 MediaTab.PLAYLISTS -> stringResource(R.string.tab_playlists)
+                                MediaTab.HISTORY -> stringResource(R.string.tab_history)
                             }
                             Text(
                                 text = tabLabel,
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = contentColor
+                                color = contentColor,
+                                fontSize = if (availableTabs.size > 3) 12.sp else 14.sp
                             )
                         }
                     }

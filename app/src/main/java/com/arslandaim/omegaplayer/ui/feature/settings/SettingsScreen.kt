@@ -64,6 +64,8 @@ fun SettingsScreen(
     val dynamicColorEnabled by themeViewModel.dynamicColor.collectAsState()
     val isHistoryPaused by videoViewModel.isHistoryPaused.collectAsStateWithLifecycle()
     val excludedFolders by videoViewModel.excludedFolders.collectAsStateWithLifecycle(initialValue = emptySet())
+    val showRecentHistoryOnHome by videoViewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
+    val showHistoryTab by videoViewModel.showHistoryTab.collectAsStateWithLifecycle()
 
     var showAboutDeveloperDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -146,17 +148,43 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.watch_history_setting), fontWeight = FontWeight.Medium) },
-                    supportingContent = { Text(if (isHistoryPaused) stringResource(R.string.history_paused_sub) else stringResource(R.string.history_active_sub)) },
-                    trailingContent = {
-                        Switch(
-                            checked = !isHistoryPaused,
-                            onCheckedChange = { videoViewModel.toggleHistoryPause(!it) }
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
+                Column {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_history_setting), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(if (isHistoryPaused) stringResource(R.string.history_paused_sub) else stringResource(R.string.history_active_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = !isHistoryPaused,
+                                onCheckedChange = { videoViewModel.toggleHistoryPause(!it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_show_recent_history), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(stringResource(R.string.setting_show_recent_history_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = showRecentHistoryOnHome,
+                                onCheckedChange = { videoViewModel.toggleShowRecentHistoryOnHome(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_show_history_tab), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(stringResource(R.string.setting_show_history_tab_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = showHistoryTab,
+                                onCheckedChange = { videoViewModel.toggleShowHistoryTab(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
             }
 
             Text(stringResource(R.string.section_excluded_folders), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)

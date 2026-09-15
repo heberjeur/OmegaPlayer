@@ -127,4 +127,12 @@
     <string name="no_excluded_folders">No excluded folders</string>
     <string name="restore_folder">Restore</string>
     <string name="restore_all_folders">Restore All</string>
+    <string name="setting_show_recent_history">Recent History on Home</string>
+    <string name="setting_show_recent_history_sub">Display watch history carousel on the main screen</string>
+    <string name="setting_show_history_tab">History Tab</string>
+    <string name="setting_show_history_tab_sub">Show History tab among media library tabs</string>
+    <string name="tab_history">History</string>
+    <string name="action_filter">Sort &amp; Filter</string>
+    <string name="background_play_enabled">Background play enabled</string>
+    <string name="background_play_disabled">Background play disabled</string>
 </resources>

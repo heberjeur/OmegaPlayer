@@ -29,6 +29,8 @@ class ThemePreferences(private val context: Context) {
     private val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
     private val HISTORY_PAUSED_KEY = booleanPreferencesKey("history_paused")
     private val EXCLUDED_FOLDERS_KEY = stringSetPreferencesKey("excluded_folders")
+    private val SHOW_RECENT_HISTORY_HOME_KEY = booleanPreferencesKey("show_recent_history_home")
+    private val SHOW_HISTORY_TAB_KEY = booleanPreferencesKey("show_history_tab")
 
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
@@ -49,6 +51,14 @@ class ThemePreferences(private val context: Context) {
 
     val excludedFolders: Flow<Set<String>> = context.dataStore.data.map { preferences ->
         preferences[EXCLUDED_FOLDERS_KEY] ?: emptySet()
+    }
+
+    val showRecentHistoryOnHome: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SHOW_RECENT_HISTORY_HOME_KEY] ?: true
+    }
+
+    val showHistoryTab: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SHOW_HISTORY_TAB_KEY] ?: false
     }
 
     suspend fun saveTheme(theme: AppTheme) {
@@ -86,6 +96,18 @@ class ThemePreferences(private val context: Context) {
     suspend fun clearExcludedFolders() {
         context.dataStore.edit { preferences ->
             preferences.remove(EXCLUDED_FOLDERS_KEY)
+        }
+    }
+
+    suspend fun saveShowRecentHistoryOnHome(show: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SHOW_RECENT_HISTORY_HOME_KEY] = show
+        }
+    }
+
+    suspend fun saveShowHistoryTab(show: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SHOW_HISTORY_TAB_KEY] = show
         }
     }
 }

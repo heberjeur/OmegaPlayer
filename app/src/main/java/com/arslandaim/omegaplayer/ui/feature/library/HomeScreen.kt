@@ -52,13 +52,14 @@ import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import com.arslandaim.omegaplayer.ui.common.ModernLoadingDialog
+import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.ui.feature.library.components.*
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-enum class MediaTab { VIDEOS, AUDIOS, PLAYLISTS }
+enum class MediaTab { VIDEOS, AUDIOS, PLAYLISTS, HISTORY }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -81,18 +82,32 @@ fun HomeScreen(
     var selectedTab by rememberSaveable { mutableStateOf(initialTab ?: MediaTab.VIDEOS) }
     var isGridView by rememberSaveable { mutableStateOf(false) }
 
-    val pagerState = rememberPagerState(
-        initialPage = selectedTab.ordinal,
-        pageCount = { MediaTab.entries.size }
-    )
+    val showRecentHistoryOnHome by viewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
+    val showHistoryTab by viewModel.showHistoryTab.collectAsStateWithLifecycle()
+    val fullHistory by viewModel.fullHistory.collectAsStateWithLifecycle()
+    val videoSortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
+    val audioSortOrder by audioViewModel.sortOrder.collectAsStateWithLifecycle()
+    var showFilterMenu by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pagerState.currentPage) {
-        selectedTab = MediaTab.entries[pagerState.currentPage]
+    val activeTabs = remember(showHistoryTab) {
+        if (showHistoryTab) MediaTab.entries else MediaTab.entries.filter { it != MediaTab.HISTORY }
     }
 
-    LaunchedEffect(selectedTab) {
-        if (selectedTab.ordinal != pagerState.currentPage) {
-            pagerState.animateScrollToPage(selectedTab.ordinal)
+    val pagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { activeTabs.size }
+    )
+
+    LaunchedEffect(pagerState.currentPage, activeTabs) {
+        if (pagerState.currentPage in activeTabs.indices) {
+            selectedTab = activeTabs[pagerState.currentPage]
+        }
+    }
+
+    LaunchedEffect(selectedTab, activeTabs) {
+        val targetIndex = activeTabs.indexOf(selectedTab)
+        if (targetIndex != -1 && targetIndex != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetIndex)
         }
     }
 
@@ -376,15 +391,52 @@ fun HomeScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
                 if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
-                    HomeDashboard(selectedTab = selectedTab, onTabSelected = { tab -> selectedTab = tab })
+                    HomeDashboard(selectedTab = selectedTab, onTabSelected = { tab -> selectedTab = tab }, showHistoryTab = showHistoryTab)
                 }
                 Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.weight(1f), placeholder = { Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.primary) }, trailingIcon = { if (searchQuery.isNotEmpty()) { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } } }, shape = RoundedCornerShape(20.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = Color.Transparent, focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.width(8.dp))
+                    Box {
+                        IconButton(
+                            onClick = { showFilterMenu = true },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.FilterList, contentDescription = stringResource(R.string.action_filter), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        DropdownMenu(
+                            expanded = showFilterMenu,
+                            onDismissRequest = { showFilterMenu = false }
+                        ) {
+                            MediaSortOrder.entries.forEach { order ->
+                                val currentOrder = if (selectedTab == MediaTab.VIDEOS) videoSortOrder else audioSortOrder
+                                DropdownMenuItem(
+                                    text = { Text(order.label) },
+                                    onClick = {
+                                        showFilterMenu = false
+                                        if (selectedTab == MediaTab.VIDEOS) viewModel.setSortOrder(order)
+                                        else audioViewModel.setSortOrder(order)
+                                    },
+                                    trailingIcon = {
+                                        if (currentOrder == order) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = { isGridView = !isGridView }, modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), CircleShape)) { Icon(if (isGridView) Icons.Default.ViewList else Icons.Default.GridView, null, tint = MaterialTheme.colorScheme.primary) }
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    val sectionLabel = if (currentSelectedFolder == null && selectedPlaylistForDetails == null) stringResource(R.string.no_folders_found).substringBefore(" ") else if (selectedPlaylistForDetails != null) stringResource(R.string.tab_playlists) else if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.tab_videos) else stringResource(R.string.tab_audios)
+                    val sectionLabel = if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
+                        when (selectedTab) {
+                            MediaTab.VIDEOS -> stringResource(R.string.tab_videos)
+                            MediaTab.AUDIOS -> stringResource(R.string.tab_audios)
+                            MediaTab.PLAYLISTS -> stringResource(R.string.tab_playlists)
+                            MediaTab.HISTORY -> stringResource(R.string.tab_history)
+                        }
+                    } else if (selectedPlaylistForDetails != null) stringResource(R.string.tab_playlists) else if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.tab_videos) else stringResource(R.string.tab_audios)
                     Text(text = sectionLabel, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface))
                     if (currentSelectedFolder == null && selectedPlaylistForDetails == null) { Text(text = stringResource(R.string.items_count, currentFolders.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
@@ -397,11 +449,11 @@ fun HomeScreen(
         }
     ) { padding ->
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
-            val pageTab = MediaTab.entries[page]
+            val pageTab = activeTabs[page]
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                } else if (currentSelectedFolder == null && selectedPlaylistForDetails == null && filteredFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS) {
+                } else if (currentSelectedFolder == null && selectedPlaylistForDetails == null && filteredFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY) {
                     EmptyState(searchQuery.isNotEmpty(), true)
                 } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) filteredVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) filteredAudios.isEmpty() else playlistItems.isEmpty())) {
                     EmptyState(searchQuery.isNotEmpty(), false)
@@ -409,8 +461,19 @@ fun HomeScreen(
                     if (isGridView) {
                         LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
-                                if (pageTab != MediaTab.PLAYLISTS && recentPlayback.isNotEmpty()) { item(span = { GridItemSpan(2) }) { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
-                                if (pageTab == MediaTab.PLAYLISTS) {
+                                if (showRecentHistoryOnHome && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item(span = { GridItemSpan(2) }) { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
+                                if (pageTab == MediaTab.HISTORY) {
+                                    if (fullHistory.isEmpty()) {
+                                        item(span = { GridItemSpan(2) }) { EmptyState(searchQuery.isNotEmpty(), false) }
+                                    } else {
+                                        items(fullHistory, key = { it.uri }, span = { GridItemSpan(2) }) { item ->
+                                            HistoryItem(item = item, onClick = {
+                                                val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
+                                                if (item.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                            })
+                                        }
+                                    }
+                                } else if (pageTab == MediaTab.PLAYLISTS) {
                                     if (playlists.isNotEmpty()) { items(playlists, key = { it.id }, span = { GridItemSpan(2) }) { playlist -> PlaylistListItem(playlist, { selectedPlaylistForDetails = playlist }, { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
                                     items(filteredFolders.keys.toList(), key = { it }) { folderName ->
@@ -451,11 +514,21 @@ fun HomeScreen(
                                 items(filteredAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, onAudioClick, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
-                    } else {
                         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (currentSelectedFolder == null && selectedPlaylistForDetails == null && pageTab != MediaTab.PLAYLISTS && recentPlayback.isNotEmpty()) { item { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
+                            if (showRecentHistoryOnHome && currentSelectedFolder == null && selectedPlaylistForDetails == null && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
-                                if (pageTab == MediaTab.PLAYLISTS) {
+                                if (pageTab == MediaTab.HISTORY) {
+                                    if (fullHistory.isEmpty()) {
+                                        item { EmptyState(searchQuery.isNotEmpty(), false) }
+                                    } else {
+                                        items(fullHistory, key = { it.uri }) { item ->
+                                            HistoryItem(item = item, onClick = {
+                                                val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
+                                                if (item.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                            })
+                                        }
+                                    }
+                                } else if (pageTab == MediaTab.PLAYLISTS) {
                                     if (playlists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                                     else { items(playlists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {

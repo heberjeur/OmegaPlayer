@@ -22,6 +22,7 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -122,9 +123,8 @@ fun PlayerScreen(
     var isLocked by remember { mutableStateOf(false) }
     var playbackError by remember { mutableStateOf<String?>(null) }
 
-    // Back handler to handle custom navigation and lock state
     BackHandler(enabled = true) {
-        if (isBackgroundPlayEnabled && isLocked) {
+        if (isLocked) {
             Toast.makeText(context, "Unlock the player to exit", Toast.LENGTH_SHORT).show()
         } else {
             onBack()
@@ -211,27 +211,12 @@ fun PlayerScreen(
         }
     }
 
-    // Handles Backgrounding (Home Button)
     DisposableEffect(lifecycleOwner, mediaController) {
         val player = mediaController
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                val isInteractive = powerManager.isInteractive
-                // If minimized while locked OR if background play is simply disabled
-                if (isLocked || !currentBackgroundPlay.value) {
-                    if (isLocked) {
-                        if (isInteractive) {
-                            // User minimized app while locked -> STOP
-                            viewModel.toggleBackgroundPlay(context, false)
-                            player?.pause()
-                        } else {
-                            // Screen turned off while locked -> CONTINUE
-                            // We do nothing, allowing the service to take over
-                        }
-                    } else {
-                        // Not locked, background play disabled -> PAUSE
-                        player?.pause()
-                    }
+            if (event == Lifecycle.Event.ON_STOP) {
+                if (!currentBackgroundPlay.value) {
+                    player?.pause()
                 }
             }
         }
@@ -471,8 +456,8 @@ fun PlayerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 24.dp, bottom = 80.dp),
-                contentAlignment = Alignment.BottomStart
+                    .padding(start = 24.dp, top = 60.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
                 IconButton(
                     onClick = { 
@@ -576,15 +561,13 @@ fun PlayerScreen(
                         Toast.makeText(context, "$mode Decoding Active", Toast.LENGTH_SHORT).show()
                     },
                     onBackgroundPlayToggle = {
-                        viewModel.toggleBackgroundPlay(context, !isBackgroundPlayEnabled)
-                        if (!isBackgroundPlayEnabled) { // It was just enabled
-                            isLocked = true
-                            isControlsVisible = false
-                        }
+                        val willEnable = !isBackgroundPlayEnabled
+                        viewModel.toggleBackgroundPlay(context, willEnable)
+                        val msgRes = if (willEnable) R.string.background_play_enabled else R.string.background_play_disabled
+                        Toast.makeText(context, context.getString(msgRes), Toast.LENGTH_SHORT).show()
                     },
                     onInfoClick = { showInfoDialog = true },
                     onSubtitleClick = {
-                        // Subtitle logic would go here
                         Toast.makeText(context, "Subtitles coming soon", Toast.LENGTH_SHORT).show()
                     },
                     onSleepTimerClick = {
@@ -597,7 +580,6 @@ fun PlayerScreen(
         }
 
         if (showSleepTimerDialog) {
-            // Reusing SleepTimerDialog from AudioPlayerScreen logic (shared in a real app, but defined here for now)
             AlertDialog(
                 onDismissRequest = { showSleepTimerDialog = false },
                 title = { Text("Sleep Timer") },
@@ -620,7 +602,6 @@ fun PlayerScreen(
                             }
                         }
                         
-                        // Action buttons inside text since AlertDialog confirm/dismiss are used below
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { showSleepTimerDialog = false }) { Text("Cancel") }
                             Button(onClick = { 
@@ -635,56 +616,7 @@ fun PlayerScreen(
             )
         }
 
-        // Background Audio Lock Overlay
-        if (isBackgroundPlayEnabled && isLocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.95f))
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = { 
-                            Toast.makeText(context, "Unlock to use controls", Toast.LENGTH_SHORT).show()
-                        })
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Headset,
-                        contentDescription = null,
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(80.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Playing Audio in Background",
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Turn screen OFF to save battery",
-                        color = Color.White.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(48.dp))
-                    Button(
-                        onClick = { 
-                            isLocked = false
-                            isControlsVisible = true
-                            viewModel.toggleBackgroundPlay(context, false)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Unlock Player")
-                    }
-                }
-            }
-        }
+
 
         if (showInfoDialog && currentVideo != null) {
             AlertDialog(
@@ -803,7 +735,6 @@ fun PlayerControls(
     var showMoreMenu by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // Top Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -819,7 +750,12 @@ fun PlayerControls(
                 text = videoName,
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+                    .basicMarquee()
             )
             IconButton(onClick = onBackgroundPlayToggle) {
                 Icon(
@@ -831,29 +767,31 @@ fun PlayerControls(
             IconButton(onClick = onSubtitleClick) {
                 Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
             }
-            IconButton(onClick = { showMoreMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
-            }
-            DropdownMenu(
-                expanded = showMoreMenu,
-                onDismissRequest = { showMoreMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Information") },
-                    onClick = { 
-                        showMoreMenu = false
-                        onInfoClick()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
-                )
-                DropdownMenuItem(
-                    text = { Text(if (sleepTimerActive) "Sleep Timer: ${formatTime(sleepTimerTimeLeft)}" else "Sleep Timer") },
-                    onClick = { 
-                        showMoreMenu = false
-                        onSleepTimerClick()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) Color(0xFFFF6600) else Color.White) }
-                )
+            Box {
+                IconButton(onClick = { showMoreMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
+                }
+                DropdownMenu(
+                    expanded = showMoreMenu,
+                    onDismissRequest = { showMoreMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Information") },
+                        onClick = { 
+                            showMoreMenu = false
+                            onInfoClick()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (sleepTimerActive) "Sleep Timer: ${formatTime(sleepTimerTimeLeft)}" else "Sleep Timer") },
+                        onClick = { 
+                            showMoreMenu = false
+                            onSleepTimerClick()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) Color(0xFFFF6600) else Color.White) }
+                    )
+                }
             }
             IconButton(onClick = onHardwareToggle) {
                 Text(
@@ -865,7 +803,6 @@ fun PlayerControls(
             }
         }
 
-        // Center Controls
         Row(
             modifier = Modifier.align(Alignment.Center),
             verticalAlignment = Alignment.CenterVertically,
@@ -888,7 +825,6 @@ fun PlayerControls(
             }
         }
 
-        // Bottom Bar
         Column(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 16.dp)) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(formatTime(currentPosition), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
