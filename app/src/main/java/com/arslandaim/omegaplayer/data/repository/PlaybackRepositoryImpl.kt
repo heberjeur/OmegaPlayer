@@ -1,6 +1,6 @@
 package com.arslandaim.omegaplayer.data.repository
 
-import com.arslandaim.omegaplayer.data.LockerDao
+import com.arslandaim.omegaplayer.data.AppDao
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.data.RecentPlayback
@@ -10,40 +10,40 @@ import javax.inject.Singleton
 
 @Singleton
 class PlaybackRepositoryImpl @Inject constructor(
-    private val lockerDao: LockerDao
+    private val appDao: AppDao
 ) : PlaybackRepository {
 
-    override fun getPlaylists(): Flow<List<Playlist>> = lockerDao.getAllPlaylistsFlow()
+    override fun getPlaylists(): Flow<List<Playlist>> = appDao.getAllPlaylistsFlow()
 
     override suspend fun createPlaylist(name: String) {
-        lockerDao.insertPlaylist(Playlist(name = name))
+        appDao.insertPlaylist(Playlist(name = name))
     }
 
     override suspend fun deletePlaylist(playlist: Playlist) {
-        lockerDao.deletePlaylist(playlist)
+        appDao.deletePlaylist(playlist)
     }
 
     override fun getPlaylistItems(playlistId: Int): Flow<List<PlaylistItem>> {
-        return lockerDao.getPlaylistItemsFlow(playlistId)
+        return appDao.getPlaylistItemsFlow(playlistId)
     }
 
     override suspend fun addToPlaylist(playlistId: Int, uri: String, type: String) {
-        lockerDao.insertPlaylistItem(PlaylistItem(playlistId = playlistId, mediaUri = uri, mediaType = type))
+        appDao.insertPlaylistItem(PlaylistItem(playlistId = playlistId, mediaUri = uri, mediaType = type))
     }
 
     override suspend fun removeFromPlaylist(playlistId: Int, uri: String) {
-        lockerDao.removePlaylistItem(playlistId, uri)
+        appDao.removePlaylistItem(playlistId, uri)
     }
 
-    override fun getRecentPlayback(): Flow<List<RecentPlayback>> = lockerDao.getRecentPlaybackFlow()
+    override fun getRecentPlayback(): Flow<List<RecentPlayback>> = appDao.getRecentPlaybackFlow()
 
-    override fun getAllRecentPlayback(): Flow<List<RecentPlayback>> = lockerDao.getAllRecentPlaybackFlow()
+    override fun getAllRecentPlayback(): Flow<List<RecentPlayback>> = appDao.getAllRecentPlaybackFlow()
 
     override suspend fun saveRecentPlayback(recent: RecentPlayback) {
-        lockerDao.insertRecentPlayback(recent)
+        appDao.insertRecentPlayback(recent)
     }
 
     override suspend fun clearAllRecentPlayback() {
-        lockerDao.clearAllRecentPlayback()
+        appDao.clearAllRecentPlayback()
     }
 }

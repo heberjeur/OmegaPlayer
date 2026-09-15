@@ -1,36 +1,9 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.data
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
-
-@Immutable
-@Entity(tableName = "locked_videos", indices = [Index("originFolderName")])
-data class LockedVideo(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val originalPath: String,
-    val lockerPath: String,
-    val name: String,
-    val duration: Long,
-    val originFolderName: String? = null,
-    val isAudio: Boolean = false
-)
-
-@Entity(tableName = "locker_settings")
-data class LockerSettings(
-    @PrimaryKey val id: Int = 1,
-    val pin: String,
-    val securityQuestion: String,
-    val securityAnswer: String,
-    val isBiometricEnabled: Boolean = false
-)
 
 @Immutable
 @Entity(tableName = "playlists")
@@ -57,7 +30,7 @@ data class PlaylistItem(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val playlistId: Int,
     val mediaUri: String,
-    val mediaType: String, // "video" or "audio"
+    val mediaType: String,
     val addedAt: Long = System.currentTimeMillis()
 )
 
@@ -74,26 +47,7 @@ data class RecentPlayback(
 )
 
 @Dao
-interface LockerDao {
-    @Query("SELECT * FROM locked_videos")
-    suspend fun getAllLockedVideos(): List<LockedVideo>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertLockedVideo(video: LockedVideo)
-
-    @Delete
-    suspend fun deleteLockedVideo(video: LockedVideo)
-
-    @Query("SELECT * FROM locker_settings WHERE id = 1")
-    fun getSettingsFlow(): Flow<LockerSettings?>
-
-    @Query("SELECT * FROM locker_settings WHERE id = 1")
-    suspend fun getSettings(): LockerSettings?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun saveSettings(settings: LockerSettings)
-
-    // Playlist Methods
+interface AppDao {
     @Query("SELECT * FROM playlists ORDER BY createdAt DESC")
     fun getAllPlaylistsFlow(): Flow<List<Playlist>>
 
@@ -112,7 +66,6 @@ interface LockerDao {
     @Query("DELETE FROM playlist_items WHERE playlistId = :playlistId AND mediaUri = :mediaUri")
     suspend fun removePlaylistItem(playlistId: Int, mediaUri: String)
 
-    // Recent Playback Methods
     @Query("SELECT * FROM recent_playback ORDER BY lastPlayed DESC LIMIT 20")
     fun getRecentPlaybackFlow(): Flow<List<RecentPlayback>>
 
@@ -132,22 +85,22 @@ interface LockerDao {
     suspend fun clearAllRecentPlayback()
 }
 
-@Database(entities = [LockedVideo::class, LockerSettings::class, Playlist::class, PlaylistItem::class, RecentPlayback::class], version = 7)
-abstract class LockerDatabase : RoomDatabase() {
-    abstract fun lockerDao(): LockerDao
+@Database(entities = [Playlist::class, PlaylistItem::class, RecentPlayback::class], version = 8)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun appDao(): AppDao
 
     companion object {
         @Volatile
-        private var INSTANCE: LockerDatabase? = null
+        private var INSTANCE: AppDatabase? = null
 
-        fun getDatabase(context: Context): LockerDatabase {
+        fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
-                    LockerDatabase::class.java,
-                    "locker_database"
+                    AppDatabase::class.java,
+                    "app_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(true)
                     .build()
                 INSTANCE = instance
                 instance

@@ -74,7 +74,6 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
-    implementation(libs.androidx.biometric)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.palette)
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")

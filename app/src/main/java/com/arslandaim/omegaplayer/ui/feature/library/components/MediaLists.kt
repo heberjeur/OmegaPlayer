@@ -43,8 +43,6 @@ fun MediaListItemInPlaylist(
     onVideoClick: (String) -> Unit,
     onAudioClick: (String) -> Unit,
     playlist: Playlist,
-    onVideoLock: (VideoModel) -> Unit,
-    onAudioLock: (AudioModel) -> Unit,
     onVideoDelete: (VideoModel) -> Unit,
     onAudioDelete: (AudioModel) -> Unit
 ) {
@@ -60,7 +58,6 @@ fun MediaListItemInPlaylist(
                     val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString())
                     onVideoClick(encodedUri)
                 },
-                onLockClick = { onVideoLock(video) },
                 onDeleteClick = { onVideoDelete(video) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, video.uri.toString()) },
                 isInPlaylistView = true
@@ -77,7 +74,6 @@ fun MediaListItemInPlaylist(
                     onAudioClick(encodedUri)
                 },
                 onPlayPauseClick = { audioViewModel.togglePlayPause(audio) },
-                onLockClick = { onAudioLock(audio) },
                 onDeleteClick = { onAudioDelete(audio) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
                 isInPlaylistView = true
@@ -103,12 +99,12 @@ fun PlaylistGridItem(
     if (item.mediaType == "video") {
         val video = videos.find { it.uri.toString() == item.mediaUri }
         if (video != null) {
-            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, {}, {}, {})
+            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, {}, {})
         }
     } else {
         val audio = audios.find { it.uri.toString() == item.mediaUri }
         if (audio != null) {
-            AudioGridItem(audio, audioViewModel, onAudioClick, {}, {}, {})
+            AudioGridItem(audio, audioViewModel, onAudioClick, {}, {})
         }
     }
 }

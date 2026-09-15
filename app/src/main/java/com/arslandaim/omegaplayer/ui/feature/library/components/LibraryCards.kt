@@ -144,8 +144,7 @@ fun FolderListItem(
     name: String,
     count: Int,
     onClick: () -> Unit,
-    onDelete: () -> Unit,
-    onMoveToLocker: () -> Unit
+    onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -205,14 +204,6 @@ fun FolderListItem(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.menu_move_to_locker)) },
-                        onClick = {
-                            showMenu = false
-                            onMoveToLocker()
-                        },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) }
-                    )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_delete_folder), color = MaterialTheme.colorScheme.error) },
                         onClick = {
@@ -325,7 +316,6 @@ fun VideoGridItem(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: (String) -> Unit,
-    onLock: () -> Unit,
     onDelete: () -> Unit,
     onPlaylist: () -> Unit
 ) {
@@ -394,7 +384,6 @@ fun AudioGridItem(
     audio: AudioModel,
     viewModel: AudioViewModel,
     onClick: (String) -> Unit,
-    onLock: () -> Unit,
     onDelete: () -> Unit,
     onPlaylist: () -> Unit
 ) {
@@ -459,7 +448,6 @@ fun VideoListItem(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: () -> Unit,
-    onLockClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     isInPlaylistView: Boolean = false
@@ -468,10 +456,7 @@ fun VideoListItem(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLockClick
-                )
+                .clickable(onClick = onClick)
                 .sharedBounds(
                     rememberSharedContentState(key = "video_bounds_${video.uri}"),
                     animatedVisibilityScope = animatedVisibilityScope,
@@ -568,15 +553,6 @@ fun VideoListItem(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onLockClick) {
-                        Icon(
-                            Icons.Default.Lock,
-                            contentDescription = "Move to Locker",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
                     var showMenu by remember { mutableStateOf(false) }
                     Box {
                         IconButton(onClick = { showMenu = true }) {
@@ -626,7 +602,6 @@ fun AudioListItem(
     isPlaying: Boolean = false,
     onClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
-    onLockClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     isInPlaylistView: Boolean = false
@@ -733,14 +708,6 @@ fun AudioListItem(
                             onPlaylistClick()
                         },
                         leadingIcon = { Icon(if (isInPlaylistView) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.menu_move_to_locker)) },
-                        onClick = {
-                            showMenu = false
-                            onLockClick()
-                        },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) }
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },

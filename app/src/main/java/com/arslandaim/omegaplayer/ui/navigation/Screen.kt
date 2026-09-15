@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.ui.navigation
 
 sealed class Screen(val route: String) {
@@ -19,6 +13,5 @@ sealed class Screen(val route: String) {
         fun createRoute(audioUri: String) = "audio_player/$audioUri"
     }
     object History : Screen("history")
-    object Locker : Screen("locker")
     object Settings : Screen("settings")
 }

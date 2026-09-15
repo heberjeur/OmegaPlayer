@@ -2,7 +2,6 @@
     <!-- App & General Navigation -->
     <string name="app_name">OmegaPlayer</string>
     <string name="nav_home">Home</string>
-    <string name="nav_locker">Locker</string>
     <string name="nav_settings">Settings</string>
 
     <!-- General Actions -->
@@ -27,7 +26,6 @@
     <string name="tab_videos">Videos</string>
     <string name="tab_audios">Audios</string>
     <string name="tab_playlists">Playlists</string>
-    <string name="storage_title">Storage</string>
     <string name="search_placeholder">Search media...</string>
     <string name="no_results_found">No results found</string>
     <string name="try_different_search">Try a different search term</string>
@@ -50,7 +48,6 @@
     <!-- Context Menus & Playlists -->
     <string name="menu_add_to_playlist">Add to Playlist</string>
     <string name="menu_remove_from_playlist">Remove from Playlist</string>
-    <string name="menu_move_to_locker">Move to Locker</string>
     <string name="menu_delete_folder">Delete Folder</string>
     <string name="menu_new_playlist">New Playlist</string>
     <string name="playlist_name_label">Playlist Name</string>
@@ -69,15 +66,6 @@
     <string name="watch_history_setting">Watch History</string>
     <string name="history_paused_sub">History recording is paused</string>
     <string name="history_active_sub">Recording playback history</string>
-    <string name="section_security">Security</string>
-    <string name="change_locker_pin">Change Locker PIN</string>
-    <string name="change_pin_sub">Update your 4-digit security code</string>
-    <string name="fingerprint_unlock">Fingerprint Unlock</string>
-    <string name="biometric_supported_sub">Enable biometric access for locker</string>
-    <string name="biometric_unsupported_sub">Device doesn\'t support biometric</string>
-    <string name="section_storage">Storage Management</string>
-    <string name="auto_locking">Automatic Locking</string>
-    <string name="media_mgmt_permission">Requires Media Management permission</string>
     <string name="section_about">About</string>
     <string name="about_developer">About Developer</string>
     <string name="about_dev_sub">Information about the app developer</string>
@@ -85,36 +73,6 @@
     <string name="view_source_code">View Source Code</string>
     <string name="view_source_sub">Check the app source-code on GitHub</string>
     <string name="version_format">Omega Player v:%1$s</string>
-    <string name="verify_identity">Verify Identity</string>
-    <string name="security_question_prompt">Please answer your security question to continue.</string>
-    <string name="security_answer_label">Security Answer</string>
-    <string name="incorrect_answer">Incorrect answer</string>
-    <string name="new_security_pin">New Security PIN</string>
-    <string name="enter_new_pin_prompt">Enter a new 4-digit code to protect your videos.</string>
-    <string name="pin_label">4-digit PIN</string>
-    <string name="toast_setup_pin_first">Setup PIN first</string>
-    <string name="toast_biometric_updated">Biometric updated</string>
-    <string name="toast_pin_updated">PIN updated successfully</string>
-
-    <!-- Locker Screen -->
-    <string name="locker_title">Private Locker</string>
-    <string name="setup_pin_title">Set Up Security PIN</string>
-    <string name="setup_pin_sub">Create a 4-digit PIN to secure your private media</string>
-    <string name="enter_pin_title">Enter Security PIN</string>
-    <string name="enter_pin_sub">Enter your 4-digit PIN to access locked files</string>
-    <string name="security_question_title">Security Question</string>
-    <string name="security_question_sub">Select a question to recover your PIN if forgotten</string>
-    <string name="select_question">Select Security Question</string>
-    <string name="your_answer_label">Your Answer</string>
-    <string name="confirm_pin">Confirm PIN</string>
-    <string name="pins_dont_match">PINs do not match</string>
-    <string name="forgot_pin">Forgot PIN?</string>
-    <string name="reset_pin">Reset PIN</string>
-    <string name="use_fingerprint">Use Fingerprint</string>
-    <string name="no_locked_videos">No locked files in this folder</string>
-    <string name="locker_empty">Your private locker is empty</string>
-    <string name="unlock_file">Unlock File</string>
-    <string name="unlock_confirm_msg">Are you sure you want to unlock \'%1$s\'?</string>
 
     <!-- Video Player -->
     <string name="video_info">Video Information</string>

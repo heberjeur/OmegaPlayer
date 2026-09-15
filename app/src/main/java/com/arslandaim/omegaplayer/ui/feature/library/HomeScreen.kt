@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.ui.feature.library
 
 import android.Manifest
@@ -20,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -39,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -50,25 +46,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.arslandaim.omegaplayer.data.LockedVideo
-import com.arslandaim.omegaplayer.data.LockerDatabase
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
-import com.arslandaim.omegaplayer.viewmodel.LockerViewModel
-import com.arslandaim.omegaplayer.viewmodel.StorageViewModel
-import com.arslandaim.omegaplayer.ui.feature.locker.MoveToLockerResult
-import com.arslandaim.omegaplayer.ui.feature.locker.bulkPrepareMoveToLocker
-import com.arslandaim.omegaplayer.ui.feature.locker.bulkPrepareAudioMoveToLocker
-import com.arslandaim.omegaplayer.ui.feature.locker.prepareMoveToLocker
-import com.arslandaim.omegaplayer.ui.feature.locker.prepareAudioMoveToLocker
 import com.arslandaim.omegaplayer.ui.common.ModernLoadingDialog
 import com.arslandaim.omegaplayer.ui.feature.library.components.*
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -79,14 +65,11 @@ enum class MediaTab { VIDEOS, AUDIOS, PLAYLISTS }
 fun HomeScreen(
     viewModel: VideoViewModel,
     audioViewModel: AudioViewModel,
-    storageViewModel: StorageViewModel,
-    lockerViewModel: LockerViewModel,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onVideoClick: (String) -> Unit,
     onAudioClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
-    onLockerClick: () -> Unit,
     onViewAllHistoryClick: () -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     isFocused: Boolean = true,
@@ -119,7 +102,6 @@ fun HomeScreen(
         }
     }
 
-    // Data collection
     val videos by viewModel.videos.collectAsStateWithLifecycle()
     val isLoadingVideos by viewModel.isLoading.collectAsStateWithLifecycle()
     val videoFolders by viewModel.folders.collectAsStateWithLifecycle()
@@ -133,22 +115,9 @@ fun HomeScreen(
     val selectedAudioFolder by audioViewModel.selectedFolder.collectAsStateWithLifecycle()
     val audiosInFolder by audioViewModel.audiosInSelectedFolder.collectAsStateWithLifecycle()
     val playlists by audioViewModel.playlists.collectAsStateWithLifecycle()
-
-    val storageStats by storageViewModel.storageStats.collectAsStateWithLifecycle()
-    LaunchedEffect(videos, audios) {
-        storageViewModel.updateStorageStats(videos, audios)
-    }
     
     val isLoading = if (selectedTab == MediaTab.VIDEOS) isLoadingVideos else isLoadingAudios
-    val dao = remember { LockerDatabase.getDatabase(context).lockerDao() }
-    val lockerSettings by lockerViewModel.settings.collectAsStateWithLifecycle()
-    var showSetPinDialog by remember { mutableStateOf(false) }
 
-    var videoPendingMove by remember { mutableStateOf<VideoModel?>(null) }
-    var audioPendingMove by remember { mutableStateOf<AudioModel?>(null) }
-    var folderVideosPendingMove by remember { mutableStateOf<List<VideoModel>>(emptyList()) }
-    var folderAudiosPendingMove by remember { mutableStateOf<List<AudioModel>>(emptyList()) }
-    var folderOriginPendingMove by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
     
@@ -166,10 +135,6 @@ fun HomeScreen(
         MediaTab.VIDEOS -> videoFolders
         MediaTab.AUDIOS -> audioFolders
         else -> emptyMap()
-    }
-
-    fun checkPinAndProceed(action: () -> Unit) {
-        if (lockerSettings == null) showSetPinDialog = true else action()
     }
 
     val isCurrentFolderOpen = remember(selectedTab, selectedVideoFolder, selectedAudioFolder, selectedPlaylistForDetails) {
@@ -208,50 +173,15 @@ fun HomeScreen(
         if (result.resultCode == Activity.RESULT_OK) {
             scope.launch {
                 isProcessing = true
-                videoPendingMove?.let { video ->
-                    val lockerDir = File(context.filesDir, "locker")
-                    val destFile = File(lockerDir, video.name)
-                    dao.insertLockedVideo(LockedVideo(originalPath = video.path, lockerPath = destFile.absolutePath, name = video.name, duration = video.duration, originFolderName = File(video.path).parentFile?.name, isAudio = false))
-                    viewModel.clearVideoCache(context, video.id)
-                    viewModel.refreshVideos(context)
-                }
-                audioPendingMove?.let { audio ->
-                    val lockerDir = File(context.filesDir, "locker")
-                    val destFile = File(lockerDir, audio.name)
-                    dao.insertLockedVideo(LockedVideo(originalPath = audio.path, lockerPath = destFile.absolutePath, name = audio.name, duration = audio.duration, originFolderName = File(audio.path).parentFile?.name, isAudio = true))
-                    audioViewModel.refreshAudios(context)
-                }
-                if (folderVideosPendingMove.isNotEmpty()) {
-                    folderVideosPendingMove.forEach { video ->
-                        val destFile = File(File(context.filesDir, "locker"), video.name)
-                        dao.insertLockedVideo(LockedVideo(originalPath = video.path, lockerPath = destFile.absolutePath, name = video.name, duration = video.duration, originFolderName = folderOriginPendingMove, isAudio = false))
-                        viewModel.clearVideoCache(context, video.id)
-                    }
-                    viewModel.refreshVideos(context)
-                }
-                if (folderAudiosPendingMove.isNotEmpty()) {
-                    folderAudiosPendingMove.forEach { audio ->
-                        val destFile = File(File(context.filesDir, "locker"), audio.name)
-                        dao.insertLockedVideo(LockedVideo(originalPath = audio.path, lockerPath = destFile.absolutePath, name = audio.name, duration = audio.duration, originFolderName = folderOriginPendingMove, isAudio = true))
-                    }
-                    audioViewModel.refreshAudios(context)
-                }
-                if (videoPendingMove == null && audioPendingMove == null && folderVideosPendingMove.isEmpty() && folderAudiosPendingMove.isEmpty()) {
-                    viewModel.activeVideoUri.value?.let { viewModel.stopIfPlaying(Uri.parse(it)) }
-                    audioViewModel.activeAudioUri.value?.let { audioViewModel.stopIfPlaying(Uri.parse(it)) }
-                    viewModel.refreshVideos(context)
-                    audioViewModel.refreshAudios(context)
-                }
-                videoPendingMove = null
-                audioPendingMove = null
-                folderVideosPendingMove = emptyList()
-                folderAudiosPendingMove = emptyList()
-                folderOriginPendingMove = null
+                viewModel.activeVideoUri.value?.let { viewModel.stopIfPlaying(Uri.parse(it)) }
+                audioViewModel.activeAudioUri.value?.let { audioViewModel.stopIfPlaying(Uri.parse(it)) }
+                viewModel.refreshVideos(context)
+                audioViewModel.refreshAudios(context)
                 isProcessing = false
             }
         } else {
             isProcessing = false
-            Toast.makeText(context, "Move cancelled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Delete cancelled", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -268,24 +198,9 @@ fun HomeScreen(
         if (hasPermission) { viewModel.fetchVideos(context); audioViewModel.fetchAudios(context) }
     }
 
-    var selectedVideoForLocker by remember { mutableStateOf<VideoModel?>(null) }
-    var selectedAudioForLocker by remember { mutableStateOf<AudioModel?>(null) }
     var selectedVideoForDelete by remember { mutableStateOf<VideoModel?>(null) }
     var selectedAudioForDelete by remember { mutableStateOf<AudioModel?>(null) }
     var folderToDelete by remember { mutableStateOf<String?>(null) }
-    var folderToMoveToLocker by remember { mutableStateOf<String?>(null) }
-
-    if (showSetPinDialog) {
-        AlertDialog(
-            onDismissRequest = { showSetPinDialog = false },
-            icon = { Icon(Icons.Default.Lock, null, tint = Color(0xFFFF6600)) },
-            title = { Text("PIN Required") },
-            text = { Text("Please set a security PIN in the Locker tab before moving items to the private vault.") },
-            confirmButton = { Button(onClick = { showSetPinDialog = false; onLockerClick() }) { Text("Set PIN Now") } },
-            dismissButton = { TextButton(onClick = { showSetPinDialog = false }) { Text("Cancel") } },
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
 
     if (folderToDelete != null) {
         AlertDialog(
@@ -295,31 +210,34 @@ fun HomeScreen(
             text = { Text(text = "Are you sure you want to delete folder '${folderToDelete}' and all its items?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
-                    val folderName = folderToDelete!!; folderToDelete = null
+                    val folderName = folderToDelete!!
+                    folderToDelete = null
                     scope.launch {
                         isProcessing = true
                         if (selectedTab == MediaTab.VIDEOS) {
-                            val videos = viewModel.getVideosInFolder(folderName)
-                            if (videos.isNotEmpty()) {
+                            val videosToDelete = viewModel.getVideosInFolder(folderName)
+                            if (videosToDelete.isNotEmpty()) {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                    val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, videos.map { it.uri })
+                                    val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, videosToDelete.map { it.uri })
                                     deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
                                 } else {
-                                    viewModel.stopIfPlaying(videos.map { it.uri })
-                                    videos.forEach { context.contentResolver.delete(it.uri, null, null) }
-                                    viewModel.refreshVideos(context); isProcessing = false
+                                    viewModel.stopIfPlaying(videosToDelete.map { it.uri })
+                                    videosToDelete.forEach { context.contentResolver.delete(it.uri, null, null) }
+                                    viewModel.refreshVideos(context)
+                                    isProcessing = false
                                 }
                             } else isProcessing = false
                         } else {
-                            val audios = audioViewModel.getAudiosInFolder(folderName)
-                            if (audios.isNotEmpty()) {
+                            val audiosToDelete = audioViewModel.getAudiosInFolder(folderName)
+                            if (audiosToDelete.isNotEmpty()) {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                    val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, audios.map { it.uri })
+                                    val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, audiosToDelete.map { it.uri })
                                     deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
                                 } else {
-                                    audioViewModel.stopIfPlaying(audios.map { it.uri })
-                                    audios.forEach { context.contentResolver.delete(it.uri, null, null) }
-                                    audioViewModel.refreshAudios(context); isProcessing = false
+                                    audioViewModel.stopIfPlaying(audiosToDelete.map { it.uri })
+                                    audiosToDelete.forEach { context.contentResolver.delete(it.uri, null, null) }
+                                    audioViewModel.refreshAudios(context)
+                                    isProcessing = false
                                 }
                             } else isProcessing = false
                         }
@@ -338,7 +256,8 @@ fun HomeScreen(
             text = { Text(text = "Are you sure you want to delete '${selectedVideoForDelete?.name}'?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
-                    val video = selectedVideoForDelete!!; selectedVideoForDelete = null
+                    val video = selectedVideoForDelete!!
+                    selectedVideoForDelete = null
                     scope.launch {
                         isProcessing = true
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -347,7 +266,8 @@ fun HomeScreen(
                         } else {
                             viewModel.stopIfPlaying(video.uri)
                             context.contentResolver.delete(video.uri, null, null)
-                            viewModel.refreshVideos(context); isProcessing = false
+                            viewModel.refreshVideos(context)
+                            isProcessing = false
                         }
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
@@ -364,7 +284,8 @@ fun HomeScreen(
             text = { Text(text = "Are you sure you want to delete '${selectedAudioForDelete?.name}'?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
-                    val audio = selectedAudioForDelete!!; selectedAudioForDelete = null
+                    val audio = selectedAudioForDelete!!
+                    selectedAudioForDelete = null
                     scope.launch {
                         isProcessing = true
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -373,7 +294,8 @@ fun HomeScreen(
                         } else {
                             audioViewModel.stopIfPlaying(audio.uri)
                             context.contentResolver.delete(audio.uri, null, null)
-                            audioViewModel.refreshAudios(context); isProcessing = false
+                            audioViewModel.refreshAudios(context)
+                            isProcessing = false
                         }
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
@@ -382,97 +304,22 @@ fun HomeScreen(
         )
     }
 
-    if (folderToMoveToLocker != null) {
-        AlertDialog(
-            onDismissRequest = { folderToMoveToLocker = null },
-            title = { Text(if (selectedTab == MediaTab.VIDEOS) "Move Video Folder to Locker" else "Move Audio Folder to Locker") },
-            text = { Text("Move all ${if (selectedTab == MediaTab.VIDEOS) "videos" else "audios"} in '${folderToMoveToLocker}' to private vault?") },
-            confirmButton = {
-                Button(onClick = {
-                    val folderName = folderToMoveToLocker!!; folderToMoveToLocker = null
-                    scope.launch {
-                        isProcessing = true
-                        if (selectedTab == MediaTab.VIDEOS) {
-                            val videos = viewModel.getVideosInFolder(folderName)
-                            val result = bulkPrepareMoveToLocker(context, videos)
-                            if (result is MoveToLockerResult.Success) {
-                                videos.forEach { video -> dao.insertLockedVideo(LockedVideo(originalPath = video.path, lockerPath = File(File(context.filesDir, "locker"), video.name).absolutePath, name = video.name, duration = video.duration, originFolderName = folderName, isAudio = false)); viewModel.clearVideoCache(context, video.id) }
-                                viewModel.refreshVideos(context); isProcessing = false
-                            } else if (result is MoveToLockerResult.RequiresUserConsent) { folderVideosPendingMove = videos; folderOriginPendingMove = folderName; deleteLauncher.launch(IntentSenderRequest.Builder(result.intentSender).build()) }
-                            else { isProcessing = false; Toast.makeText(context, "Failed to move folder", Toast.LENGTH_SHORT).show() }
-                        } else {
-                            val audios = audioViewModel.getAudiosInFolder(folderName)
-                            val result = bulkPrepareAudioMoveToLocker(context, audios)
-                            if (result is MoveToLockerResult.Success) {
-                                audios.forEach { audio -> dao.insertLockedVideo(LockedVideo(originalPath = audio.path, lockerPath = File(File(context.filesDir, "locker"), audio.name).absolutePath, name = audio.name, duration = audio.duration, originFolderName = folderName, isAudio = true)) }
-                                audioViewModel.refreshAudios(context); isProcessing = false
-                            } else if (result is MoveToLockerResult.RequiresUserConsent) { folderAudiosPendingMove = audios; folderOriginPendingMove = folderName; deleteLauncher.launch(IntentSenderRequest.Builder(result.intentSender).build()) }
-                            else { isProcessing = false; Toast.makeText(context, "Failed to move folder", Toast.LENGTH_SHORT).show() }
-                        }
-                    }
-                }) { Text("Move") }
-            },
-            dismissButton = { TextButton(onClick = { folderToMoveToLocker = null }) { Text("Cancel") } }
-        )
-    }
-
-    if (selectedVideoForLocker != null) {
-        AlertDialog(
-            onDismissRequest = { selectedVideoForLocker = null },
-            icon = { Icon(Icons.Default.Lock, null, tint = Color(0xFF71717A)) },
-            title = { Text(text = "Move to Locker?", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-            text = { Text(text = "Please allow MEDIA MANAGEMENT Permission in app settings for smoother locking experience.", textAlign = TextAlign.Center) },
-            confirmButton = {
-                Button(onClick = {
-                    val video = selectedVideoForLocker!!; selectedVideoForLocker = null
-                    scope.launch {
-                        isProcessing = true
-                        val result = prepareMoveToLocker(context, video)
-                        if (result is MoveToLockerResult.Success) {
-                            dao.insertLockedVideo(LockedVideo(originalPath = video.path, lockerPath = File(File(context.filesDir, "locker"), video.name).absolutePath, name = video.name, duration = video.duration, originFolderName = File(video.path).parentFile?.name, isAudio = false))
-                            viewModel.clearVideoCache(context, video.id); viewModel.refreshVideos(context); isProcessing = false
-                        } else if (result is MoveToLockerResult.RequiresUserConsent) { videoPendingMove = video; deleteLauncher.launch(IntentSenderRequest.Builder(result.intentSender).build()) }
-                        else { isProcessing = false; Toast.makeText(context, "Failed to move video", Toast.LENGTH_SHORT).show() }
-                    }
-                }, shape = RoundedCornerShape(12.dp)) { Text("Move") }
-            },
-            dismissButton = { TextButton(onClick = { selectedVideoForLocker = null }) { Text("Cancel") } },
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
-
-    if (selectedAudioForLocker != null) {
-        AlertDialog(
-            onDismissRequest = { selectedAudioForLocker = null },
-            icon = { Icon(Icons.Default.Lock, null, tint = Color(0xFF71717A)) },
-            title = { Text(text = "Move Audio to Locker?", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-            text = { Text(text = "Move '${selectedAudioForLocker?.name}' to private vault?", textAlign = TextAlign.Center) },
-            confirmButton = {
-                Button(onClick = {
-                    val audio = selectedAudioForLocker!!; selectedAudioForLocker = null
-                    scope.launch {
-                        isProcessing = true
-                        val result = prepareAudioMoveToLocker(context, audio)
-                        if (result is MoveToLockerResult.Success) {
-                            dao.insertLockedVideo(LockedVideo(originalPath = audio.path, lockerPath = File(File(context.filesDir, "locker"), audio.name).absolutePath, name = audio.name, duration = audio.duration, originFolderName = File(audio.path).parentFile?.name, isAudio = true))
-                            audioViewModel.refreshAudios(context); isProcessing = false
-                        } else if (result is MoveToLockerResult.RequiresUserConsent) { audioPendingMove = audio; deleteLauncher.launch(IntentSenderRequest.Builder(result.intentSender).build()) }
-                        else { isProcessing = false; Toast.makeText(context, "Failed to move audio", Toast.LENGTH_SHORT).show() }
-                    }
-                }, shape = RoundedCornerShape(12.dp)) { Text("Move") }
-            },
-            dismissButton = { TextButton(onClick = { selectedAudioForLocker = null }) { Text("Cancel") } },
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
-
     if (isProcessing) ModernLoadingDialog()
 
     if (showAddToPlaylistDialog && mediaPendingPlaylist != null) {
-        AddToPlaylistFromHomeDialog(playlists = playlists, onDismiss = { showAddToPlaylistDialog = false; mediaPendingPlaylist = null }, onPlaylistSelected = { playlistId ->
-            mediaPendingPlaylist?.let { (uri, type) -> audioViewModel.addToPlaylist(playlistId, uri, type); Toast.makeText(context, "Added to playlist", Toast.LENGTH_SHORT).show() }
-            showAddToPlaylistDialog = false; mediaPendingPlaylist = null
-        }, onCreatePlaylist = { name -> audioViewModel.createPlaylist(name) })
+        AddToPlaylistFromHomeDialog(
+            playlists = playlists,
+            onDismiss = { showAddToPlaylistDialog = false; mediaPendingPlaylist = null },
+            onPlaylistSelected = { playlistId ->
+                mediaPendingPlaylist?.let { (uri, type) ->
+                    audioViewModel.addToPlaylist(playlistId, uri, type)
+                    Toast.makeText(context, "Added to playlist", Toast.LENGTH_SHORT).show()
+                }
+                showAddToPlaylistDialog = false
+                mediaPendingPlaylist = null
+            },
+            onCreatePlaylist = { name -> audioViewModel.createPlaylist(name) }
+        )
     }
 
     Scaffold(
@@ -482,7 +329,7 @@ fun HomeScreen(
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
                             if (currentSelectedFolder != null || selectedPlaylistForDetails != null) {
-                                IconButton(modifier = Modifier.size(50.dp) ,onClick = { 
+                                IconButton(modifier = Modifier.size(50.dp), onClick = { 
                                     if (selectedTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(null)
                                     else if (selectedTab == MediaTab.AUDIOS) audioViewModel.setSelectedFolder(null)
                                     else selectedPlaylistForDetails = null
@@ -490,16 +337,46 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(text = currentSelectedFolder ?: selectedPlaylistForDetails?.name ?: "", style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold))
                             } else {
-                                ModernOmegaIcon()
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, brush = Brush.linearGradient(colors = listOf(MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary))))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable(onClick = onSettingsClick)
+                                        .padding(vertical = 4.dp, horizontal = 6.dp)
+                                ) {
+                                    ModernOmegaIcon()
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = stringResource(R.string.app_name),
+                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                            fontWeight = FontWeight.Black,
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.secondary,
+                                                    MaterialTheme.colorScheme.primary
+                                                )
+                                            )
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    actions = {
+                        if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
+                            IconButton(onClick = onSettingsClick) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = stringResource(R.string.nav_settings),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
                 if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
-                    HomeDashboard(selectedTab = selectedTab, storageStats = storageStats, onTabSelected = { tab -> selectedTab = tab })
+                    HomeDashboard(selectedTab = selectedTab, onTabSelected = { tab -> selectedTab = tab })
                 }
                 Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.weight(1f), placeholder = { Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.primary) }, trailingIcon = { if (searchQuery.isNotEmpty()) { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } } }, shape = RoundedCornerShape(20.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = Color.Transparent, focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge)
@@ -507,7 +384,7 @@ fun HomeScreen(
                     IconButton(onClick = { isGridView = !isGridView }, modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), CircleShape)) { Icon(if (isGridView) Icons.Default.ViewList else Icons.Default.GridView, null, tint = MaterialTheme.colorScheme.primary) }
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    val sectionLabel = if (currentSelectedFolder == null && selectedPlaylistForDetails == null) stringResource(R.string.no_folders_found).substringBefore(" ") else if (selectedPlaylistForDetails != null) stringResource(R.string.queue) else if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.tab_videos) else stringResource(R.string.tab_audios)
+                    val sectionLabel = if (currentSelectedFolder == null && selectedPlaylistForDetails == null) stringResource(R.string.no_folders_found).substringBefore(" ") else if (selectedPlaylistForDetails != null) stringResource(R.string.tab_playlists) else if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.tab_videos) else stringResource(R.string.tab_audios)
                     Text(text = sectionLabel, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface))
                     if (currentSelectedFolder == null && selectedPlaylistForDetails == null) { Text(text = stringResource(R.string.items_count, currentFolders.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
@@ -539,11 +416,12 @@ fun HomeScreen(
                                     items(filteredFolders.keys.toList(), key = { it }) { folderName -> FolderGridItem(name = folderName, count = filteredFolders[folderName] ?: 0, onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) }) }
                                 }
                             } else if (selectedPlaylistForDetails != null) {
-                                items(playlistItems, key = { it.id }) { item -> PlaylistGridItem(item, videos, audios, viewModel, audioViewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, onAudioClick, selectedPlaylistForDetails!!) }
+                                val currentPlaylist = selectedPlaylistForDetails!!
+                                items(playlistItems, key = { it.id }) { item -> PlaylistGridItem(item, videos, audios, viewModel, audioViewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, onAudioClick, currentPlaylist) }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(filteredVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, { checkPinAndProceed { selectedVideoForLocker = video } }, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(filteredVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(filteredAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, onAudioClick, { checkPinAndProceed { selectedAudioForLocker = audio } }, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(filteredAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, onAudioClick, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
                     } else {
@@ -554,14 +432,15 @@ fun HomeScreen(
                                     if (playlists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                                     else { items(playlists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
-                                    items(filteredFolders.keys.toList(), key = { it }) { folderName -> FolderListItem(name = folderName, count = filteredFolders[folderName] ?: 0, onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) }, onDelete = { folderToDelete = folderName }, onMoveToLocker = { checkPinAndProceed { folderToMoveToLocker = folderName } }) }
+                                    items(filteredFolders.keys.toList(), key = { it }) { folderName -> FolderListItem(name = folderName, count = filteredFolders[folderName] ?: 0, onClick = { if (pageTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(folderName) else audioViewModel.setSelectedFolder(folderName) }, onDelete = { folderToDelete = folderName }) }
                                 }
                             } else if (selectedPlaylistForDetails != null) {
-                                items(playlistItems, key = { it.id }) { item -> MediaListItemInPlaylist(item = item, videos = videos, audios = audios, videoViewModel = viewModel, audioViewModel = audioViewModel, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onVideoClick = onVideoClick, onAudioClick = onAudioClick, playlist = selectedPlaylistForDetails!!, onVideoLock = { checkPinAndProceed { selectedVideoForLocker = it } }, onAudioLock = { checkPinAndProceed { selectedAudioForLocker = it } }, onVideoDelete = { selectedVideoForDelete = it }, onAudioDelete = { selectedAudioForDelete = it }) }
+                                val currentPlaylist = selectedPlaylistForDetails!!
+                                items(playlistItems, key = { it.id }) { item -> MediaListItemInPlaylist(item = item, videos = videos, audios = audios, videoViewModel = viewModel, audioViewModel = audioViewModel, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onVideoClick = onVideoClick, onAudioClick = onAudioClick, playlist = currentPlaylist, onVideoDelete = { selectedVideoForDelete = it }, onAudioDelete = { selectedAudioForDelete = it }) }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(filteredVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri) }, onLockClick = { checkPinAndProceed { selectedVideoForLocker = video } }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(filteredVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri) }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(filteredAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString()); onAudioClick(encodedUri) }, onPlayPauseClick = { audioViewModel.togglePlayPause(audio) }, onLockClick = { checkPinAndProceed { selectedAudioForLocker = audio } }, onDeleteClick = { selectedAudioForDelete = audio }, onPlaylistClick = { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(filteredAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString()); onAudioClick(encodedUri) }, onPlayPauseClick = { audioViewModel.togglePlayPause(audio) }, onDeleteClick = { selectedAudioForDelete = audio }, onPlaylistClick = { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
                     }

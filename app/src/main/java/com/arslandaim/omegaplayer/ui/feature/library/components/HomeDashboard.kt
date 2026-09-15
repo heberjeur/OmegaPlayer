@@ -1,12 +1,6 @@
 package com.arslandaim.omegaplayer.ui.feature.library.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,14 +8,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -29,20 +19,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.arslandaim.omegaplayer.R
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.feature.library.MediaTab
-import com.arslandaim.omegaplayer.viewmodel.StorageStats
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
 fun HomeDashboard(
     selectedTab: MediaTab,
-    storageStats: StorageStats,
     onTabSelected: (MediaTab) -> Unit
 ) {
     Column(
@@ -50,7 +37,6 @@ fun HomeDashboard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // Modern Pill Tab Row
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -98,92 +84,6 @@ fun HomeDashboard(
                 }
             }
         }
-
-        if (selectedTab == MediaTab.VIDEOS) {
-            Spacer(modifier = Modifier.height(12.dp))
-            LinearStorageVisualization(stats = storageStats)
-        }
-    }
-}
-
-@Composable
-fun LinearStorageVisualization(stats: StorageStats, modifier: Modifier = Modifier) {
-    val videoColor = MaterialTheme.colorScheme.primary
-    val audioColor = MaterialTheme.colorScheme.secondary
-    val otherColor = MaterialTheme.colorScheme.outline
-    val freeColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-
-    val total = stats.totalBytes.toFloat()
-    if (total <= 0f) return
-
-    val videoWeight = (stats.videoBytes / total)
-    val audioWeight = (stats.audioBytes / total)
-    val otherWeight = (stats.otherBytes / total)
-    val freeWeight = (stats.freeBytes / total)
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.storage_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${stats.formatSize(stats.totalBytes - stats.freeBytes)} / ${stats.formatSize(stats.totalBytes)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Linear Storage Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(CircleShape)
-                    .background(freeColor)
-            ) {
-                if (videoWeight > 0) Box(modifier = Modifier.fillMaxHeight().weight(videoWeight).background(videoColor))
-                if (audioWeight > 0) Box(modifier = Modifier.fillMaxHeight().weight(audioWeight).background(audioColor))
-                if (otherWeight > 0) Box(modifier = Modifier.fillMaxHeight().weight(otherWeight).background(otherColor))
-                if (freeWeight > 0) Box(modifier = Modifier.fillMaxHeight().weight(freeWeight).background(Color.Transparent))
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                StorageLegendItemSmall(stringResource(R.string.tab_videos), videoColor)
-                StorageLegendItemSmall(stringResource(R.string.tab_audios), audioColor)
-                StorageLegendItemSmall("Other", otherColor)
-                StorageLegendItemSmall("Free", Color(0xFFE4E4E7))
-            }
-        }
-    }
-}
-
-@Composable
-fun StorageLegendItemSmall(label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -230,11 +130,18 @@ fun RecentPlaybackSection(
 }
 
 @Composable
-fun ModernOmegaIcon(modifier: Modifier = Modifier) {
+fun ModernOmegaIcon(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
     Box(
         modifier = modifier
             .size(48.dp)
             .clip(CircleShape)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick)
+                else Modifier
+            )
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(

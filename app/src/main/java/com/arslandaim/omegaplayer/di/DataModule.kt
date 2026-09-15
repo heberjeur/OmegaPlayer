@@ -1,8 +1,8 @@
 package com.arslandaim.omegaplayer.di
 
 import android.content.Context
-import com.arslandaim.omegaplayer.data.LockerDao
-import com.arslandaim.omegaplayer.data.LockerDatabase
+import com.arslandaim.omegaplayer.data.AppDao
+import com.arslandaim.omegaplayer.data.AppDatabase
 import com.arslandaim.omegaplayer.data.ThemePreferences
 import dagger.Module
 import dagger.Provides
@@ -17,13 +17,13 @@ object DataModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): LockerDatabase {
-        return LockerDatabase.getDatabase(context)
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return AppDatabase.getDatabase(context)
     }
 
     @Provides
-    fun provideLockerDao(database: LockerDatabase): LockerDao {
-        return database.lockerDao()
+    fun provideAppDao(database: AppDatabase): AppDao {
+        return database.appDao()
     }
 
     @Provides
