@@ -412,7 +412,8 @@ class AudioViewModel @Inject constructor(
                     duration = duration,
                     mediaType = "audio",
                     name = name,
-                    artist = artist
+                    artist = artist,
+                    size = audio.size
                 )
             )
         }
@@ -455,6 +456,13 @@ class AudioViewModel @Inject constructor(
 
     fun setFolderPlaybackSpeed(folderName: String, speed: Float) {
         viewModelScope.launch { themePreferences.saveFolderPlaybackSpeed(folderName, speed) }
+    }
+
+    fun getFolderViewMode(folderKey: String, defaultMode: Int = 0): Flow<Int> =
+        themePreferences.getFolderViewMode(folderKey, defaultMode)
+
+    fun setFolderViewMode(folderKey: String, mode: Int) {
+        viewModelScope.launch { themePreferences.saveFolderViewMode(folderKey, mode) }
     }
 
     fun getFolderGridView(folderKey: String, defaultGrid: Boolean = false): Flow<Boolean> =

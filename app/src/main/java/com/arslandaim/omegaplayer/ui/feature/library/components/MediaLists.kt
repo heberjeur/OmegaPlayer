@@ -85,17 +85,18 @@ fun PlaylistGridItem(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onPlayItem: (PlaylistItem) -> Unit,
-    playlist: Playlist
+    playlist: Playlist,
+    aspectRatio: Float = 1f
 ) {
     if (item.mediaType == "video") {
         val video = videos.find { it.uri.toString() == item.mediaUri }
         if (video != null) {
-            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, { onPlayItem(item) }, {}, {})
+            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
         }
     } else {
         val audio = audios.find { it.uri.toString() == item.mediaUri }
         if (audio != null) {
-            AudioGridItem(audio, audioViewModel, { onPlayItem(item) }, {}, {})
+            AudioGridItem(audio, audioViewModel, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
         }
     }
 }

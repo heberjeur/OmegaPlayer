@@ -16,6 +16,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
 import android.widget.Toast
@@ -199,8 +200,44 @@ fun PlayerScreen(
         }
     }
 
-    var volume by remember { mutableFloatStateOf(0.5f) }
-    var brightness by remember { mutableFloatStateOf(0.5f) }
+    val initialVolume = remember(audioManager, maxVolume) {
+        val current = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: (maxVolume / 2)
+        if (maxVolume > 0) (current.toFloat() / maxVolume).coerceIn(0f, 1f) else 0.5f
+    }
+    var volume by remember { mutableFloatStateOf(initialVolume) }
+
+    val initialBrightness = remember(context, activity) {
+        val winBrightness = activity?.window?.attributes?.screenBrightness ?: -1f
+        if (winBrightness >= 0.01f) {
+            winBrightness.coerceIn(0.01f, 1f)
+        } else {
+            try {
+                val sysBrightness = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                (sysBrightness / 255f).coerceIn(0.01f, 1f)
+            } catch (_: Exception) {
+                0.5f
+            }
+        }
+    }
+    var brightness by remember { mutableFloatStateOf(initialBrightness) }
+
+    DisposableEffect(context, audioManager, maxVolume) {
+        val volumeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action == "android.media.VOLUME_CHANGED_ACTION") {
+                    val current = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
+                    if (current >= 0 && maxVolume > 0) {
+                        volume = (current.toFloat() / maxVolume).coerceIn(0f, 1f)
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+        context.registerReceiver(volumeReceiver, filter)
+        onDispose {
+            context.unregisterReceiver(volumeReceiver)
+        }
+    }
     var isControlsVisible by remember { mutableStateOf(true) }
     var isLocked by remember { mutableStateOf(false) }
     var playbackError by remember { mutableStateOf<String?>(null) }
@@ -463,6 +500,62 @@ fun PlayerScreen(
                     .background(Color.Black)
                     .statusBarsPadding()
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
+                    }
+                    Text(
+                        text = videoName,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                            .basicMarquee()
+                    )
+                    IconButton(onClick = { showQueueSheet = true }) {
+                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.queue), tint = Color.White)
+                    }
+                    Box {
+                        IconButton(onClick = { showMoreMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more), tint = Color.White)
+                        }
+                        PlayerDropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismiss = { showMoreMenu = false },
+                            playbackSpeed = playbackSpeed,
+                            sleepTimerActive = sleepTimerActive,
+                            sleepTimerTimeLeft = sleepTimerTimeLeft,
+                            onPlaylistClick = { showPlaylistDialog = true },
+                            onSleepTimerClick = { showSleepTimerDialog = true },
+                            onSpeedChange = onSpeedChange,
+                            onEqualizerClick = { showEqualizerDialog = true },
+                            onInfoClick = { showInfoDialog = true }
+                        )
+                    }
+                }
+
+                PlayerTopHUD(
+                    showClock = hudShowClock,
+                    currentTime = currentTimeString,
+                    showBattery = hudShowBattery,
+                    batteryPercentage = batteryPercentage,
+                    showVolume = hudShowVolume,
+                    volumePercentage = (volume * 100).toInt(),
+                    showBrightness = hudShowBrightness,
+                    brightnessPercentage = (brightness * 100).toInt(),
+                    showMediaInfo = hudShowMediaInfo,
+                    resolution = videoResolution
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -526,6 +619,32 @@ fun PlayerScreen(
                                     )
                                 }
                             }
+                            .pointerInput(isLocked) {
+                                if (!isLocked) {
+                                    detectDragGestures { change, dragAmount ->
+                                        change.consume()
+                                        val isRightSide = change.position.x > size.width / 2
+                                        if (isRightSide) {
+                                            val oldVolume = volume
+                                            volume = (volume - dragAmount.y / size.height).coerceIn(0f, 1f)
+                                            if (abs(volume - oldVolume) > 0.05f) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            }
+                                            audioManager?.let { am ->
+                                                val targetVol = (volume * maxVolume).toInt()
+                                                am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                                            }
+                                        } else {
+                                            val oldBrightness = brightness
+                                            brightness = (brightness - dragAmount.y / size.height).coerceIn(0.01f, 1f)
+                                            if (abs(brightness - oldBrightness) > 0.05f) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            }
+                                            setBrightness(context, brightness)
+                                        }
+                                    }
+                                }
+                            }
                     )
 
                     SeekAnimationOverlay(
@@ -548,61 +667,7 @@ fun PlayerScreen(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
-                        }
-                        Text(
-                            text = videoName,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                                .basicMarquee()
-                        )
-                        IconButton(onClick = { showQueueSheet = true }) {
-                            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.queue), tint = Color.White)
-                        }
-                        Box {
-                            IconButton(onClick = { showMoreMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more), tint = Color.White)
-                            }
-                            PlayerDropdownMenu(
-                                expanded = showMoreMenu,
-                                onDismiss = { showMoreMenu = false },
-                                playbackSpeed = playbackSpeed,
-                                sleepTimerActive = sleepTimerActive,
-                                sleepTimerTimeLeft = sleepTimerTimeLeft,
-                                onPlaylistClick = { showPlaylistDialog = true },
-                                onSleepTimerClick = { showSleepTimerDialog = true },
-                                onSpeedChange = onSpeedChange,
-                                onEqualizerClick = { showEqualizerDialog = true },
-                                onInfoClick = { showInfoDialog = true }
-                            )
-                        }
-                    }
-
-                    PlayerTopHUD(
-                        showClock = hudShowClock,
-                        currentTime = currentTimeString,
-                        showBattery = hudShowBattery,
-                        batteryPercentage = batteryPercentage,
-                        showVolume = hudShowVolume,
-                        volumePercentage = (volume * 100).toInt(),
-                        showBrightness = hudShowBrightness,
-                        brightnessPercentage = (brightness * 100).toInt(),
-                        showMediaInfo = hudShowMediaInfo,
-                        resolution = videoResolution
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(0.2f))
 
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Slider(
@@ -837,7 +902,7 @@ fun PlayerScreen(
                                     } else if (!isSeekHUDVisible) {
                                         if (change.position.x < width / 2) {
                                             val oldBrightness = brightness
-                                            brightness = (brightness - dragAmount.y / height).coerceIn(0f, 1f)
+                                            brightness = (brightness - dragAmount.y / height).coerceIn(0.01f, 1f)
                                             if (abs(brightness - oldBrightness) > 0.05f) {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
@@ -849,7 +914,10 @@ fun PlayerScreen(
                                             if (abs(volume - oldVolume) > 0.05f) {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
-                                            mediaController?.volume = volume
+                                            audioManager?.let { am ->
+                                                val targetVol = (volume * maxVolume).toInt()
+                                                am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                                            }
                                             isVolumeVisible = true
                                         }
                                     }

@@ -53,8 +53,8 @@ fun RecentPlaybackItem(
 ) {
     Card(
         modifier = Modifier
-            .width(180.dp)
-            .height(110.dp)
+            .width(200.dp)
+            .height(120.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -101,34 +101,77 @@ fun RecentPlaybackItem(
                 }
             }
 
-            Column(
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.Bottom
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = item.name,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (item.mediaType == "video") Color.White else MaterialTheme.colorScheme.onSurface
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Justify,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else item.artist ?: stringResource(R.string.media_type_audio),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (item.mediaType == "video") Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = formatDuration(item.duration),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
+
+                    if (item.size > 0L) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "${item.size / (1024 * 1024)} MB",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
+                        .height(3.dp)
                         .clip(CircleShape),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = if (item.mediaType == "video") Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant
+                    trackColor = Color.White.copy(alpha = 0.3f)
                 )
             }
         }
@@ -228,13 +271,14 @@ fun FolderGridItem(
     name: String,
     count: Int,
     onClick: () -> Unit,
-    onExclude: (() -> Unit)? = null
+    onExclude: (() -> Unit)? = null,
+    aspectRatio: Float = 1f
 ) {
     var showMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(aspectRatio)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -349,7 +393,8 @@ fun VideoGridItem(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: (String) -> Unit,
     onDelete: () -> Unit,
-    onPlaylist: () -> Unit
+    onPlaylist: () -> Unit,
+    aspectRatio: Float = 1f
 ) {
     val isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value
     
@@ -357,7 +402,7 @@ fun VideoGridItem(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
+                .aspectRatio(aspectRatio)
                 .clickable { 
                     val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString())
                     onClick(encodedUri) 
@@ -453,7 +498,8 @@ fun AudioGridItem(
     viewModel: AudioViewModel,
     onClick: (String) -> Unit,
     onDelete: () -> Unit,
-    onPlaylist: () -> Unit
+    onPlaylist: () -> Unit,
+    aspectRatio: Float = 1f
 ) {
     val isPlaying = viewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && viewModel.isPlaying.collectAsState().value
     
@@ -464,7 +510,7 @@ fun AudioGridItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(aspectRatio)
             .clickable { 
                 val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString())
                 onClick(encodedUri) 
@@ -566,12 +612,13 @@ fun AudioGridItem(
 fun PlaylistGridCard(
     playlist: Playlist,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    aspectRatio: Float = 1f
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(aspectRatio)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -602,7 +649,7 @@ fun PlaylistGridCard(
                         imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
@@ -613,8 +660,8 @@ fun PlaylistGridCard(
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                    contentDescription = stringResource(R.string.action_delete),
+                    tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -625,12 +672,13 @@ fun PlaylistGridCard(
 @Composable
 fun HistoryGridCard(
     item: RecentPlayback,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    aspectRatio: Float = 1f
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(aspectRatio)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -712,12 +760,22 @@ fun HistoryGridCard(
                             fontSize = 10.sp
                         )
                     }
-                    Text(
-                        text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else stringResource(R.string.media_type_audio),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 10.sp
-                    )
+
+                    if (item.size > 0L) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "${item.size / (1024 * 1024)} MB",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)

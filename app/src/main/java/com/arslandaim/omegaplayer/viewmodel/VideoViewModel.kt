@@ -366,7 +366,8 @@ class VideoViewModel @Inject constructor(
                     position = position,
                     duration = duration,
                     mediaType = "video",
-                    name = name
+                    name = name,
+                    size = video.size
                 )
             )
         }
@@ -388,6 +389,13 @@ class VideoViewModel @Inject constructor(
 
     fun setFolderPlaybackSpeed(folderName: String, speed: Float) {
         viewModelScope.launch { themePreferences.saveFolderPlaybackSpeed(folderName, speed) }
+    }
+
+    fun getFolderViewMode(folderKey: String, defaultMode: Int = 0): Flow<Int> =
+        themePreferences.getFolderViewMode(folderKey, defaultMode)
+
+    fun setFolderViewMode(folderKey: String, mode: Int) {
+        viewModelScope.launch { themePreferences.saveFolderViewMode(folderKey, mode) }
     }
 
     fun getFolderGridView(folderKey: String, defaultGrid: Boolean = true): Flow<Boolean> =

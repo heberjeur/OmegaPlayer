@@ -43,7 +43,8 @@ data class RecentPlayback(
     val lastPlayed: Long = System.currentTimeMillis(),
     val mediaType: String,
     val name: String,
-    val artist: String? = null
+    val artist: String? = null,
+    val size: Long = 0L
 )
 
 @Dao
@@ -85,7 +86,7 @@ interface AppDao {
     suspend fun clearAllRecentPlayback()
 }
 
-@Database(entities = [Playlist::class, PlaylistItem::class, RecentPlayback::class], version = 8)
+@Database(entities = [Playlist::class, PlaylistItem::class, RecentPlayback::class], version = 9)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
 

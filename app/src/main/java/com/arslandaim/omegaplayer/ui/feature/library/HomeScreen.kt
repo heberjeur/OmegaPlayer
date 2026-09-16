@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -161,9 +162,9 @@ fun HomeScreen(
         else -> "default"
     }
 
-    val currentTabIsGridView by remember(currentContextKey) {
-        viewModel.getFolderGridView(currentContextKey, defaultGrid = (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null))
-    }.collectAsStateWithLifecycle(initialValue = (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null))
+    val currentTabViewMode by remember(currentContextKey) {
+        viewModel.getFolderViewMode(currentContextKey, defaultMode = if (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0)
+    }.collectAsStateWithLifecycle(initialValue = (if (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0))
 
     val currentSortOrderName by remember(currentContextKey) {
         viewModel.getFolderSortOrder(currentContextKey, defaultSort = MediaSortOrder.DATE_DESC.name)
@@ -183,10 +184,15 @@ fun HomeScreen(
         (selectedTab == MediaTab.PLAYLISTS && selectedPlaylistForDetails != null)
     }
 
-    BackHandler(enabled = isFocused && isCurrentFolderOpen) {
-        if (selectedTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(null)
-        else if (selectedTab == MediaTab.AUDIOS) audioViewModel.setSelectedFolder(null)
-        else selectedPlaylistForDetails = null
+    val activity = context as? Activity
+    BackHandler(enabled = isFocused) {
+        if (isCurrentFolderOpen) {
+            if (selectedTab == MediaTab.VIDEOS) viewModel.setSelectedFolder(null)
+            else if (selectedTab == MediaTab.AUDIOS) audioViewModel.setSelectedFolder(null)
+            else selectedPlaylistForDetails = null
+        } else {
+            activity?.finish()
+        }
     }
 
     val sortedFolders = remember(currentFolders, searchQuery, currentSelectedFolder, currentSortOrder) {
@@ -522,11 +528,20 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
                         onClick = {
-                            viewModel.setFolderGridView(currentContextKey, !currentTabIsGridView)
+                            val nextMode = (currentTabViewMode + 1) % 3
+                            viewModel.setFolderViewMode(currentContextKey, nextMode)
                         },
                         modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), CircleShape)
                     ) {
-                        Icon(if (currentTabIsGridView) Icons.Default.ViewList else Icons.Default.GridView, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            imageVector = when (currentTabViewMode) {
+                                1 -> Icons.Default.GridView
+                                2 -> Icons.Default.ViewAgenda
+                                else -> Icons.Default.ViewList
+                            },
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -539,7 +554,15 @@ fun HomeScreen(
                         }
                     } else if (selectedPlaylistForDetails != null) stringResource(R.string.tab_playlists) else if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.tab_videos) else stringResource(R.string.tab_audios)
                     Text(text = sectionLabel, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface))
-                    if (currentSelectedFolder == null && selectedPlaylistForDetails == null) { Text(text = stringResource(R.string.items_count, currentFolders.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    val currentItemCount = when {
+                        selectedPlaylistForDetails != null -> sortedPlaylistItems.size
+                        selectedTab == MediaTab.VIDEOS -> if (selectedVideoFolder != null) sortedVideos.size else currentFolders.size
+                        selectedTab == MediaTab.AUDIOS -> if (selectedAudioFolder != null) sortedAudios.size else currentFolders.size
+                        selectedTab == MediaTab.PLAYLISTS -> sortedPlaylists.size
+                        selectedTab == MediaTab.HISTORY -> sortedHistory.size
+                        else -> currentFolders.size
+                    }
+                    Text(text = stringResource(R.string.items_count, currentItemCount), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
@@ -561,9 +584,9 @@ fun HomeScreen(
                 pageTab == MediaTab.HISTORY -> "tab_history"
                 else -> "default"
             }
-            val pageIsGridView by remember(pageContextKey) {
-                viewModel.getFolderGridView(pageContextKey, defaultGrid = (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null))
-            }.collectAsStateWithLifecycle(initialValue = (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null))
+            val pageViewMode by remember(pageContextKey) {
+                viewModel.getFolderViewMode(pageContextKey, defaultMode = if (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0)
+            }.collectAsStateWithLifecycle(initialValue = (if (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0))
 
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {
@@ -573,25 +596,27 @@ fun HomeScreen(
                 } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) sortedVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) sortedAudios.isEmpty() else sortedPlaylistItems.isEmpty())) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
-                    if (pageIsGridView) {
-                        LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (pageViewMode == 1 || pageViewMode == 2) {
+                        val cols = if (pageViewMode == 1) 2 else 1
+                        val ratio = if (pageViewMode == 1) 1f else (16f / 9f)
+                        LazyVerticalGrid(columns = GridCells.Fixed(cols), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
-                                if (showRecentHistoryOnHome && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item(span = { GridItemSpan(2) }) { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
+                                if (showRecentHistoryOnHome && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item(span = { GridItemSpan(cols) }) { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
                                 if (pageTab == MediaTab.HISTORY) {
                                     if (sortedHistory.isEmpty()) {
-                                        item(span = { GridItemSpan(2) }) { EmptyState(searchQuery.isNotEmpty(), false) }
+                                        item(span = { GridItemSpan(cols) }) { EmptyState(searchQuery.isNotEmpty(), false) }
                                     } else {
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryGridCard(item = item, onClick = {
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                                                 if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
-                                            })
+                                            }, aspectRatio = ratio)
                                         }
                                     }
                                 } else if (pageTab == MediaTab.PLAYLISTS) {
                                     if (sortedPlaylists.isNotEmpty()) {
                                         items(sortedPlaylists, key = { it.id }) { playlist ->
-                                            PlaylistGridCard(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) })
+                                            PlaylistGridCard(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }, aspectRatio = ratio)
                                         }
                                     }
                                 } else {
@@ -603,7 +628,8 @@ fun HomeScreen(
                                             onExclude = {
                                                 if (pageTab == MediaTab.VIDEOS) viewModel.excludeFolder(folderName) else audioViewModel.excludeFolder(folderName)
                                                 Toast.makeText(context, context.getString(R.string.folder_excluded_toast), Toast.LENGTH_SHORT).show()
-                                            }
+                                            },
+                                            aspectRatio = ratio
                                         )
                                     }
                                 }
@@ -624,13 +650,14 @@ fun HomeScreen(
                                             val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
                                             if (clickedItem.mediaType == "video") onVideoClick(encodedUri, -1L) else onAudioClick(encodedUri, -1L)
                                         },
-                                        playlist = currentPlaylist
+                                        playlist = currentPlaylist,
+                                        aspectRatio = ratio
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, { uri -> onVideoClick(uri, -1L) }, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, { uri -> onVideoClick(uri, -1L) }, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }, aspectRatio = ratio) }
                             } else {
-                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, { uri -> onAudioClick(uri, -1L) }, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, { uri -> onAudioClick(uri, -1L) }, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }, aspectRatio = ratio) }
                             }
                         }
                     } else {

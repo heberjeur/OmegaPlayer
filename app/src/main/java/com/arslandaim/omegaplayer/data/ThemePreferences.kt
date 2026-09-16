@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -178,13 +179,33 @@ class ThemePreferences(private val context: Context) {
         }
     }
 
+    fun getFolderViewMode(folderKey: String, defaultMode: Int = 0): Flow<Int> = context.dataStore.data.map { preferences ->
+        val mode = preferences[intPreferencesKey("view_mode_$folderKey")]
+        if (mode != null) {
+            mode
+        } else {
+            val legacy = preferences[booleanPreferencesKey("grid_view_$folderKey")]
+            if (legacy != null) (if (legacy) 1 else 0) else defaultMode
+        }
+    }
+
+    suspend fun saveFolderViewMode(folderKey: String, mode: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[intPreferencesKey("view_mode_$folderKey")] = mode
+            preferences[booleanPreferencesKey("grid_view_$folderKey")] = (mode != 0)
+        }
+    }
+
     fun getFolderGridView(folderKey: String, defaultGrid: Boolean): Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[booleanPreferencesKey("grid_view_$folderKey")] ?: defaultGrid
+        val mode = preferences[intPreferencesKey("view_mode_$folderKey")]
+        if (mode != null) mode != 0
+        else preferences[booleanPreferencesKey("grid_view_$folderKey")] ?: defaultGrid
     }
 
     suspend fun saveFolderGridView(folderKey: String, isGrid: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("grid_view_$folderKey")] = isGrid
+            preferences[intPreferencesKey("view_mode_$folderKey")] = if (isGrid) 1 else 0
         }
     }
 

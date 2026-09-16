@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,7 +65,7 @@ fun HistoryScreen(
     val history by viewModel.fullHistory.collectAsStateWithLifecycle()
     val isPaused by viewModel.isHistoryPaused.collectAsStateWithLifecycle()
     var showClearConfirm by remember { mutableStateOf(false) }
-    val isGridView by viewModel.getFolderGridView("history", false).collectAsStateWithLifecycle(initialValue = false)
+    val viewMode by viewModel.getFolderViewMode("history", 0).collectAsStateWithLifecycle(initialValue = 0)
 
     if (showClearConfirm) {
         AlertDialog(
@@ -100,9 +101,13 @@ fun HistoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.setFolderGridView("history", !isGridView) }) {
+                    IconButton(onClick = { viewModel.setFolderViewMode("history", (viewMode + 1) % 3) }) {
                         Icon(
-                            imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                            imageVector = when (viewMode) {
+                                1 -> Icons.Default.GridView
+                                2 -> Icons.Default.ViewAgenda
+                                else -> Icons.Default.ViewList
+                            },
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface
                         )
@@ -134,9 +139,11 @@ fun HistoryScreen(
                     Text(stringResource(R.string.no_history_yet), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        } else if (isGridView) {
+        } else if (viewMode == 1 || viewMode == 2) {
+            val cols = if (viewMode == 1) 2 else 1
+            val ratio = if (viewMode == 1) 1f else (16f / 9f)
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Fixed(cols),
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -148,7 +155,8 @@ fun HistoryScreen(
                         onClick = {
                             val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                             onMediaClick(encodedUri, item.mediaType, item.position)
-                        }
+                        },
+                        aspectRatio = ratio
                     )
                 }
             }
@@ -237,20 +245,22 @@ fun HistoryItem(
                     )
                 }
 
-                Surface(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp)
-                ) {
-                    Text(
-                        text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else stringResource(R.string.media_type_audio),
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                        fontWeight = FontWeight.Bold
-                    )
+                if (item.size > 0L) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                    ) {
+                        Text(
+                            text = "${item.size / (1024 * 1024)} MB",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
             
