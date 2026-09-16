@@ -152,7 +152,7 @@ class MainActivity : FragmentActivity() {
                                 }
                             ) { backStackEntry ->
                                 val encodedUri = backStackEntry.arguments?.getString("videoUri") ?: ""
-                                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
+                                val decodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeDecodeUri(encodedUri)
                                 val initialPos = backStackEntry.arguments?.getLong("pos") ?: -1L
                                 DisposableEffect(Unit) {
                                     isPlayerActive = true
@@ -174,8 +174,7 @@ class MainActivity : FragmentActivity() {
                                         }
                                     },
                                     onAudioTransition = { audioUri ->
-                                        val encoded = URLEncoder.encode(audioUri, StandardCharsets.UTF_8.toString())
-                                        navController.navigate(Screen.AudioPlayer.createRoute(encoded)) {
+                                        navController.navigate(Screen.AudioPlayer.createRoute(audioUri)) {
                                             popUpTo(Screen.Player.route) { inclusive = true }
                                         }
                                     }
@@ -192,7 +191,7 @@ class MainActivity : FragmentActivity() {
                                 )
                             ) { backStackEntry ->
                                 val encodedUri = backStackEntry.arguments?.getString("audioUri") ?: ""
-                                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
+                                val decodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeDecodeUri(encodedUri)
                                 val initialPos = backStackEntry.arguments?.getLong("pos") ?: -1L
                                 AudioPlayerScreen(
                                     audioUri = decodedUri,
@@ -206,8 +205,7 @@ class MainActivity : FragmentActivity() {
                                         }
                                     },
                                     onVideoTransition = { videoUri ->
-                                        val encoded = URLEncoder.encode(videoUri, StandardCharsets.UTF_8.toString())
-                                        navController.navigate(Screen.Player.createRoute(encoded)) {
+                                        navController.navigate(Screen.Player.createRoute(videoUri)) {
                                             popUpTo(Screen.AudioPlayer.route) { inclusive = true }
                                         }
                                     }
@@ -303,12 +301,10 @@ fun MainScreen(
                 NowPlayingBar(
                     playbackConnection = playbackConnection,
                     onAudioClick = { uri ->
-                        val encodedUri = URLEncoder.encode(uri, StandardCharsets.UTF_8.toString())
-                        navController.navigate(Screen.AudioPlayer.createRoute(encodedUri))
+                        navController.navigate(Screen.AudioPlayer.createRoute(uri))
                     },
                     onVideoClick = { uri ->
-                        val encodedUri = URLEncoder.encode(uri, StandardCharsets.UTF_8.toString())
-                        navController.navigate(Screen.Player.createRoute(encodedUri))
+                        navController.navigate(Screen.Player.createRoute(uri))
                     }
                 )
             }
@@ -320,12 +316,10 @@ fun MainScreen(
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
             onVideoClick = { videoUri, pos ->
-                val encodedUri = URLEncoder.encode(videoUri, StandardCharsets.UTF_8.toString())
-                navController.navigate(Screen.Player.createRoute(encodedUri, pos = pos)) 
+                navController.navigate(Screen.Player.createRoute(videoUri, pos = pos)) 
             },
             onAudioClick = { audioUri, pos ->
-                val encodedUri = URLEncoder.encode(audioUri, StandardCharsets.UTF_8.toString())
-                navController.navigate(Screen.AudioPlayer.createRoute(encodedUri, pos = pos))
+                navController.navigate(Screen.AudioPlayer.createRoute(audioUri, pos = pos))
             },
             onSettingsClick = { navController.navigate(Screen.Settings.route) },
             onViewAllHistoryClick = { navController.navigate(Screen.History.route) },

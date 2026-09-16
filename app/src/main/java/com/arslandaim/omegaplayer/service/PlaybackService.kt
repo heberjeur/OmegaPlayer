@@ -125,28 +125,6 @@ class PlaybackService : MediaSessionService() {
                     .build()
             }
 
-            override fun onPlayerCommandRequest(
-                session: MediaSession,
-                controller: MediaSession.ControllerInfo,
-                playerCommand: Int
-            ): Int {
-                if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS) {
-                    if (player.hasPreviousMediaItem()) {
-                        player.seekToPreviousMediaItem()
-                    } else {
-                        player.seekTo(0L)
-                    }
-                    return SessionResult.RESULT_SUCCESS
-                }
-                if (playerCommand == Player.COMMAND_SEEK_TO_NEXT) {
-                    if (player.hasNextMediaItem()) {
-                        player.seekToNextMediaItem()
-                    }
-                    return SessionResult.RESULT_SUCCESS
-                }
-                return super.onPlayerCommandRequest(session, controller, playerCommand)
-            }
-
             override fun onCustomCommand(
                 session: MediaSession,
                 controller: MediaSession.ControllerInfo,
@@ -219,16 +197,6 @@ class PlaybackService : MediaSessionService() {
                 } else {
                     ImmutableList.of(prevButton, rewindBtn, playPauseBtn, fwdBtn, nextBtn)
                 }
-            }
-
-            override fun addNotificationActions(
-                session: MediaSession,
-                mediaButtons: ImmutableList<CommandButton>,
-                builder: NotificationCompat.Builder,
-                actionFactory: MediaNotification.ActionFactory
-            ): IntArray {
-                super.addNotificationActions(session, mediaButtons, builder, actionFactory)
-                return intArrayOf(0, 2, 4)
             }
         }
         setMediaNotificationProvider(notificationProvider)

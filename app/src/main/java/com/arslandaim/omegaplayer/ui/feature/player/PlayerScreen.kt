@@ -18,6 +18,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
@@ -292,9 +293,18 @@ fun PlayerScreen(
             }
         }
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        context.registerReceiver(receiver, filter)
+        try {
+            ContextCompat.registerReceiver(
+                context,
+                receiver,
+                filter,
+                ContextCompat.RECEIVER_EXPORTED
+            )
+        } catch (_: Exception) {}
         onDispose {
-            context.unregisterReceiver(receiver)
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {}
         }
     }
 
@@ -349,11 +359,13 @@ fun PlayerScreen(
                 updateVolumeFromSystem()
             }
         }
-        context.contentResolver.registerContentObserver(
-            Settings.System.CONTENT_URI,
-            true,
-            contentObserver
-        )
+        try {
+            context.contentResolver.registerContentObserver(
+                Settings.System.CONTENT_URI,
+                true,
+                contentObserver
+            )
+        } catch (_: Exception) {}
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 updateVolumeFromSystem()
@@ -363,10 +375,21 @@ fun PlayerScreen(
             addAction("android.media.VOLUME_CHANGED_ACTION")
             addAction("android.media.STREAM_MUTE_CHANGED_ACTION")
         }
-        context.registerReceiver(receiver, filter)
+        try {
+            ContextCompat.registerReceiver(
+                context,
+                receiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (_: Exception) {}
         onDispose {
-            context.contentResolver.unregisterContentObserver(contentObserver)
-            context.unregisterReceiver(receiver)
+            try {
+                context.contentResolver.unregisterContentObserver(contentObserver)
+            } catch (_: Exception) {}
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {}
         }
     }
     var isControlsVisible by remember { mutableStateOf(true) }

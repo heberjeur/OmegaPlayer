@@ -20,4 +20,28 @@ object MediaUtils {
         if (mediaItem == null) return false
         return !isVideoMediaItem(mediaItem)
     }
+
+    fun safeEncodeUri(uri: String): String {
+        var raw = uri
+        while (raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) {
+            try {
+                raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
+            } catch (_: Exception) {
+                break
+            }
+        }
+        return java.net.URLEncoder.encode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
+    }
+
+    fun safeDecodeUri(uri: String): String {
+        var raw = uri
+        while (raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) {
+            try {
+                raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
+            } catch (_: Exception) {
+                break
+            }
+        }
+        return raw
+    }
 }

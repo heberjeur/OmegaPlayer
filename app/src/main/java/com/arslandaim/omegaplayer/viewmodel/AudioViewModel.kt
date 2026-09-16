@@ -285,76 +285,7 @@ class AudioViewModel @Inject constructor(
         videos: List<VideoModel>,
         audios: List<AudioModel>
     ) {
-        val controller = playbackConnection.mediaController.value ?: return
-        if (playlistItems.isEmpty()) return
-
-        val mediaItems = playlistItems.map { item ->
-            if (item.mediaType == "video") {
-                val video = videos.find { it.uri.toString() == item.mediaUri }
-                val title = video?.name ?: item.mediaUri.substringAfterLast("/")
-                MediaItem.Builder()
-                    .setUri(item.mediaUri)
-                    .setMediaId(item.mediaUri)
-                    .setMimeType("video/*")
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(title)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_VIDEO)
-                            .build()
-                    )
-                    .build()
-            } else {
-                val audio = audios.find { it.uri.toString() == item.mediaUri }
-                val title = audio?.name ?: item.mediaUri.substringAfterLast("/")
-                val albumArtUri = audio?.let {
-                    ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), it.albumId)
-                }
-                MediaItem.Builder()
-                    .setUri(item.mediaUri)
-                    .setMediaId(item.mediaUri)
-                    .setMimeType("audio/*")
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(title)
-                            .setArtist(audio?.artist ?: "")
-                            .setAlbumTitle(audio?.album ?: "")
-                            .setArtworkUri(albumArtUri)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-                            .build()
-                    )
-                    .build()
-            }
-        }
-
-        val queueItems = playlistItems.map { item ->
-            if (item.mediaType == "video") {
-                val video = videos.find { it.uri.toString() == item.mediaUri }
-                PlaybackQueueItem(
-                    uri = item.mediaUri,
-                    title = video?.name ?: item.mediaUri.substringAfterLast("/"),
-                    duration = video?.duration ?: 0L,
-                    isVideo = true
-                )
-            } else {
-                val audio = audios.find { it.uri.toString() == item.mediaUri }
-                PlaybackQueueItem(
-                    uri = item.mediaUri,
-                    title = audio?.name ?: item.mediaUri.substringAfterLast("/"),
-                    duration = audio?.duration ?: 0L,
-                    isVideo = false,
-                    artist = audio?.artist,
-                    albumId = audio?.albumId
-                )
-            }
-        }
-        playbackConnection.setQueue(queueItems)
-
-        val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
-        controller.stop()
-        controller.clearMediaItems()
-        controller.setMediaItems(mediaItems, safeIndex, 0L)
-        controller.prepare()
-        controller.play()
+        playbackConnection.playPlaylist(playlistItems, startIndex, videos, audios)
     }
 
     fun playHistory(
@@ -363,66 +294,7 @@ class AudioViewModel @Inject constructor(
         videos: List<VideoModel>,
         audios: List<AudioModel>
     ) {
-        val controller = playbackConnection.mediaController.value ?: return
-        if (historyItems.isEmpty()) return
-
-        val queueItems = historyItems.map { item ->
-            val isVideo = item.mediaType == "video"
-            val audio = if (!isVideo) audios.find { it.uri.toString() == item.uri } else null
-            PlaybackQueueItem(
-                uri = item.uri,
-                title = item.name,
-                duration = item.duration,
-                isVideo = isVideo,
-                artist = audio?.artist,
-                albumId = audio?.albumId
-            )
-        }
-        playbackConnection.setQueue(queueItems)
-
-        val mediaItems = historyItems.map { item ->
-            val isVideo = item.mediaType == "video"
-            if (isVideo) {
-                MediaItem.Builder()
-                    .setUri(item.uri)
-                    .setMediaId(item.uri)
-                    .setMimeType("video/*")
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(item.name)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_VIDEO)
-                            .build()
-                    )
-                    .build()
-            } else {
-                val audio = audios.find { it.uri.toString() == item.uri }
-                val albumArtUri = audio?.let {
-                    ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), it.albumId)
-                }
-                MediaItem.Builder()
-                    .setUri(item.uri)
-                    .setMediaId(item.uri)
-                    .setMimeType("audio/*")
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(item.name)
-                            .setArtist(audio?.artist ?: "")
-                            .setAlbumTitle(audio?.album ?: "")
-                            .setArtworkUri(albumArtUri)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-                            .build()
-                    )
-                    .build()
-            }
-        }
-
-        val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
-        val initialPos = historyItems[safeIndex].position.coerceAtLeast(0L)
-        controller.stop()
-        controller.clearMediaItems()
-        controller.setMediaItems(mediaItems, safeIndex, initialPos)
-        controller.prepare()
-        controller.play()
+        playbackConnection.playHistory(historyItems, startIndex, videos, audios)
     }
 
     fun setFolderQueue(folderAudios: List<AudioModel>) {
