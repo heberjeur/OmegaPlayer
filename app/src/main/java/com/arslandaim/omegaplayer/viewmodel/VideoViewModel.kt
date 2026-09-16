@@ -28,7 +28,9 @@ import coil.size.Precision
 import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.RecentPlayback
+import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.domain.usecase.media.GetVideosUseCase
+import com.arslandaim.omegaplayer.domain.usecase.playback.PlaylistUseCases
 import com.arslandaim.omegaplayer.domain.usecase.playback.GetRecentPlaybackUseCase
 import com.arslandaim.omegaplayer.data.repository.PlaybackRepository
 import com.arslandaim.omegaplayer.data.ThemePreferences
@@ -48,11 +50,27 @@ import javax.inject.Inject
 class VideoViewModel @Inject constructor(
     application: Application,
     private val getVideosUseCase: GetVideosUseCase,
+    private val playlistUseCases: PlaylistUseCases,
     private val getRecentPlaybackUseCase: GetRecentPlaybackUseCase,
     private val playbackRepository: PlaybackRepository,
     private val playbackConnection: PlaybackConnection,
     private val themePreferences: ThemePreferences
 ) : AndroidViewModel(application) {
+
+    val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addToPlaylist(playlistId: Int, videoUri: String) {
+        viewModelScope.launch {
+            playlistUseCases.addToPlaylist(playlistId, videoUri, "video")
+        }
+    }
+
+    fun createPlaylist(name: String) {
+        viewModelScope.launch {
+            playlistUseCases.createPlaylist(name)
+        }
+    }
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

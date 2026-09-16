@@ -391,11 +391,29 @@ fun VideoGridItem(
                     }
                 }
 
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = video.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Justify,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
                 Surface(
                     color = Color.Black.copy(alpha = 0.7f),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier
-                        .align(Alignment.TopStart)
+                        .align(Alignment.BottomStart)
                         .padding(6.dp)
                 ) {
                     Text(
@@ -412,7 +430,7 @@ fun VideoGridItem(
                     color = Color.Black.copy(alpha = 0.7f),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
+                        .align(Alignment.BottomEnd)
                         .padding(6.dp)
                 ) {
                     Text(
@@ -422,22 +440,6 @@ fun VideoGridItem(
                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = video.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Justify
                     )
                 }
             }
@@ -487,11 +489,29 @@ fun AudioGridItem(
                 }
             }
 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = audio.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Justify,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
             Surface(
                 color = Color.Black.copy(alpha = 0.7f),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.BottomStart)
                     .padding(6.dp)
             ) {
                 Text(
@@ -508,7 +528,7 @@ fun AudioGridItem(
                 color = Color.Black.copy(alpha = 0.7f),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.BottomEnd)
                     .padding(6.dp)
             ) {
                 Text(
@@ -520,20 +540,174 @@ fun AudioGridItem(
                     fontSize = 10.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun PlaylistGridCard(
+    playlist: Playlist,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+            Text(
+                text = playlist.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Surface(
+                modifier = Modifier
+                    .size(56.dp)
+                    .align(Alignment.Center),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.align(Alignment.BottomEnd)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryGridCard(
+    item: RecentPlayback,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (item.mediaType == "video") {
+                val context = LocalContext.current
+                val imageRequest = remember(item.uri) {
+                    ImageRequest.Builder(context)
+                        .data(Uri.parse(item.uri))
+                        .videoFrameMillis(1000)
+                        .size(400)
+                        .precision(Precision.INEXACT)
+                        .build()
+                }
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                }
+            }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
+                    .align(Alignment.TopCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                     .padding(8.dp)
             ) {
                 Text(
-                    text = audio.name,
+                    text = item.name,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
                     modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Justify
+                    textAlign = TextAlign.Justify,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
+                    .padding(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = formatDuration(item.duration),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Text(
+                        text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else stringResource(R.string.media_type_audio),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 10.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = Color.White.copy(alpha = 0.3f)
                 )
             }
         }

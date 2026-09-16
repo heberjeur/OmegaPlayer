@@ -38,36 +38,21 @@ fun NowPlayingBar(
         val item = currentMediaItem ?: return@AnimatedVisibility
         val uriString = item.localConfiguration?.uri?.toString() ?: ""
 
-        if (isVideo) {
-            VideoMiniPlayer(
-                mediaItem = item,
-                isPlaying = isPlaying,
-                mediaController = mediaController,
-                onExpandClick = {
-                    if (uriString.isNotEmpty()) {
-                        onVideoClick(uriString)
-                    }
-                },
-                onCloseClick = {
-                    mediaController?.stop()
-                    mediaController?.clearMediaItems()
-                }
-            )
+        val onClick = if (isVideo) {
+            { if (uriString.isNotEmpty()) onVideoClick(uriString) }
         } else {
-            AudioMiniPlayer(
-                mediaItem = item,
-                isPlaying = isPlaying,
-                mediaController = mediaController,
-                onBarClick = {
-                    if (uriString.isNotEmpty()) {
-                        onAudioClick(uriString)
-                    }
-                },
-                onCloseClick = {
-                    mediaController?.stop()
-                    mediaController?.clearMediaItems()
-                }
-            )
+            { if (uriString.isNotEmpty()) onAudioClick(uriString) }
         }
+
+        AudioMiniPlayer(
+            mediaItem = item,
+            isPlaying = isPlaying,
+            mediaController = mediaController,
+            onBarClick = onClick,
+            onCloseClick = {
+                mediaController?.stop()
+                mediaController?.clearMediaItems()
+            }
+        )
     }
 }

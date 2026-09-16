@@ -11,20 +11,29 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +48,8 @@ import coil.size.Precision
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arslandaim.omegaplayer.R
 import com.arslandaim.omegaplayer.data.RecentPlayback
+import com.arslandaim.omegaplayer.ui.feature.library.components.HistoryGridCard
+import com.arslandaim.omegaplayer.ui.feature.library.components.formatDuration
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -53,6 +64,7 @@ fun HistoryScreen(
     val history by viewModel.fullHistory.collectAsStateWithLifecycle()
     val isPaused by viewModel.isHistoryPaused.collectAsStateWithLifecycle()
     var showClearConfirm by remember { mutableStateOf(false) }
+    var isGridView by rememberSaveable { mutableStateOf(false) }
 
     if (showClearConfirm) {
         AlertDialog(
@@ -88,6 +100,13 @@ fun HistoryScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { isGridView = !isGridView }) {
+                        Icon(
+                            imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = { viewModel.toggleHistoryPause(!isPaused) }) {
                         Icon(
                             imageVector = if (isPaused) Icons.Default.PlayCircle else Icons.Default.PauseCircle,
@@ -113,6 +132,24 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(stringResource(R.string.no_history_yet), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else if (isGridView) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(history, key = { it.uri }) { item ->
+                    HistoryGridCard(
+                        item = item,
+                        onClick = {
+                            val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
+                            onMediaClick(encodedUri, item.mediaType)
+                        }
+                    )
                 }
             }
         } else {
@@ -144,18 +181,23 @@ fun HistoryItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+                .heightIn(min = 84.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    .width(118.dp)
+                    .height(74.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (item.mediaType == "video") {
@@ -163,7 +205,7 @@ fun HistoryItem(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(Uri.parse(item.uri))
                             .videoFrameMillis(1000)
-                            .size(200)
+                            .size(400)
                             .precision(Precision.INEXACT)
                             .build(),
                         contentDescription = null,
@@ -172,34 +214,67 @@ fun HistoryItem(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.History,
+                        imageVector = Icons.Default.MusicNote,
                         contentDescription = null,
+                        modifier = Modifier.size(36.dp),
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        text = formatDuration(item.duration),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else stringResource(R.string.media_type_audio),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.padding(start = 10.dp, end = 8.dp).weight(1f)) {
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Justify,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = if (item.mediaType == "video") stringResource(R.string.media_type_video) else item.artist ?: stringResource(R.string.media_type_audio),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
+                Spacer(modifier = Modifier.height(6.dp))
                 val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
-                Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
         }

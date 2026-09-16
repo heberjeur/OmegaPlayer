@@ -6,10 +6,12 @@
 
 package com.arslandaim.omegaplayer.ui.common
 
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -17,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -37,6 +40,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -47,6 +51,9 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
+import com.arslandaim.omegaplayer.util.MediaUtils
 import kotlinx.coroutines.delay
 
 @Composable
@@ -166,45 +173,74 @@ fun AudioMiniPlayer(
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    AsyncImage(
-                        model = metadata.artworkUri ?: metadata.artworkData,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        error = rememberVectorPainter(Icons.Default.MusicNote),
-                        fallback = rememberVectorPainter(Icons.Default.MusicNote)
-                    )
+                    val isVideo = remember(mediaItem) { MediaUtils.isVideoMediaItem(mediaItem) }
+                    if (isVideo) {
+                        val imageRequest = ImageRequest.Builder(LocalContext.current)
+                            .data(mediaItem.localConfiguration?.uri ?: Uri.EMPTY)
+                            .videoFrameMillis(1000)
+                            .crossfade(true)
+                            .build()
+                        AsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = rememberVectorPainter(Icons.Default.Movie),
+                            fallback = rememberVectorPainter(Icons.Default.Movie)
+                        )
+                    } else {
+                        AsyncImage(
+                            model = metadata.artworkUri ?: metadata.artworkData,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = rememberVectorPainter(Icons.Default.MusicNote),
+                            fallback = rememberVectorPainter(Icons.Default.MusicNote)
+                        )
+                    }
                 }
 
-                // Audio Title & Artist
-                Column(
+                val defaultTitle = stringResource(R.string.unknown_track)
+                val mediaTitle = metadata.title?.toString()
+                    ?: mediaItem.localConfiguration?.uri?.lastPathSegment
+                    ?: defaultTitle
+
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 12.dp)
                 ) {
                     Text(
-                        text = metadata.title?.toString() ?: stringResource(R.string.unknown_track),
+                        text = mediaTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = metadata.artist?.toString() ?: stringResource(R.string.unknown_artist),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Clip,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.basicMarquee()
                     )
                 }
 
-                // Action Controls
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            mediaController?.seekToPreviousMediaItem()
+                        },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous Track",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(2.dp))
+
                     IconButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)

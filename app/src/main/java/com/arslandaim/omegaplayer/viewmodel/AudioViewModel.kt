@@ -132,6 +132,9 @@ class AudioViewModel @Inject constructor(
     val recentPlayback: StateFlow<List<RecentPlayback>> = getRecentPlaybackUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val fullHistory: StateFlow<List<RecentPlayback>> = playbackRepository.getAllRecentPlayback()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val isHistoryPaused: StateFlow<Boolean> = themePreferences.isHistoryPaused
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 

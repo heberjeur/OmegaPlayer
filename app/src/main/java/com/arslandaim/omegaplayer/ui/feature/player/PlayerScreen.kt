@@ -15,7 +15,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.annotation.OptIn
+import androidx.annotation.OptIn as AndroidOptIn
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -23,14 +23,25 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
+import androidx.media3.common.MediaMetadata
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,7 +88,8 @@ import kotlin.time.Duration.Companion.milliseconds
 import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 
-@OptIn(UnstableApi::class, ExperimentalSharedTransitionApi::class)
+@AndroidOptIn(UnstableApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     videoUri: String, 
@@ -102,7 +114,12 @@ fun PlayerScreen(
     val sleepTimerActive by viewModel.sleepTimerActive.collectAsStateWithLifecycle()
     val sleepTimerTimeLeft by viewModel.sleepTimerTimeLeft.collectAsStateWithLifecycle()
 
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+    var showEqualizerDialog by remember { mutableStateOf(false) }
+    var showQueueSheet by remember { mutableStateOf(false) }
+    val queueSheetState = rememberModalBottomSheetState()
 
     // Keep screen on during active playback
     LaunchedEffect(isPlaying) {
@@ -147,10 +164,11 @@ fun PlayerScreen(
     // Use rememberUpdatedState for stable reference in observers/disposables
     val currentBackgroundPlay = rememberUpdatedState(isBackgroundPlayEnabled)
 
-    LaunchedEffect(videoUri, mediaController) {
+    LaunchedEffect(videoUri, mediaController, videosList) {
         val player = mediaController ?: return@LaunchedEffect
         val newUri = Uri.parse(videoUri)
         val currentUri = player.currentMediaItem?.localConfiguration?.uri
+        val savedPos = viewModel.fullHistory.value.find { it.uri == videoUri }?.position ?: 0L
         if (currentUri != newUri) {
             playbackError = null
             var matchedIndex = -1
@@ -161,12 +179,34 @@ fun PlayerScreen(
                 }
             }
             if (matchedIndex != -1) {
-                player.seekToDefaultPosition(matchedIndex)
+                if (savedPos > 1000L) {
+                    player.seekTo(matchedIndex, savedPos)
+                } else {
+                    player.seekToDefaultPosition(matchedIndex)
+                }
+            } else if (videosList.isNotEmpty()) {
+                val mediaItems = videosList.map { videoItem ->
+                    MediaItem.Builder()
+                        .setUri(videoItem.uri)
+                        .setMediaId(videoItem.id.toString())
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(videoItem.name)
+                                .build()
+                        )
+                        .build()
+                }
+                val index = videosList.indexOfFirst { it.uri.toString() == videoUri }.coerceAtLeast(0)
+                player.setMediaItems(mediaItems, index, if (savedPos > 1000L) savedPos else 0L)
+                player.prepare()
             } else {
                 player.stop()
                 player.clearMediaItems()
                 player.setMediaItem(MediaItem.fromUri(newUri))
                 player.prepare()
+                if (savedPos > 1000L) {
+                    player.seekTo(savedPos)
+                }
             }
         }
         player.playWhenReady = true
@@ -564,6 +604,15 @@ fun PlayerScreen(
                     onSleepTimerClick = {
                         showSleepTimerDialog = true
                     },
+                    onPlaylistClick = {
+                        showPlaylistDialog = true
+                    },
+                    onEqualizerClick = {
+                        showEqualizerDialog = true
+                    },
+                    onQueueClick = {
+                        showQueueSheet = true
+                    },
                     sleepTimerActive = sleepTimerActive,
                     sleepTimerTimeLeft = sleepTimerTimeLeft
                 )
@@ -626,6 +675,86 @@ fun PlayerScreen(
                 },
                 shape = RoundedCornerShape(28.dp)
             )
+        }
+
+        if (showPlaylistDialog) {
+            AddToPlaylistDialog(
+                playlists = playlists,
+                onDismiss = { showPlaylistDialog = false },
+                onPlaylistSelected = { playlistId ->
+                    val currentUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
+                    viewModel.addToPlaylist(playlistId, currentUri)
+                    showPlaylistDialog = false
+                },
+                onCreatePlaylist = { name ->
+                    viewModel.createPlaylist(name)
+                }
+            )
+        }
+
+        if (showEqualizerDialog) {
+            AudioEqualizerDialog(
+                onDismiss = { showEqualizerDialog = false }
+            )
+        }
+
+        if (showQueueSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showQueueSheet = false },
+                sheetState = queueSheetState,
+                containerColor = Color(0xFF1A1A1A),
+                contentColor = Color.White
+            ) {
+                Column(modifier = Modifier.fillMaxHeight(0.6f).padding(16.dp)) {
+                    Text(
+                        stringResource(R.string.up_next),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    LazyColumn {
+                        items(videosList) { video ->
+                            val currentUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
+                            val isCurrent = video.uri.toString() == currentUri
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        video.name,
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White
+                                    )
+                                },
+                                supportingContent = { Text(formatDuration(video.duration), color = Color.Gray) },
+                                leadingContent = {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(video.uri)
+                                            .videoFrameMillis(1000)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop,
+                                        error = rememberVectorPainter(Icons.Default.Movie)
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    showQueueSheet = false
+                                    val index = videosList.indexOfFirst { it.uri == video.uri }
+                                    if (index != -1 && index < (mediaController?.mediaItemCount ?: 0)) {
+                                        mediaController?.seekToDefaultPosition(index)
+                                    } else {
+                                        mediaController?.setMediaItem(MediaItem.fromUri(video.uri))
+                                        mediaController?.prepare()
+                                    }
+                                    mediaController?.play()
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (playbackError != null) {
@@ -718,6 +847,9 @@ fun PlayerControls(
     onInfoClick: () -> Unit,
     onSubtitleClick: () -> Unit,
     onSleepTimerClick: () -> Unit,
+    onPlaylistClick: () -> Unit,
+    onEqualizerClick: () -> Unit,
+    onQueueClick: () -> Unit,
     sleepTimerActive: Boolean,
     sleepTimerTimeLeft: Long
 ) {
@@ -733,7 +865,7 @@ fun PlayerControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
             }
             Text(
                 text = videoName,
@@ -746,64 +878,148 @@ fun PlayerControls(
                     .padding(horizontal = 8.dp)
                     .basicMarquee()
             )
-            IconButton(onClick = onSubtitleClick) {
-                Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
+            IconButton(onClick = onQueueClick) {
+                Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.queue), tint = Color.White)
             }
             Box {
                 IconButton(onClick = { showMoreMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more), tint = Color.White)
                 }
                 DropdownMenu(
                     expanded = showMoreMenu,
                     onDismissRequest = { showMoreMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Information") },
-                        onClick = { 
+                        text = { Text(stringResource(R.string.menu_add_to_playlist)) },
+                        onClick = {
+                            showMoreMenu = false
+                            onPlaylistClick()
+                        },
+                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            val text = if (sleepTimerActive) stringResource(R.string.sleep_timer_format, formatTime(sleepTimerTimeLeft))
+                            else stringResource(R.string.sleep_timer)
+                            Text(text)
+                        },
+                        onClick = {
+                            showMoreMenu = false
+                            onSleepTimerClick()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) MaterialTheme.colorScheme.primary else Color.White) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.playback_speed_format, playbackSpeed.toString())) },
+                        onClick = {
+                            val nextSpeed = when (playbackSpeed) {
+                                1.0f -> 1.25f
+                                1.25f -> 1.5f
+                                1.5f -> 2.0f
+                                2.0f -> 0.75f
+                                else -> 1.0f
+                            }
+                            onSpeedChange(nextSpeed)
+                            showMoreMenu = false
+                        },
+                        leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.equalizer)) },
+                        onClick = {
+                            showMoreMenu = false
+                            onEqualizerClick()
+                        },
+                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_information)) },
+                        onClick = {
                             showMoreMenu = false
                             onInfoClick()
                         },
                         leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                     )
-                    DropdownMenuItem(
-                        text = { Text(if (sleepTimerActive) "Sleep Timer: ${formatTime(sleepTimerTimeLeft)}" else "Sleep Timer") },
-                        onClick = { 
-                            showMoreMenu = false
-                            onSleepTimerClick()
-                        },
-                        leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) Color(0xFFFF6600) else Color.White) }
-                    )
                 }
-            }
-            IconButton(onClick = onHardwareToggle) {
-                Text(
-                    text = if (isHardwareAccelerated) "HW" else "SW",
-                    color = if (isHardwareAccelerated) Color(0xFF4CAF50) else Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
             }
         }
 
+        var repeatMode by remember { mutableIntStateOf(player?.repeatMode ?: Player.REPEAT_MODE_OFF) }
+        var isShuffle by remember { mutableStateOf(player?.shuffleModeEnabled ?: false) }
+
         Row(
-            modifier = Modifier.align(Alignment.Center),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(40.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .align(Alignment.Center),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { player?.seekBack() }) {
-                Icon(Icons.Default.SkipPrevious, contentDescription = "Prev", tint = Color.White, modifier = Modifier.size(48.dp))
+            IconButton(onClick = {
+                val nextMode = when (player?.repeatMode) {
+                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                    else -> Player.REPEAT_MODE_OFF
+                }
+                player?.repeatMode = nextMode
+                repeatMode = nextMode
+            }) {
+                Icon(
+                    when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
+                        else -> Icons.Default.Repeat
+                    },
+                    contentDescription = "Repeat",
+                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
+                )
             }
-            IconButton(
-                onClick = { if (player?.isPlaying == true) player.pause() else player?.play() },
-                modifier = Modifier.size(80.dp).background(Color.White.copy(alpha = 0.1f), CircleShape)
+
+            IconButton(onClick = { player?.seekToPreviousMediaItem() }) {
+                Icon(
+                    Icons.Default.SkipPrevious,
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(36.dp),
+                    tint = Color.White
+                )
+            }
+
+            FilledIconButton(
+                onClick = {
+                    if (player?.isPlaying == true) player.pause() else player?.play()
+                },
+                modifier = Modifier.size(84.dp),
+                shape = CircleShape,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                )
             ) {
                 Icon(
                     if (player?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = "Play", tint = Color.White, modifier = Modifier.size(56.dp)
+                    contentDescription = if (player?.isPlaying == true) "Pause" else "Play",
+                    modifier = Modifier.size(44.dp)
                 )
             }
-            IconButton(onClick = { player?.seekForward() }) {
-                Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = Color.White, modifier = Modifier.size(48.dp))
+
+            IconButton(onClick = { player?.seekToNextMediaItem() }) {
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = "Next",
+                    modifier = Modifier.size(36.dp),
+                    tint = Color.White
+                )
+            }
+
+            IconButton(onClick = {
+                val nextShuffle = !(player?.shuffleModeEnabled ?: false)
+                player?.shuffleModeEnabled = nextShuffle
+                isShuffle = nextShuffle
+            }) {
+                Icon(
+                    Icons.Default.Shuffle,
+                    contentDescription = "Shuffle",
+                    tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
+                )
             }
         }
 
@@ -816,22 +1032,29 @@ fun PlayerControls(
                     modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
-                        activeTrackColor = Color(0xFFFF6600),
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
                         inactiveTrackColor = Color.White.copy(alpha = 0.3f)
                     )
                 )
                 Text(formatTime(duration), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                IconButton(onClick = onRotationChange) { Icon(Icons.Default.ScreenRotation, null, tint = Color.White) }
-                IconButton(onClick = onAspectRatioToggle) {
-                    Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, null, tint = Color.White)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onRotationChange) {
+                    Icon(Icons.Default.ScreenRotation, contentDescription = "Rotation", tint = Color.White)
                 }
-                TextButton(onClick = { 
-                    val nextSpeed = if (playbackSpeed >= 2f) 0.5f else (playbackSpeed + 0.25f)
-                    onSpeedChange(nextSpeed) 
-                }) {
-                    Text("${playbackSpeed}x", color = Color.White, fontWeight = FontWeight.Bold)
+                IconButton(onClick = onAspectRatioToggle) {
+                    Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = "Aspect Ratio", tint = Color.White)
+                }
+                IconButton(onClick = onHardwareToggle) {
+                    Text(
+                        text = if (isHardwareAccelerated) "HW" else "SW",
+                        color = if (isHardwareAccelerated) Color(0xFF4CAF50) else Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                IconButton(onClick = onSubtitleClick) {
+                    Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
                 }
             }
         }

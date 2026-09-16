@@ -351,6 +351,7 @@ fun AudioPlayerScreen(
     var repeatMode by remember { mutableStateOf(controller?.repeatMode ?: Player.REPEAT_MODE_OFF) }
     var playbackSpeed by remember { mutableFloatStateOf(controller?.playbackParameters?.speed ?: 1.0f) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     val infiniteTransition = rememberInfiniteTransition(label = "breathing")
     val artScale by infiniteTransition.animateFloat(
@@ -399,6 +400,7 @@ fun AudioPlayerScreen(
         duration = player.duration.coerceAtLeast(0L)
         repeatMode = player.repeatMode
         
+        val savedPos = viewModel.fullHistory.value.find { it.uri == audioUri }?.position ?: 0L
         val currentUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
         if (currentUri != audioUri) {
             var matchedIndex = -1
@@ -409,7 +411,11 @@ fun AudioPlayerScreen(
                 }
             }
             if (matchedIndex != -1) {
-                player.seekToDefaultPosition(matchedIndex)
+                if (savedPos > 1000L) {
+                    player.seekTo(matchedIndex, savedPos)
+                } else {
+                    player.seekToDefaultPosition(matchedIndex)
+                }
                 player.play()
             } else {
                 val mediaItems = audios.map { audioItem ->
@@ -433,7 +439,7 @@ fun AudioPlayerScreen(
                 val index = audios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
                 
                 if (mediaItems.isNotEmpty()) {
-                    player.setMediaItems(mediaItems, index, 0L)
+                    player.setMediaItems(mediaItems, index, if (savedPos > 1000L) savedPos else 0L)
                     player.prepare()
                     player.play()
                 }
@@ -571,6 +577,14 @@ fun AudioPlayerScreen(
                                     showEqualizerDialog = true
                                 },
                                 leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_information)) },
+                                onClick = { 
+                                    showMoreOptions = false
+                                    showInfoDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                             )
                         }
                     },
@@ -797,5 +811,27 @@ fun AudioPlayerScreen(
                 }
             }
         }
+    }
+
+    if (showInfoDialog && currentAudio != null) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text(stringResource(R.string.menu_information)) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    InfoRow(stringResource(R.string.info_name), currentAudio!!.name)
+                    InfoRow(stringResource(R.string.info_artist), currentAudio!!.artist)
+                    InfoRow(stringResource(R.string.info_path), currentAudio!!.path)
+                    InfoRow(stringResource(R.string.info_duration), formatDuration(currentAudio!!.duration))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.action_close)) }
+            },
+            shape = RoundedCornerShape(28.dp)
+        )
     }
 }
