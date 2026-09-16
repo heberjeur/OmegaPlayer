@@ -59,12 +59,12 @@ import java.nio.charset.StandardCharsets
 fun HistoryScreen(
     viewModel: VideoViewModel,
     onBack: () -> Unit,
-    onMediaClick: (String, String) -> Unit
+    onMediaClick: (String, String, Long) -> Unit
 ) {
     val history by viewModel.fullHistory.collectAsStateWithLifecycle()
     val isPaused by viewModel.isHistoryPaused.collectAsStateWithLifecycle()
     var showClearConfirm by remember { mutableStateOf(false) }
-    var isGridView by rememberSaveable { mutableStateOf(false) }
+    val isGridView by viewModel.getFolderGridView("history", false).collectAsStateWithLifecycle(initialValue = false)
 
     if (showClearConfirm) {
         AlertDialog(
@@ -100,7 +100,7 @@ fun HistoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { isGridView = !isGridView }) {
+                    IconButton(onClick = { viewModel.setFolderGridView("history", !isGridView) }) {
                         Icon(
                             imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
                             contentDescription = null,
@@ -147,7 +147,7 @@ fun HistoryScreen(
                         item = item,
                         onClick = {
                             val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
-                            onMediaClick(encodedUri, item.mediaType)
+                            onMediaClick(encodedUri, item.mediaType, item.position)
                         }
                     )
                 }
@@ -163,7 +163,7 @@ fun HistoryScreen(
                         item = item,
                         onClick = {
                             val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
-                            onMediaClick(encodedUri, item.mediaType)
+                            onMediaClick(encodedUri, item.mediaType, item.position)
                         }
                     )
                 }

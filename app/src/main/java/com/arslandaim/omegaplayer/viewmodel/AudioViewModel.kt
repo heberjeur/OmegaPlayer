@@ -15,6 +15,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 import com.arslandaim.omegaplayer.data.AudioModel
+import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.PlaylistItem
@@ -415,5 +416,78 @@ class AudioViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    val speedScope: StateFlow<PlaybackSpeedScope> = themePreferences.speedScope
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackSpeedScope.GLOBAL)
+
+    val globalPlaybackSpeed: StateFlow<Float> = themePreferences.globalPlaybackSpeed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
+
+    val showPlayerClock: StateFlow<Boolean> = themePreferences.showPlayerClock
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showPlayerBattery: StateFlow<Boolean> = themePreferences.showPlayerBattery
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showPlayerMediaInfo: StateFlow<Boolean> = themePreferences.showPlayerMediaInfo
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showPlayerVolume: StateFlow<Boolean> = themePreferences.showPlayerVolume
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showPlayerBrightness: StateFlow<Boolean> = themePreferences.showPlayerBrightness
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    suspend fun getSavedPosition(uri: String): Long {
+        return playbackRepository.getRecentPlayback(uri)?.position ?: 0L
+    }
+
+    fun setSpeedScope(scope: PlaybackSpeedScope) {
+        viewModelScope.launch { themePreferences.saveSpeedScope(scope) }
+    }
+
+    fun setGlobalPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { themePreferences.saveGlobalPlaybackSpeed(speed) }
+    }
+
+    fun getFolderSpeed(folderName: String): Flow<Float?> = themePreferences.getFolderPlaybackSpeed(folderName)
+
+    fun setFolderPlaybackSpeed(folderName: String, speed: Float) {
+        viewModelScope.launch { themePreferences.saveFolderPlaybackSpeed(folderName, speed) }
+    }
+
+    fun getFolderGridView(folderKey: String, defaultGrid: Boolean = false): Flow<Boolean> =
+        themePreferences.getFolderGridView(folderKey, defaultGrid)
+
+    fun setFolderGridView(folderKey: String, isGrid: Boolean) {
+        viewModelScope.launch { themePreferences.saveFolderGridView(folderKey, isGrid) }
+    }
+
+    fun getFolderSortOrder(folderKey: String, defaultSort: String = MediaSortOrder.DATE_DESC.name): Flow<String> =
+        themePreferences.getFolderSortOrder(folderKey, defaultSort)
+
+    fun setFolderSortOrder(folderKey: String, sortOrder: String) {
+        viewModelScope.launch { themePreferences.saveFolderSortOrder(folderKey, sortOrder) }
+    }
+
+    fun togglePlayerClock(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowPlayerClock(show) }
+    }
+
+    fun togglePlayerBattery(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowPlayerBattery(show) }
+    }
+
+    fun togglePlayerMediaInfo(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowPlayerMediaInfo(show) }
+    }
+
+    fun togglePlayerVolume(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowPlayerVolume(show) }
+    }
+
+    fun togglePlayerBrightness(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowPlayerBrightness(show) }
     }
 }

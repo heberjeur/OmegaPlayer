@@ -39,6 +39,8 @@ class PlaybackRepositoryImpl @Inject constructor(
 
     override fun getAllRecentPlayback(): Flow<List<RecentPlayback>> = appDao.getAllRecentPlaybackFlow()
 
+    override suspend fun getRecentPlayback(uri: String): RecentPlayback? = appDao.getRecentPlayback(uri)
+
     override suspend fun saveRecentPlayback(recent: RecentPlayback) {
         appDao.insertRecentPlayback(recent)
     }

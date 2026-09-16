@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arslandaim.omegaplayer.R
 import com.arslandaim.omegaplayer.data.AppTheme
+import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import com.arslandaim.omegaplayer.viewmodel.ThemeViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 
@@ -66,6 +67,13 @@ fun SettingsScreen(
     val excludedFolders by videoViewModel.excludedFolders.collectAsStateWithLifecycle(initialValue = emptySet())
     val showRecentHistoryOnHome by videoViewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
     val showHistoryTab by videoViewModel.showHistoryTab.collectAsStateWithLifecycle()
+
+    val speedScope by videoViewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
+    val showPlayerClock by videoViewModel.showPlayerClock.collectAsStateWithLifecycle(initialValue = true)
+    val showPlayerBattery by videoViewModel.showPlayerBattery.collectAsStateWithLifecycle(initialValue = true)
+    val showPlayerMediaInfo by videoViewModel.showPlayerMediaInfo.collectAsStateWithLifecycle(initialValue = true)
+    val showPlayerVolume by videoViewModel.showPlayerVolume.collectAsStateWithLifecycle(initialValue = true)
+    val showPlayerBrightness by videoViewModel.showPlayerBrightness.collectAsStateWithLifecycle(initialValue = true)
 
     var showAboutDeveloperDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -180,6 +188,100 @@ fun SettingsScreen(
                             Switch(
                                 checked = showHistoryTab,
                                 onCheckedChange = { videoViewModel.toggleShowHistoryTab(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+
+            Text(stringResource(R.string.section_playback), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(stringResource(R.string.setting_speed_scope), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(R.string.setting_speed_scope_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        PlaybackSpeedScope.entries.forEachIndexed { index, scope ->
+                            val label = when (scope) {
+                                PlaybackSpeedScope.GLOBAL -> stringResource(R.string.speed_scope_global)
+                                PlaybackSpeedScope.PER_FOLDER -> stringResource(R.string.speed_scope_per_folder)
+                            }
+                            SegmentedButton(
+                                selected = speedScope == scope,
+                                onClick = { videoViewModel.setSpeedScope(scope) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = PlaybackSpeedScope.entries.size),
+                                label = { Text(label, maxLines = 1) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Text(stringResource(R.string.setting_player_hud), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.hud_show_clock), fontWeight = FontWeight.Medium) },
+                        trailingContent = {
+                            Switch(
+                                checked = showPlayerClock,
+                                onCheckedChange = { videoViewModel.togglePlayerClock(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.hud_show_battery), fontWeight = FontWeight.Medium) },
+                        trailingContent = {
+                            Switch(
+                                checked = showPlayerBattery,
+                                onCheckedChange = { videoViewModel.togglePlayerBattery(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.hud_show_media_info), fontWeight = FontWeight.Medium) },
+                        trailingContent = {
+                            Switch(
+                                checked = showPlayerMediaInfo,
+                                onCheckedChange = { videoViewModel.togglePlayerMediaInfo(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.hud_show_volume), fontWeight = FontWeight.Medium) },
+                        trailingContent = {
+                            Switch(
+                                checked = showPlayerVolume,
+                                onCheckedChange = { videoViewModel.togglePlayerVolume(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.hud_show_brightness), fontWeight = FontWeight.Medium) },
+                        trailingContent = {
+                            Switch(
+                                checked = showPlayerBrightness,
+                                onCheckedChange = { videoViewModel.togglePlayerBrightness(it) }
                             )
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

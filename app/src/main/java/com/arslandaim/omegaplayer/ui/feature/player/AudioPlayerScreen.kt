@@ -46,6 +46,7 @@ import coil.request.SuccessResult
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.ui.common.WaveformVisualizer
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import android.content.ContentUris
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
@@ -309,7 +310,8 @@ fun AudioPlayerScreen(
     audioUri: String,
     viewModel: AudioViewModel,
     onBack: () -> Unit,
-    onVideoTransition: (String) -> Unit = {}
+    onVideoTransition: (String) -> Unit = {},
+    initialPosition: Long = -1L
 ) {
     BackHandler(onBack = onBack)
 
@@ -330,6 +332,13 @@ fun AudioPlayerScreen(
     val selectedFolder by viewModel.selectedFolder.collectAsStateWithLifecycle()
     val audios by viewModel.audiosInSelectedFolder.collectAsStateWithLifecycle()
     
+    val speedScope by viewModel.speedScope.collectAsStateWithLifecycle()
+    val globalSpeed by viewModel.globalPlaybackSpeed.collectAsStateWithLifecycle()
+    val folderSpeed by (if (selectedFolder != null) viewModel.getFolderSpeed(selectedFolder!!) else flowOf(null)).collectAsStateWithLifecycle(initialValue = null)
+    val effectiveSpeed = remember(speedScope, globalSpeed, folderSpeed) {
+        if (speedScope == com.arslandaim.omegaplayer.data.PlaybackSpeedScope.PER_FOLDER && folderSpeed != null) folderSpeed!! else globalSpeed
+    }
+
     var currentAudio by remember { mutableStateOf(globalAudios.find { it.uri.toString() == audioUri }) }
 
     LaunchedEffect(globalAudios, audioUri) {
@@ -349,7 +358,7 @@ fun AudioPlayerScreen(
     var currentPosition by remember { mutableStateOf(controller?.currentPosition ?: 0L) }
     var duration by remember { mutableStateOf(controller?.duration?.coerceAtLeast(0L) ?: 0L) }
     var repeatMode by remember { mutableStateOf(controller?.repeatMode ?: Player.REPEAT_MODE_OFF) }
-    var playbackSpeed by remember { mutableFloatStateOf(controller?.playbackParameters?.speed ?: 1.0f) }
+    var playbackSpeed by remember { mutableFloatStateOf(effectiveSpeed) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
@@ -373,7 +382,9 @@ fun AudioPlayerScreen(
         }
     }
 
-    LaunchedEffect(controller, audios) {
+    var hasSeekedInitialPosition by remember(audioUri, initialPosition) { mutableStateOf(false) }
+
+    LaunchedEffect(controller, audios, audioUri, initialPosition, effectiveSpeed) {
         val player = controller ?: return@LaunchedEffect
         
         val listener = object : Player.Listener {
@@ -400,7 +411,7 @@ fun AudioPlayerScreen(
         duration = player.duration.coerceAtLeast(0L)
         repeatMode = player.repeatMode
         
-        val savedPos = viewModel.fullHistory.value.find { it.uri == audioUri }?.position ?: 0L
+        val targetPos = if (initialPosition >= 0L) initialPosition else viewModel.getSavedPosition(audioUri)
         val currentUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
         if (currentUri != audioUri) {
             var matchedIndex = -1
@@ -411,11 +422,7 @@ fun AudioPlayerScreen(
                 }
             }
             if (matchedIndex != -1) {
-                if (savedPos > 1000L) {
-                    player.seekTo(matchedIndex, savedPos)
-                } else {
-                    player.seekToDefaultPosition(matchedIndex)
-                }
+                player.seekTo(matchedIndex, targetPos.coerceAtLeast(0L))
                 player.play()
             } else {
                 val mediaItems = audios.map { audioItem ->
@@ -439,14 +446,21 @@ fun AudioPlayerScreen(
                 val index = audios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
                 
                 if (mediaItems.isNotEmpty()) {
-                    player.setMediaItems(mediaItems, index, if (savedPos > 1000L) savedPos else 0L)
+                    player.setMediaItems(mediaItems, index, targetPos.coerceAtLeast(0L))
                     player.prepare()
                     player.play()
                 }
             }
+            hasSeekedInitialPosition = true
         } else {
             currentAudio = audios.find { it.uri.toString() == audioUri } ?: globalAudios.find { it.uri.toString() == audioUri }
+            if (!hasSeekedInitialPosition && targetPos > 0L) {
+                player.seekTo(targetPos)
+                hasSeekedInitialPosition = true
+            }
         }
+        player.setPlaybackSpeed(effectiveSpeed)
+        playbackSpeed = effectiveSpeed
         
         try {
             while (true) {

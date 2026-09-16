@@ -137,4 +137,16 @@
     <string name="background_play_enabled">Background play enabled</string>
     <string name="background_play_disabled">Background play disabled</string>
     <string name="menu_information">Information</string>
+    <string name="setting_speed_scope">Playback Speed Scope</string>
+    <string name="setting_speed_scope_sub">Apply playback speed globally or per folder</string>
+    <string name="speed_scope_global">Global (All Media)</string>
+    <string name="speed_scope_per_folder">Per Folder</string>
+    <string name="setting_player_hud">Player Top HUD</string>
+    <string name="setting_player_hud_sub">Customize indicators displayed in player header</string>
+    <string name="hud_show_clock">Show Clock</string>
+    <string name="hud_show_battery">Show Battery Level</string>
+    <string name="hud_show_media_info">Show Media Info (Resolution)</string>
+    <string name="hud_show_volume">Show Volume Level</string>
+    <string name="hud_show_brightness">Show Brightness Level</string>
+    <string name="section_playback">Playback</string>
 </resources>

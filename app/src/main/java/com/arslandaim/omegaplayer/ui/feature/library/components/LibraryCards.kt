@@ -85,8 +85,8 @@ fun RecentPlaybackItem(
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
                                 )
                             )
                         ),
@@ -95,8 +95,8 @@ fun RecentPlaybackItem(
                     Icon(
                         imageVector = Icons.Default.MusicNote,
                         contentDescription = null,
-                        modifier = Modifier.size(40.dp).alpha(0.1f),
-                        tint = MaterialTheme.colorScheme.primary
+                        modifier = Modifier.size(44.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
                     )
                 }
             }
@@ -473,14 +473,32 @@ fun AudioGridItem(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                        )
+                    )
+                )
+        ) {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(56.dp)
+                    .align(Alignment.Center),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+            )
+
             AsyncImage(
                 model = albumArtUri,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                error = rememberVectorPainter(Icons.Default.MusicNote),
-                fallback = rememberVectorPainter(Icons.Default.MusicNote)
+                contentScale = ContentScale.Crop
             )
             
             if (isPlaying) {
@@ -916,9 +934,23 @@ fun AudioListItem(
                     .width(118.dp)
                     .height(74.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                            )
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                )
+
                 val context = LocalContext.current
                 val imageRequest = remember(albumArtUri) {
                     ImageRequest.Builder(context)
@@ -929,9 +961,7 @@ fun AudioListItem(
                     model = imageRequest,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    error = rememberVectorPainter(Icons.Default.MusicNote),
-                    fallback = rememberVectorPainter(Icons.Default.MusicNote)
+                    contentScale = ContentScale.Crop
                 )
                 
                 if (isPlaying) {

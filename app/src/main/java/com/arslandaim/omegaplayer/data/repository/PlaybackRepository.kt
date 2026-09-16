@@ -15,6 +15,7 @@ interface PlaybackRepository {
     
     fun getRecentPlayback(): Flow<List<RecentPlayback>>
     fun getAllRecentPlayback(): Flow<List<RecentPlayback>>
+    suspend fun getRecentPlayback(uri: String): RecentPlayback?
     suspend fun saveRecentPlayback(recent: RecentPlayback)
     suspend fun clearAllRecentPlayback()
 }

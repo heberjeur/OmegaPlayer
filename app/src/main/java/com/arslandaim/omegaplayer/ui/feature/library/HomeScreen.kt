@@ -69,8 +69,8 @@ fun HomeScreen(
     audioViewModel: AudioViewModel,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    onVideoClick: (String) -> Unit,
-    onAudioClick: (String) -> Unit,
+    onVideoClick: (String, Long) -> Unit,
+    onAudioClick: (String, Long) -> Unit,
     onSettingsClick: () -> Unit,
     onViewAllHistoryClick: () -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
@@ -81,34 +81,11 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     
     var selectedTab by rememberSaveable { mutableStateOf(initialTab ?: MediaTab.VIDEOS) }
-    var videosGridView by rememberSaveable { mutableStateOf(false) }
-    var audiosGridView by rememberSaveable { mutableStateOf(false) }
-    var playlistsGridView by rememberSaveable { mutableStateOf(false) }
-    var historyGridView by rememberSaveable { mutableStateOf(false) }
-
-    var playlistsSortOrder by rememberSaveable { mutableStateOf(MediaSortOrder.NAME_ASC) }
-    var historySortOrder by rememberSaveable { mutableStateOf(MediaSortOrder.DATE_DESC) }
 
     val showRecentHistoryOnHome by viewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
     val showHistoryTab by viewModel.showHistoryTab.collectAsStateWithLifecycle()
     val fullHistory by viewModel.fullHistory.collectAsStateWithLifecycle()
-    val videoSortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
-    val audioSortOrder by audioViewModel.sortOrder.collectAsStateWithLifecycle()
     var showFilterMenu by remember { mutableStateOf(false) }
-
-    val currentTabIsGridView = when (selectedTab) {
-        MediaTab.VIDEOS -> videosGridView
-        MediaTab.AUDIOS -> audiosGridView
-        MediaTab.PLAYLISTS -> playlistsGridView
-        MediaTab.HISTORY -> historyGridView
-    }
-
-    val currentSortOrder = when (selectedTab) {
-        MediaTab.VIDEOS -> videoSortOrder
-        MediaTab.AUDIOS -> audioSortOrder
-        MediaTab.PLAYLISTS -> playlistsSortOrder
-        MediaTab.HISTORY -> historySortOrder
-    }
 
     val activeTabs = remember(showHistoryTab) {
         if (showHistoryTab) MediaTab.entries else MediaTab.entries.filter { it != MediaTab.HISTORY }
@@ -173,6 +150,33 @@ fun HomeScreen(
         else -> emptyMap()
     }
 
+    val currentContextKey = when {
+        selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null -> "folder_video_$selectedVideoFolder"
+        selectedTab == MediaTab.VIDEOS -> "tab_videos"
+        selectedTab == MediaTab.AUDIOS && selectedAudioFolder != null -> "folder_audio_$selectedAudioFolder"
+        selectedTab == MediaTab.AUDIOS -> "tab_audios"
+        selectedTab == MediaTab.PLAYLISTS && selectedPlaylistForDetails != null -> "playlist_${selectedPlaylistForDetails?.id}"
+        selectedTab == MediaTab.PLAYLISTS -> "tab_playlists"
+        selectedTab == MediaTab.HISTORY -> "tab_history"
+        else -> "default"
+    }
+
+    val currentTabIsGridView by remember(currentContextKey) {
+        viewModel.getFolderGridView(currentContextKey, defaultGrid = (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null))
+    }.collectAsStateWithLifecycle(initialValue = (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null))
+
+    val currentSortOrderName by remember(currentContextKey) {
+        viewModel.getFolderSortOrder(currentContextKey, defaultSort = MediaSortOrder.DATE_DESC.name)
+    }.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
+
+    val currentSortOrder = remember(currentSortOrderName) {
+        try {
+            MediaSortOrder.valueOf(currentSortOrderName)
+        } catch (e: Exception) {
+            MediaSortOrder.DATE_DESC
+        }
+    }
+
     val isCurrentFolderOpen = remember(selectedTab, selectedVideoFolder, selectedAudioFolder, selectedPlaylistForDetails) {
         (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null) || 
         (selectedTab == MediaTab.AUDIOS && selectedAudioFolder != null) ||
@@ -201,12 +205,12 @@ fun HomeScreen(
         }
     }
 
-    val sortedVideos = remember(videosInFolder, searchQuery, selectedVideoFolder, selectedTab, videoSortOrder) {
+    val sortedVideos = remember(videosInFolder, searchQuery, selectedVideoFolder, selectedTab, currentSortOrder) {
         if (selectedVideoFolder == null || selectedTab != MediaTab.VIDEOS) emptyList()
         else {
             val list = if (searchQuery.isEmpty()) videosInFolder
             else videosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            when (videoSortOrder) {
+            when (currentSortOrder) {
                 MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.id }
                 MediaSortOrder.DATE_ASC -> list.sortedBy { it.id }
                 MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
@@ -217,12 +221,12 @@ fun HomeScreen(
         }
     }
     
-    val sortedAudios = remember(audiosInFolder, searchQuery, selectedAudioFolder, selectedTab, audioSortOrder) {
+    val sortedAudios = remember(audiosInFolder, searchQuery, selectedAudioFolder, selectedTab, currentSortOrder) {
         if (selectedAudioFolder == null || selectedTab != MediaTab.AUDIOS) emptyList()
         else {
             val list = if (searchQuery.isEmpty()) audiosInFolder
             else audiosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            when (audioSortOrder) {
+            when (currentSortOrder) {
                 MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.id }
                 MediaSortOrder.DATE_ASC -> list.sortedBy { it.id }
                 MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
@@ -233,10 +237,10 @@ fun HomeScreen(
         }
     }
 
-    val sortedPlaylists = remember(playlists, searchQuery, playlistsSortOrder) {
+    val sortedPlaylists = remember(playlists, searchQuery, currentSortOrder) {
         val list = if (searchQuery.isEmpty()) playlists
         else playlists.filter { it.name.contains(searchQuery, ignoreCase = true) }
-        when (playlistsSortOrder) {
+        when (currentSortOrder) {
             MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
             MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
             MediaSortOrder.DATE_ASC -> list.sortedBy { it.createdAt }
@@ -244,10 +248,10 @@ fun HomeScreen(
         }
     }
 
-    val sortedHistory = remember(fullHistory, searchQuery, historySortOrder) {
+    val sortedHistory = remember(fullHistory, searchQuery, currentSortOrder) {
         val list = if (searchQuery.isEmpty()) fullHistory
         else fullHistory.filter { it.name.contains(searchQuery, ignoreCase = true) }
-        when (historySortOrder) {
+        when (currentSortOrder) {
             MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
             MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
             MediaSortOrder.DATE_ASC -> list.sortedBy { it.lastPlayed }
@@ -256,7 +260,7 @@ fun HomeScreen(
         }
     }
 
-    val sortedPlaylistItems = remember(playlistItems, searchQuery, playlistsSortOrder, videos, audios) {
+    val sortedPlaylistItems = remember(playlistItems, searchQuery, currentSortOrder, videos, audios) {
         fun getItemName(item: PlaylistItem): String {
             return if (item.mediaType == "video") {
                 videos.find { it.uri.toString() == item.mediaUri }?.name ?: ""
@@ -266,7 +270,7 @@ fun HomeScreen(
         }
         val list = if (searchQuery.isEmpty()) playlistItems
         else playlistItems.filter { getItemName(it).contains(searchQuery, ignoreCase = true) }
-        when (playlistsSortOrder) {
+        when (currentSortOrder) {
             MediaSortOrder.NAME_ASC -> list.sortedBy { getItemName(it).lowercase() }
             MediaSortOrder.NAME_DESC -> list.sortedByDescending { getItemName(it).lowercase() }
             MediaSortOrder.DATE_ASC -> list.sortedBy { it.addedAt }
@@ -504,12 +508,7 @@ fun HomeScreen(
                                     text = { Text(order.label) },
                                     onClick = {
                                         showFilterMenu = false
-                                        when (selectedTab) {
-                                            MediaTab.VIDEOS -> viewModel.setSortOrder(order)
-                                            MediaTab.AUDIOS -> audioViewModel.setSortOrder(order)
-                                            MediaTab.PLAYLISTS -> playlistsSortOrder = order
-                                            MediaTab.HISTORY -> historySortOrder = order
-                                        }
+                                        viewModel.setFolderSortOrder(currentContextKey, order.name)
                                     },
                                     trailingIcon = {
                                         if (currentSortOrder == order) {
@@ -523,12 +522,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
                         onClick = {
-                            when (selectedTab) {
-                                MediaTab.VIDEOS -> videosGridView = !videosGridView
-                                MediaTab.AUDIOS -> audiosGridView = !audiosGridView
-                                MediaTab.PLAYLISTS -> playlistsGridView = !playlistsGridView
-                                MediaTab.HISTORY -> historyGridView = !historyGridView
-                            }
+                            viewModel.setFolderGridView(currentContextKey, !currentTabIsGridView)
                         },
                         modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), CircleShape)
                     ) {
@@ -557,6 +551,20 @@ fun HomeScreen(
     ) { padding ->
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
             val pageTab = activeTabs[page]
+            val pageContextKey = when {
+                pageTab == MediaTab.VIDEOS && selectedVideoFolder != null -> "folder_video_$selectedVideoFolder"
+                pageTab == MediaTab.VIDEOS -> "tab_videos"
+                pageTab == MediaTab.AUDIOS && selectedAudioFolder != null -> "folder_audio_$selectedAudioFolder"
+                pageTab == MediaTab.AUDIOS -> "tab_audios"
+                pageTab == MediaTab.PLAYLISTS && selectedPlaylistForDetails != null -> "playlist_${selectedPlaylistForDetails?.id}"
+                pageTab == MediaTab.PLAYLISTS -> "tab_playlists"
+                pageTab == MediaTab.HISTORY -> "tab_history"
+                else -> "default"
+            }
+            val pageIsGridView by remember(pageContextKey) {
+                viewModel.getFolderGridView(pageContextKey, defaultGrid = (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null))
+            }.collectAsStateWithLifecycle(initialValue = (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null))
+
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -565,12 +573,6 @@ fun HomeScreen(
                 } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) sortedVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) sortedAudios.isEmpty() else sortedPlaylistItems.isEmpty())) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
-                    val pageIsGridView = when (pageTab) {
-                        MediaTab.VIDEOS -> videosGridView
-                        MediaTab.AUDIOS -> audiosGridView
-                        MediaTab.PLAYLISTS -> playlistsGridView
-                        MediaTab.HISTORY -> historyGridView
-                    }
                     if (pageIsGridView) {
                         LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
@@ -582,7 +584,7 @@ fun HomeScreen(
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryGridCard(item = item, onClick = {
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
-                                                if (item.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                                if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
                                             })
                                         }
                                     }
@@ -620,15 +622,15 @@ fun HomeScreen(
                                             val index = sortedPlaylistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
                                             audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios)
                                             val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
-                                            if (clickedItem.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                            if (clickedItem.mediaType == "video") onVideoClick(encodedUri, -1L) else onAudioClick(encodedUri, -1L)
                                         },
                                         playlist = currentPlaylist
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, onVideoClick, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, { uri -> onVideoClick(uri, -1L) }, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, onAudioClick, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, { uri -> onAudioClick(uri, -1L) }, { selectedAudioForDelete = audio }, { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
                     } else {
@@ -642,7 +644,7 @@ fun HomeScreen(
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryItem(item = item, onClick = {
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
-                                                if (item.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                                if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
                                             })
                                         }
                                     }
@@ -678,7 +680,7 @@ fun HomeScreen(
                                             val index = sortedPlaylistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
                                             audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios)
                                             val encodedUri = URLEncoder.encode(clickedItem.mediaUri, StandardCharsets.UTF_8.toString())
-                                            if (clickedItem.mediaType == "video") onVideoClick(encodedUri) else onAudioClick(encodedUri)
+                                            if (clickedItem.mediaType == "video") onVideoClick(encodedUri, -1L) else onAudioClick(encodedUri, -1L)
                                         },
                                         playlist = currentPlaylist,
                                         onVideoDelete = { selectedVideoForDelete = it },
@@ -686,9 +688,9 @@ fun HomeScreen(
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(sortedVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri) }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
+                                items(sortedVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString()); onVideoClick(encodedUri, -1L) }, onDeleteClick = { selectedVideoForDelete = video }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(sortedAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString()); onAudioClick(encodedUri) }, onDeleteClick = { selectedAudioForDelete = audio }, onPlaylistClick = { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
+                                items(sortedAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString()); onAudioClick(encodedUri, -1L) }, onDeleteClick = { selectedAudioForDelete = audio }, onPlaylistClick = { mediaPendingPlaylist = audio.uri.toString() to "audio"; showAddToPlaylistDialog = true }) }
                             }
                         }
                     }
