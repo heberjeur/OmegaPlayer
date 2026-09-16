@@ -53,9 +53,13 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 
 import android.media.audiofx.Equalizer
+import androidx.compose.foundation.clickable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import android.provider.MediaStore
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import com.arslandaim.omegaplayer.data.Playlist
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -321,6 +325,7 @@ fun AudioPlayerScreen(
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
     val controller by viewModel.mediaController.collectAsStateWithLifecycle()
@@ -340,6 +345,33 @@ fun AudioPlayerScreen(
     }
 
     var currentAudio by remember { mutableStateOf(globalAudios.find { it.uri.toString() == audioUri }) }
+
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
+            viewModel.refreshAudios(context)
+            onBack()
+        }
+    }
+
+    val currentFolder = remember(currentAudio, audioUri, globalAudios) {
+        val path = currentAudio?.path ?: globalAudios.find { it.uri.toString() == audioUri }?.path
+        if (!path.isNullOrBlank()) {
+            java.io.File(path).parentFile?.name ?: "Internal"
+        } else {
+            "Internal"
+        }
+    }
+    val folderAudios = remember(currentFolder, globalAudios) {
+        viewModel.getAudiosInFolder(currentFolder)
+    }
+    val activeQueueAudios = remember(folderAudios, audios, globalAudios) {
+        if (folderAudios.isNotEmpty()) folderAudios
+        else if (audios.isNotEmpty()) audios
+        else globalAudios
+    }
 
     LaunchedEffect(globalAudios, audioUri) {
         if (selectedFolder == null && globalAudios.isNotEmpty()) {
@@ -384,7 +416,7 @@ fun AudioPlayerScreen(
 
     var hasSeekedInitialPosition by remember(audioUri, initialPosition) { mutableStateOf(false) }
 
-    LaunchedEffect(controller, audios, audioUri, initialPosition, effectiveSpeed) {
+    LaunchedEffect(controller, activeQueueAudios, audioUri, initialPosition, effectiveSpeed) {
         val player = controller ?: return@LaunchedEffect
         
         val listener = object : Player.Listener {
@@ -399,7 +431,7 @@ fun AudioPlayerScreen(
             }
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 val currentUri = mediaItem?.localConfiguration?.uri?.toString()
-                currentAudio = audios.find { it.uri.toString() == currentUri } ?: globalAudios.find { it.uri.toString() == currentUri }
+                currentAudio = activeQueueAudios.find { it.uri.toString() == currentUri } ?: globalAudios.find { it.uri.toString() == currentUri }
                 if (currentUri != null && currentUri != audioUri && MediaUtils.isVideoMediaItem(mediaItem)) {
                     onVideoTransition(currentUri)
                 }
@@ -425,7 +457,7 @@ fun AudioPlayerScreen(
                 player.seekTo(matchedIndex, targetPos.coerceAtLeast(0L))
                 player.play()
             } else {
-                val mediaItems = audios.map { audioItem ->
+                val mediaItems = activeQueueAudios.map { audioItem ->
                     val artUri = ContentUris.withAppendedId(
                         Uri.parse("content://media/external/audio/albumart"),
                         audioItem.albumId
@@ -443,7 +475,7 @@ fun AudioPlayerScreen(
                         )
                         .build()
                 }
-                val index = audios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
+                val index = activeQueueAudios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
                 
                 if (mediaItems.isNotEmpty()) {
                     player.setMediaItems(mediaItems, index, targetPos.coerceAtLeast(0L))
@@ -453,7 +485,7 @@ fun AudioPlayerScreen(
             }
             hasSeekedInitialPosition = true
         } else {
-            currentAudio = audios.find { it.uri.toString() == audioUri } ?: globalAudios.find { it.uri.toString() == audioUri }
+            currentAudio = activeQueueAudios.find { it.uri.toString() == audioUri } ?: globalAudios.find { it.uri.toString() == audioUri }
             if (!hasSeekedInitialPosition && targetPos > 0L) {
                 player.seekTo(targetPos)
                 hasSeekedInitialPosition = true
@@ -600,6 +632,14 @@ fun AudioPlayerScreen(
                                 },
                                 leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                             )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                                onClick = { 
+                                    showMoreOptions = false
+                                    showDeleteDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -647,20 +687,12 @@ fun AudioPlayerScreen(
                     }
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // Audio Info
                         Text(
                             text = currentAudio?.name ?: "Unknown Title",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.ExtraBold,
                             textAlign = TextAlign.Center,
                             color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = currentAudio?.artist ?: "Unknown Artist",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White.copy(alpha = 0.6f),
-                            textAlign = TextAlign.Center
                         )
                     }
 
@@ -795,7 +827,7 @@ fun AudioPlayerScreen(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 LazyColumn {
-                    items(audios) { audio ->
+                    items(activeQueueAudios) { audio ->
                         val isCurrent = currentAudio?.id == audio.id
                         ListItem(
                             headlineContent = { 
@@ -805,7 +837,7 @@ fun AudioPlayerScreen(
                                     color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White
                                 ) 
                             },
-                            supportingContent = { Text(audio.artist, color = Color.Gray) },
+                            supportingContent = { Text(formatDuration(audio.duration), color = Color.Gray) },
                             leadingContent = {
                                 AsyncImage(
                                     model = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), audio.albumId),
@@ -816,7 +848,13 @@ fun AudioPlayerScreen(
                                 )
                             },
                             modifier = Modifier.clickable {
-                                viewModel.togglePlayPause(audio)
+                                val idx = activeQueueAudios.indexOfFirst { it.id == audio.id }
+                                if (idx != -1 && idx < (controller?.mediaItemCount ?: 0)) {
+                                    controller?.seekToDefaultPosition(idx)
+                                    controller?.play()
+                                } else {
+                                    viewModel.togglePlayPause(audio)
+                                }
                                 showQueueSheet = false
                             },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -844,6 +882,41 @@ fun AudioPlayerScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.action_close)) }
+            },
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    if (showDeleteDialog && currentAudio != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.delete_audio_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.delete_media_confirm, currentAudio!!.name)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val audio = currentAudio!!
+                        showDeleteDialog = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(audio.uri))
+                            deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                        } else {
+                            viewModel.stopIfPlaying(audio.uri)
+                            context.contentResolver.delete(audio.uri, null, null)
+                            viewModel.refreshAudios(context)
+                            onBack()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.action_close))
+                }
             },
             shape = RoundedCornerShape(28.dp)
         )

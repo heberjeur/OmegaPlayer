@@ -394,13 +394,13 @@ class VideoViewModel @Inject constructor(
         viewModelScope.launch { themePreferences.saveGlobalPlaybackSpeed(speed) }
     }
 
-    fun getFolderSpeed(folderName: String): Flow<Float?> = themePreferences.getFolderPlaybackSpeed(folderName)
+    fun getFolderSpeed(folderName: String): Flow<Float?> = themePreferences.getFolderSpeed(folderName)
 
     fun setFolderPlaybackSpeed(folderName: String, speed: Float) {
         viewModelScope.launch { themePreferences.saveFolderPlaybackSpeed(folderName, speed) }
     }
 
-    fun getFolderViewMode(folderKey: String, defaultMode: Int = 0): Flow<Int> =
+    fun getFolderViewMode(folderKey: String, defaultMode: Int? = null): Flow<Int> =
         themePreferences.getFolderViewMode(folderKey, defaultMode)
 
     fun setFolderViewMode(folderKey: String, mode: Int) {
@@ -414,7 +414,7 @@ class VideoViewModel @Inject constructor(
         viewModelScope.launch { themePreferences.saveFolderGridView(folderKey, isGrid) }
     }
 
-    fun getFolderSortOrder(folderKey: String, defaultSort: String = MediaSortOrder.DATE_DESC.name): Flow<String> =
+    fun getFolderSortOrder(folderKey: String, defaultSort: String? = null): Flow<String> =
         themePreferences.getFolderSortOrder(folderKey, defaultSort)
 
     fun setFolderSortOrder(folderKey: String, sortOrder: String) {
@@ -451,5 +451,26 @@ class VideoViewModel @Inject constructor(
 
     fun setDefaultSortOrder(sortOrder: String) {
         viewModelScope.launch { themePreferences.saveDefaultSortOrder(sortOrder) }
+    }
+
+    val subtitleTextSize: StateFlow<Int> = themePreferences.subtitleTextSize
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 16)
+
+    fun setSubtitleTextSize(size: Int) {
+        viewModelScope.launch { themePreferences.saveSubtitleTextSize(size) }
+    }
+
+    val subtitleTextColor: StateFlow<Int> = themePreferences.subtitleTextColor
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun setSubtitleTextColor(colorIndex: Int) {
+        viewModelScope.launch { themePreferences.saveSubtitleTextColor(colorIndex) }
+    }
+
+    val subtitleBgStyle: StateFlow<Int> = themePreferences.subtitleBgStyle
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1)
+
+    fun setSubtitleBgStyle(bgIndex: Int) {
+        viewModelScope.launch { themePreferences.saveSubtitleBgStyle(bgIndex) }
     }
 }

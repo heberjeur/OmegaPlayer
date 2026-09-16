@@ -163,11 +163,11 @@ fun HomeScreen(
     }
 
     val currentTabViewMode by remember(currentContextKey) {
-        viewModel.getFolderViewMode(currentContextKey, defaultMode = if (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0)
-    }.collectAsStateWithLifecycle(initialValue = (if (selectedTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0))
+        viewModel.getFolderViewMode(currentContextKey)
+    }.collectAsStateWithLifecycle(initialValue = 0)
 
     val currentSortOrderName by remember(currentContextKey) {
-        viewModel.getFolderSortOrder(currentContextKey, defaultSort = MediaSortOrder.DATE_DESC.name)
+        viewModel.getFolderSortOrder(currentContextKey)
     }.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
 
     val currentSortOrder = remember(currentSortOrderName) {
@@ -274,8 +274,12 @@ fun HomeScreen(
                 audios.find { it.uri.toString() == item.mediaUri }?.name ?: ""
             }
         }
-        val list = if (searchQuery.isEmpty()) playlistItems
-        else playlistItems.filter { getItemName(it).contains(searchQuery, ignoreCase = true) }
+        val validItems = playlistItems.filter { item ->
+            if (item.mediaType == "video") videos.any { it.uri.toString() == item.mediaUri }
+            else audios.any { it.uri.toString() == item.mediaUri }
+        }
+        val list = if (searchQuery.isEmpty()) validItems
+        else validItems.filter { getItemName(it).contains(searchQuery, ignoreCase = true) }
         when (currentSortOrder) {
             MediaSortOrder.NAME_ASC -> list.sortedBy { getItemName(it).lowercase() }
             MediaSortOrder.NAME_DESC -> list.sortedByDescending { getItemName(it).lowercase() }
@@ -585,8 +589,8 @@ fun HomeScreen(
                 else -> "default"
             }
             val pageViewMode by remember(pageContextKey) {
-                viewModel.getFolderViewMode(pageContextKey, defaultMode = if (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0)
-            }.collectAsStateWithLifecycle(initialValue = (if (pageTab == MediaTab.VIDEOS && selectedVideoFolder != null) 1 else 0))
+                viewModel.getFolderViewMode(pageContextKey)
+            }.collectAsStateWithLifecycle(initialValue = 0)
 
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {

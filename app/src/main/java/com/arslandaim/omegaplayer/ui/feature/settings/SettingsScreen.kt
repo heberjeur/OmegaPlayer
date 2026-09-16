@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arslandaim.omegaplayer.R
@@ -79,6 +80,10 @@ fun SettingsScreen(
     val defaultSpeed by videoViewModel.defaultPlaybackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
     val defaultViewMode by videoViewModel.defaultViewMode.collectAsStateWithLifecycle(initialValue = 0)
     val defaultSortOrder by videoViewModel.defaultSortOrder.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
+
+    val subtitleTextSize by videoViewModel.subtitleTextSize.collectAsStateWithLifecycle(initialValue = 18)
+    val subtitleTextColor by videoViewModel.subtitleTextColor.collectAsStateWithLifecycle(initialValue = 0)
+    val subtitleBgStyle by videoViewModel.subtitleBgStyle.collectAsStateWithLifecycle(initialValue = 1)
 
     var showSortOrderDialog by remember { mutableStateOf(false) }
     var showAboutDeveloperDialog by remember { mutableStateOf(false) }
@@ -380,6 +385,79 @@ fun SettingsScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
+                }
+            }
+
+            Text(stringResource(R.string.section_subtitles), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(stringResource(R.string.subtitle_size), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val sizes = listOf(
+                            14 to stringResource(R.string.size_small),
+                            18 to stringResource(R.string.size_normal),
+                            22 to stringResource(R.string.size_large),
+                            26 to stringResource(R.string.size_extra_large)
+                        )
+                        sizes.forEachIndexed { index, (size, label) ->
+                            SegmentedButton(
+                                selected = subtitleTextSize == size,
+                                onClick = { videoViewModel.setSubtitleTextSize(size) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = sizes.size),
+                                label = { Text(label, maxLines = 1, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(stringResource(R.string.subtitle_color), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val colors = listOf(
+                            0 to stringResource(R.string.color_white),
+                            1 to stringResource(R.string.color_yellow),
+                            2 to stringResource(R.string.color_cyan)
+                        )
+                        colors.forEachIndexed { index, (colorKey, label) ->
+                            SegmentedButton(
+                                selected = subtitleTextColor == colorKey,
+                                onClick = { videoViewModel.setSubtitleTextColor(colorKey) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = colors.size),
+                                label = { Text(label, maxLines = 1) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(stringResource(R.string.subtitle_background), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val backgrounds = listOf(
+                            0 to stringResource(R.string.bg_transparent),
+                            1 to stringResource(R.string.bg_semi_transparent),
+                            2 to stringResource(R.string.bg_black)
+                        )
+                        backgrounds.forEachIndexed { index, (bgKey, label) ->
+                            SegmentedButton(
+                                selected = subtitleBgStyle == bgKey,
+                                onClick = { videoViewModel.setSubtitleBgStyle(bgKey) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = backgrounds.size),
+                                label = { Text(label, maxLines = 1, fontSize = 11.sp) }
+                            )
+                        }
+                    }
                 }
             }
 

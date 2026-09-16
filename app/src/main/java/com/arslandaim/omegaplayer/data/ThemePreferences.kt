@@ -47,6 +47,9 @@ class ThemePreferences(private val context: Context) {
     private val DEFAULT_PLAYBACK_SPEED_KEY = floatPreferencesKey("default_playback_speed")
     private val DEFAULT_VIEW_MODE_KEY = intPreferencesKey("default_view_mode")
     private val DEFAULT_SORT_ORDER_KEY = stringPreferencesKey("default_sort_order")
+    private val SUBTITLE_TEXT_SIZE_KEY = intPreferencesKey("subtitle_text_size")
+    private val SUBTITLE_TEXT_COLOR_KEY = intPreferencesKey("subtitle_text_color")
+    private val SUBTITLE_BG_STYLE_KEY = intPreferencesKey("subtitle_bg_style")
 
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
@@ -87,7 +90,7 @@ class ThemePreferences(private val context: Context) {
     }
 
     val globalPlaybackSpeed: Flow<Float> = context.dataStore.data.map { preferences ->
-        preferences[GLOBAL_SPEED_KEY] ?: 1.0f
+        preferences[DEFAULT_PLAYBACK_SPEED_KEY] ?: preferences[GLOBAL_SPEED_KEY] ?: 1.0f
     }
 
     val showPlayerClock: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -172,8 +175,8 @@ class ThemePreferences(private val context: Context) {
         }
     }
 
-    fun getFolderPlaybackSpeed(folderName: String): Flow<Float?> = context.dataStore.data.map { preferences ->
-        preferences[floatPreferencesKey("folder_speed_$folderName")]
+    fun getFolderSpeed(folderName: String): Flow<Float?> = context.dataStore.data.map { preferences ->
+        preferences[floatPreferencesKey("folder_speed_$folderName")] ?: preferences[DEFAULT_PLAYBACK_SPEED_KEY] ?: preferences[GLOBAL_SPEED_KEY] ?: 1.0f
     }
 
     suspend fun saveFolderPlaybackSpeed(folderName: String, speed: Float) {
@@ -182,13 +185,14 @@ class ThemePreferences(private val context: Context) {
         }
     }
 
-    fun getFolderViewMode(folderKey: String, defaultMode: Int = 0): Flow<Int> = context.dataStore.data.map { preferences ->
+    fun getFolderViewMode(folderKey: String, defaultMode: Int? = null): Flow<Int> = context.dataStore.data.map { preferences ->
         val mode = preferences[intPreferencesKey("view_mode_$folderKey")]
         if (mode != null) {
             mode
         } else {
             val legacy = preferences[booleanPreferencesKey("grid_view_$folderKey")]
-            if (legacy != null) (if (legacy) 1 else 0) else defaultMode
+            if (legacy != null) (if (legacy) 1 else 0)
+            else preferences[DEFAULT_VIEW_MODE_KEY] ?: defaultMode ?: 0
         }
     }
 
@@ -212,8 +216,8 @@ class ThemePreferences(private val context: Context) {
         }
     }
 
-    fun getFolderSortOrder(folderKey: String, defaultSort: String): Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[stringPreferencesKey("sort_order_$folderKey")] ?: defaultSort
+    fun getFolderSortOrder(folderKey: String, defaultSort: String? = null): Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[stringPreferencesKey("sort_order_$folderKey")] ?: preferences[DEFAULT_SORT_ORDER_KEY] ?: defaultSort ?: "DATE_DESC"
     }
 
     suspend fun saveFolderSortOrder(folderKey: String, sortOrder: String) {
@@ -273,12 +277,42 @@ class ThemePreferences(private val context: Context) {
     }
 
     val defaultSortOrder: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[DEFAULT_SORT_ORDER_KEY] ?: "date_desc"
+        preferences[DEFAULT_SORT_ORDER_KEY] ?: "DATE_DESC"
     }
 
     suspend fun saveDefaultSortOrder(sortOrder: String) {
         context.dataStore.edit { preferences ->
             preferences[DEFAULT_SORT_ORDER_KEY] = sortOrder
+        }
+    }
+
+    val subtitleTextSize: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[SUBTITLE_TEXT_SIZE_KEY] ?: 16
+    }
+
+    suspend fun saveSubtitleTextSize(size: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[SUBTITLE_TEXT_SIZE_KEY] = size
+        }
+    }
+
+    val subtitleTextColor: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[SUBTITLE_TEXT_COLOR_KEY] ?: 0
+    }
+
+    suspend fun saveSubtitleTextColor(colorIndex: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[SUBTITLE_TEXT_COLOR_KEY] = colorIndex
+        }
+    }
+
+    val subtitleBgStyle: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[SUBTITLE_BG_STYLE_KEY] ?: 1
+    }
+
+    suspend fun saveSubtitleBgStyle(bgIndex: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[SUBTITLE_BG_STYLE_KEY] = bgIndex
         }
     }
 }

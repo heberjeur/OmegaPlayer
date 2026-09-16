@@ -31,6 +31,9 @@ import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import androidx.media3.ui.CaptionStyleCompat
+import android.util.TypedValue
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackSelectionOverride
@@ -45,6 +48,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -144,12 +149,41 @@ fun PlayerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     val queueSheetState = rememberModalBottomSheetState()
 
+    val subtitleTextSize by viewModel.subtitleTextSize.collectAsStateWithLifecycle(initialValue = 18)
+    val subtitleTextColor by viewModel.subtitleTextColor.collectAsStateWithLifecycle(initialValue = 0)
+    val subtitleBgStyle by viewModel.subtitleBgStyle.collectAsStateWithLifecycle(initialValue = 1)
+    var subtitleDelaySeconds by remember { mutableFloatStateOf(0f) }
+
+    var isVerticalVideo by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            mediaController?.currentMediaItem?.localConfiguration?.uri?.let { viewModel.stopIfPlaying(it) }
+            viewModel.refreshVideos(context)
+            onBack()
+        }
+    }
+
     val enterPiP: () -> Unit = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
-                .build()
-            activity?.enterPictureInPictureMode(params)
+            val player = mediaController
+            val videoSize = player?.videoSize
+            val rational = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+                val aspect = videoSize.width.toFloat() / videoSize.height.toFloat()
+                if (aspect in 0.45f..2.35f) Rational(videoSize.width, videoSize.height) else Rational(16, 9)
+            } else Rational(16, 9)
+
+            val builder = PictureInPictureParams.Builder()
+                .setAspectRatio(rational)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                builder.setAutoEnterEnabled(true)
+            }
+            try {
+                activity?.enterPictureInPictureMode(builder.build())
+            } catch (_: Exception) {}
         }
     }
 
@@ -191,17 +225,25 @@ fun PlayerScreen(
     }
 
     val videosList by viewModel.videos.collectAsStateWithLifecycle()
-    val currentVideo = remember(videoUri, videosList) {
-        viewModel.getCurrentVideo()
+    val playingUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
+    val currentVideo = remember(playingUri, videosList) {
+        viewModel.getCurrentVideo(playingUri) ?: videosList.find { it.uri.toString() == playingUri }
     }
 
-    val currentFolder = remember(currentVideo, videoUri) {
-        val path = currentVideo?.path ?: videosList.find { it.uri.toString() == videoUri }?.path
+    val currentFolder = remember(currentVideo, playingUri) {
+        val path = currentVideo?.path ?: videosList.find { it.uri.toString() == playingUri }?.path
         if (!path.isNullOrBlank()) {
             java.io.File(path).parentFile?.name ?: "Internal"
         } else {
             "Internal"
         }
+    }
+
+    val folderVideos = remember(currentFolder, videosList) {
+        viewModel.getVideosInFolder(currentFolder)
+    }
+    val activeQueueVideos = remember(folderVideos, videosList) {
+        if (folderVideos.isNotEmpty()) folderVideos else videosList
     }
 
     val speedScope by viewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
@@ -358,7 +400,7 @@ fun PlayerScreen(
 
     var hasSeekedInitialPosition by remember(videoUri, initialPosition) { mutableStateOf(false) }
 
-    LaunchedEffect(videoUri, mediaController, videosList, initialPosition, effectiveSpeed) {
+    LaunchedEffect(videoUri, mediaController, activeQueueVideos, initialPosition, effectiveSpeed) {
         val player = mediaController ?: return@LaunchedEffect
         val newUri = Uri.parse(videoUri)
         val currentUri = player.currentMediaItem?.localConfiguration?.uri
@@ -374,8 +416,8 @@ fun PlayerScreen(
             }
             if (matchedIndex != -1) {
                 player.seekTo(matchedIndex, targetPos.coerceAtLeast(0L))
-            } else if (videosList.isNotEmpty()) {
-                val mediaItems = videosList.map { videoItem ->
+            } else if (activeQueueVideos.isNotEmpty()) {
+                val mediaItems = activeQueueVideos.map { videoItem ->
                     MediaItem.Builder()
                         .setUri(videoItem.uri)
                         .setMediaId(videoItem.id.toString())
@@ -386,7 +428,7 @@ fun PlayerScreen(
                         )
                         .build()
                 }
-                val index = videosList.indexOfFirst { it.uri.toString() == videoUri }.coerceAtLeast(0)
+                val index = activeQueueVideos.indexOfFirst { it.uri.toString() == videoUri }.coerceAtLeast(0)
                 player.setMediaItems(mediaItems, index, targetPos.coerceAtLeast(0L))
                 player.prepare()
             } else {
@@ -440,6 +482,7 @@ fun PlayerScreen(
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
                     videoResolution = "${videoSize.width}x${videoSize.height}"
+                    isVerticalVideo = videoSize.height > videoSize.width
                 }
             }
             override fun onTracksChanged(tracks: Tracks) {
@@ -464,6 +507,7 @@ fun PlayerScreen(
         currentTracks = player.currentTracks
         if (player.videoSize.width > 0 && player.videoSize.height > 0) {
             videoResolution = "${player.videoSize.width}x${player.videoSize.height}"
+            isVerticalVideo = player.videoSize.height > player.videoSize.width
         }
         repeatMode = player.repeatMode
         isShuffle = player.shuffleModeEnabled
@@ -607,7 +651,8 @@ fun PlayerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .height(56.dp)
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
@@ -642,7 +687,8 @@ fun PlayerScreen(
                             onSleepTimerClick = { showSleepTimerDialog = true },
                             onSpeedChange = onSpeedChange,
                             onEqualizerClick = { showEqualizerDialog = true },
-                            onInfoClick = { showInfoDialog = true }
+                            onInfoClick = { showInfoDialog = true },
+                            onDeleteClick = { showDeleteDialog = true }
                         )
                     }
                 }
@@ -661,10 +707,17 @@ fun PlayerScreen(
                 )
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .background(Color.Black)
+                    modifier = if (isVerticalVideo) {
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1.3f)
+                            .background(Color.Black)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .background(Color.Black)
+                    }
                 ) {
                     with(sharedTransitionScope) {
                         AndroidView(
@@ -681,6 +734,26 @@ fun PlayerScreen(
                                     2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
                                     else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                                 }
+                                val fgColor = when (subtitleTextColor) {
+                                    1 -> android.graphics.Color.YELLOW
+                                    2 -> android.graphics.Color.CYAN
+                                    else -> android.graphics.Color.WHITE
+                                }
+                                val bgColor = when (subtitleBgStyle) {
+                                    2 -> android.graphics.Color.BLACK
+                                    1 -> android.graphics.Color.argb(140, 0, 0, 0)
+                                    else -> android.graphics.Color.TRANSPARENT
+                                }
+                                val style = CaptionStyleCompat(
+                                    fgColor,
+                                    bgColor,
+                                    android.graphics.Color.TRANSPARENT,
+                                    CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                                    android.graphics.Color.BLACK,
+                                    null
+                                )
+                                playerView.subtitleView?.setStyle(style)
+                                playerView.subtitleView?.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, subtitleTextSize.toFloat())
                             },
                             onRelease = { playerView ->
                                 if (!currentBackgroundPlay.value) {
@@ -920,6 +993,26 @@ fun PlayerScreen(
                             2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
                             else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                         }
+                        val fgColor = when (subtitleTextColor) {
+                            1 -> android.graphics.Color.YELLOW
+                            2 -> android.graphics.Color.CYAN
+                            else -> android.graphics.Color.WHITE
+                        }
+                        val bgColor = when (subtitleBgStyle) {
+                            2 -> android.graphics.Color.BLACK
+                            1 -> android.graphics.Color.argb(140, 0, 0, 0)
+                            else -> android.graphics.Color.TRANSPARENT
+                        }
+                        val style = CaptionStyleCompat(
+                            fgColor,
+                            bgColor,
+                            android.graphics.Color.TRANSPARENT,
+                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                            android.graphics.Color.BLACK,
+                            null
+                        )
+                        playerView.subtitleView?.setStyle(style)
+                        playerView.subtitleView?.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, subtitleTextSize.toFloat())
                     },
                     onRelease = { playerView ->
                         if (!currentBackgroundPlay.value) {
@@ -1145,7 +1238,8 @@ fun PlayerScreen(
                                     onSleepTimerClick = { showSleepTimerDialog = true },
                                     onSpeedChange = onSpeedChange,
                                     onEqualizerClick = { showEqualizerDialog = true },
-                                    onInfoClick = { showInfoDialog = true }
+                                    onInfoClick = { showInfoDialog = true },
+                                    onDeleteClick = { showDeleteDialog = true }
                                 )
                             }
                         }
@@ -1330,20 +1424,71 @@ fun PlayerScreen(
 
 
 
-        if (showInfoDialog && currentVideo != null) {
+        if (showInfoDialog) {
+            val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
+            val displayName = resolvedVideo?.name ?: videoName
+            val displayPath = resolvedVideo?.path ?: Uri.parse(playingUri).path ?: playingUri
+            val displaySize = if (resolvedVideo != null && resolvedVideo.size > 0L) {
+                "${resolvedVideo.size / (1024 * 1024)} MB"
+            } else {
+                val file = java.io.File(displayPath)
+                if (file.exists()) "${file.length() / (1024 * 1024)} MB" else "Unknown"
+            }
+            val displayDuration = if (resolvedVideo != null && resolvedVideo.duration > 0L) {
+                formatDuration(resolvedVideo.duration)
+            } else {
+                formatDuration(duration)
+            }
             AlertDialog(
                 onDismissRequest = { showInfoDialog = false },
                 title = { Text(stringResource(R.string.video_info), fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoRow(stringResource(R.string.info_name), currentVideo.name)
-                        InfoRow(stringResource(R.string.info_size), "${currentVideo.size / (1024 * 1024)} MB")
-                        InfoRow(stringResource(R.string.info_path), currentVideo.path)
-                        InfoRow(stringResource(R.string.info_duration), formatDuration(currentVideo.duration))
+                        InfoRow(stringResource(R.string.info_name), displayName)
+                        InfoRow(stringResource(R.string.info_size), displaySize)
+                        InfoRow(stringResource(R.string.info_path), displayPath)
+                        InfoRow(stringResource(R.string.info_duration), displayDuration)
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.action_close)) }
+                },
+                shape = RoundedCornerShape(28.dp)
+            )
+        }
+
+        if (showDeleteDialog) {
+            val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
+            val displayName = resolvedVideo?.name ?: videoName
+            val targetUri = resolvedVideo?.uri ?: Uri.parse(playingUri)
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text(stringResource(R.string.delete_video_title), fontWeight = FontWeight.Bold) },
+                text = { Text(stringResource(R.string.delete_media_confirm, displayName)) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(targetUri))
+                                deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                            } else {
+                                viewModel.stopIfPlaying(targetUri)
+                                context.contentResolver.delete(targetUri, null, null)
+                                viewModel.refreshVideos(context)
+                                onBack()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text(stringResource(R.string.action_close))
+                    }
                 },
                 shape = RoundedCornerShape(28.dp)
             )
@@ -1385,7 +1530,7 @@ fun PlayerScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                     LazyColumn {
-                        items(videosList) { video ->
+                        items(activeQueueVideos) { video ->
                             val currentUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
                             val isCurrent = video.uri.toString() == currentUri
                             ListItem(
@@ -1412,7 +1557,7 @@ fun PlayerScreen(
                                 },
                                 modifier = Modifier.clickable {
                                     showQueueSheet = false
-                                    val index = videosList.indexOfFirst { it.uri == video.uri }
+                                    val index = activeQueueVideos.indexOfFirst { it.uri == video.uri }
                                     if (index != -1 && index < (mediaController?.mediaItemCount ?: 0)) {
                                         mediaController?.seekToDefaultPosition(index)
                                     } else {
@@ -1432,6 +1577,21 @@ fun PlayerScreen(
         if (showSubtitleDialog) {
             SubtitleDialog(
                 tracks = currentTracks,
+                subtitleTextSize = subtitleTextSize,
+                onSubtitleTextSizeChange = { viewModel.setSubtitleTextSize(it) },
+                subtitleTextColor = subtitleTextColor,
+                onSubtitleTextColorChange = { viewModel.setSubtitleTextColor(it) },
+                subtitleBgStyle = subtitleBgStyle,
+                onSubtitleBgStyleChange = { viewModel.setSubtitleBgStyle(it) },
+                subtitleDelay = subtitleDelaySeconds,
+                onSubtitleDelayChange = { delta ->
+                    val newDelay = (subtitleDelaySeconds + delta).coerceIn(-10f, 10f)
+                    subtitleDelaySeconds = newDelay
+                    mediaController?.let { player ->
+                        val target = (player.currentPosition - (delta * 1000).toLong()).coerceAtLeast(0L)
+                        player.seekTo(target)
+                    }
+                },
                 onDismiss = { showSubtitleDialog = false },
                 onDisableSubtitles = {
                     mediaController?.trackSelectionParameters = mediaController?.trackSelectionParameters
@@ -1469,6 +1629,14 @@ fun PlayerScreen(
 @Composable
 fun SubtitleDialog(
     tracks: Tracks,
+    subtitleTextSize: Int,
+    onSubtitleTextSizeChange: (Int) -> Unit,
+    subtitleTextColor: Int,
+    onSubtitleTextColorChange: (Int) -> Unit,
+    subtitleBgStyle: Int,
+    onSubtitleBgStyleChange: (Int) -> Unit,
+    subtitleDelay: Float,
+    onSubtitleDelayChange: (Float) -> Unit,
     onDismiss: () -> Unit,
     onDisableSubtitles: () -> Unit,
     onSelectTrack: (Tracks.Group, Int) -> Unit,
@@ -1491,7 +1659,9 @@ fun SubtitleDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
@@ -1584,6 +1754,118 @@ fun SubtitleDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.subtitles_load_external))
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                Text(
+                    stringResource(R.string.section_subtitles),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    stringResource(R.string.subtitle_size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val sizeList = listOf(
+                        14 to stringResource(R.string.size_small),
+                        18 to stringResource(R.string.size_normal),
+                        22 to stringResource(R.string.size_large),
+                        26 to stringResource(R.string.size_extra_large)
+                    )
+                    sizeList.forEach { (size, label) ->
+                        val isSelected = (subtitleTextSize == size)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onSubtitleTextSizeChange(size) },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Text(
+                    stringResource(R.string.subtitle_color),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val colorList = listOf(
+                        0 to stringResource(R.string.color_white),
+                        1 to stringResource(R.string.color_yellow),
+                        2 to stringResource(R.string.color_cyan)
+                    )
+                    colorList.forEach { (col, label) ->
+                        val isSelected = (subtitleTextColor == col)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onSubtitleTextColorChange(col) },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Text(
+                    stringResource(R.string.subtitle_background),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val bgList = listOf(
+                        0 to stringResource(R.string.bg_transparent),
+                        1 to stringResource(R.string.bg_semi_transparent),
+                        2 to stringResource(R.string.bg_black)
+                    )
+                    bgList.forEach { (bg, label) ->
+                        val isSelected = (subtitleBgStyle == bg)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onSubtitleBgStyleChange(bg) },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Text(
+                    stringResource(R.string.subtitle_delay),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onSubtitleDelayChange(-0.5f) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("-0.5s")
+                    }
+                    Text(
+                        stringResource(R.string.delay_format, subtitleDelay),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                    OutlinedButton(
+                        onClick = { onSubtitleDelayChange(0.5f) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("+0.5s")
+                    }
                 }
             }
         },
@@ -1759,7 +2041,8 @@ fun PlayerDropdownMenu(
     onSleepTimerClick: () -> Unit,
     onSpeedChange: (Float) -> Unit,
     onEqualizerClick: () -> Unit,
-    onInfoClick: () -> Unit
+    onInfoClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -1815,6 +2098,14 @@ fun PlayerDropdownMenu(
                 onInfoClick()
             },
             leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+            onClick = {
+                onDismiss()
+                onDeleteClick()
+            },
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
         )
     }
 }
