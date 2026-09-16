@@ -96,8 +96,7 @@ fun HomeDashboard(
 @Composable
 fun RecentPlaybackSection(
     recentPlayback: List<RecentPlayback>,
-    onVideoClick: (String, Long) -> Unit,
-    onAudioClick: (String, Long) -> Unit,
+    onItemClick: (RecentPlayback, Int) -> Unit,
     onViewAllClick: () -> Unit
 ) {
     Column(modifier = Modifier.padding(bottom = 8.dp)) {
@@ -125,9 +124,8 @@ fun RecentPlaybackSection(
                 RecentPlaybackItem(
                     item = item,
                     onClick = {
-                        val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
-                        if (item.mediaType == "video") onVideoClick(encodedUri, item.position)
-                        else onAudioClick(encodedUri, item.position)
+                        val index = recentPlayback.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
+                        onItemClick(item, index)
                     }
                 )
             }

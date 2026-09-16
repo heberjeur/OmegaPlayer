@@ -190,4 +190,7 @@
     <string name="delete_media_confirm">Are you sure you want to delete \'%1$s\'?</string>
     <string name="delete_video_title">Delete Video</string>
     <string name="delete_audio_title">Delete Audio</string>
+    <string name="dialog_exit_title">Exit App</string>
+    <string name="dialog_exit_message">Do you want to exit the application?</string>
+    <string name="action_exit">Exit</string>
 </resources>

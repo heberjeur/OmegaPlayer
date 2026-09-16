@@ -43,6 +43,7 @@ import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import coil.request.videoFrameMillis
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.ui.common.WaveformVisualizer
 import kotlinx.coroutines.delay
@@ -371,6 +372,13 @@ fun AudioPlayerScreen(
         if (folderAudios.isNotEmpty()) folderAudios
         else if (audios.isNotEmpty()) audios
         else globalAudios
+    }
+    val activeQueue by viewModel.activeQueue.collectAsStateWithLifecycle()
+
+    LaunchedEffect(folderAudios, activeQueue) {
+        if (activeQueue.isEmpty() && folderAudios.isNotEmpty()) {
+            viewModel.setFolderQueue(folderAudios)
+        }
     }
 
     LaunchedEffect(globalAudios, audioUri) {
@@ -826,34 +834,71 @@ fun AudioPlayerScreen(
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
+                val queueItems = if (activeQueue.isNotEmpty()) {
+                    activeQueue
+                } else {
+                    activeQueueAudios.map {
+                        com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                            uri = it.uri.toString(),
+                            title = it.name,
+                            duration = it.duration,
+                            isVideo = false,
+                            artist = it.artist,
+                            albumId = it.albumId
+                        )
+                    }
+                }
                 LazyColumn {
-                    items(activeQueueAudios) { audio ->
-                        val isCurrent = currentAudio?.id == audio.id
+                    items(queueItems) { item ->
+                        val currentUri = controller?.currentMediaItem?.localConfiguration?.uri?.toString() ?: audioUri
+                        val isCurrent = item.uri == currentUri
                         ListItem(
-                            headlineContent = { 
+                            headlineContent = {
                                 Text(
-                                    audio.name, 
+                                    item.title,
                                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White
-                                ) 
-                            },
-                            supportingContent = { Text(formatDuration(audio.duration), color = Color.Gray) },
-                            leadingContent = {
-                                AsyncImage(
-                                    model = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), audio.albumId),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop,
-                                    error = rememberVectorPainter(Icons.Default.MusicNote)
                                 )
                             },
+                            supportingContent = { Text(formatDuration(item.duration), color = Color.Gray) },
+                            leadingContent = {
+                                if (item.isVideo) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(Uri.parse(item.uri))
+                                            .videoFrameMillis(1000)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop,
+                                        error = rememberVectorPainter(Icons.Default.Movie)
+                                    )
+                                } else {
+                                    val albumArtUri = item.albumId?.let {
+                                        ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), it)
+                                    }
+                                    AsyncImage(
+                                        model = albumArtUri,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop,
+                                        error = rememberVectorPainter(Icons.Default.MusicNote)
+                                    )
+                                }
+                            },
                             modifier = Modifier.clickable {
-                                val idx = activeQueueAudios.indexOfFirst { it.id == audio.id }
+                                val idx = queueItems.indexOfFirst { it.uri == item.uri }
                                 if (idx != -1 && idx < (controller?.mediaItemCount ?: 0)) {
                                     controller?.seekToDefaultPosition(idx)
                                     controller?.play()
+                                } else if (item.isVideo) {
+                                    onVideoTransition(item.uri)
                                 } else {
-                                    viewModel.togglePlayPause(audio)
+                                    val audioModel = activeQueueAudios.find { it.uri.toString() == item.uri } ?: globalAudios.find { it.uri.toString() == item.uri }
+                                    if (audioModel != null) {
+                                        viewModel.togglePlayPause(audioModel)
+                                    }
                                 }
                                 showQueueSheet = false
                             },

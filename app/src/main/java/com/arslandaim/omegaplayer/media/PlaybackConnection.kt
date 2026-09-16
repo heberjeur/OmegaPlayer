@@ -68,4 +68,24 @@ class PlaybackConnection @Inject constructor(
     fun play() = _mediaController.value?.play()
     fun pause() = _mediaController.value?.pause()
     fun stop() = _mediaController.value?.stop()
+
+    private val _currentQueue = MutableStateFlow<List<PlaybackQueueItem>>(emptyList())
+    val currentQueue = _currentQueue.asStateFlow()
+
+    fun setQueue(items: List<PlaybackQueueItem>) {
+        _currentQueue.value = items
+    }
+
+    fun clearQueue() {
+        _currentQueue.value = emptyList()
+    }
 }
+
+data class PlaybackQueueItem(
+    val uri: String,
+    val title: String,
+    val duration: Long,
+    val isVideo: Boolean,
+    val artist: String? = null,
+    val albumId: Long? = null
+)

@@ -51,6 +51,7 @@ import com.arslandaim.omegaplayer.R
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.feature.library.components.HistoryGridCard
 import com.arslandaim.omegaplayer.ui.feature.library.components.formatDuration
+import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -59,6 +60,7 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun HistoryScreen(
     viewModel: VideoViewModel,
+    audioViewModel: AudioViewModel,
     onBack: () -> Unit,
     onMediaClick: (String, String, Long) -> Unit
 ) {
@@ -153,6 +155,8 @@ fun HistoryScreen(
                     HistoryGridCard(
                         item = item,
                         onClick = {
+                            val index = history.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
+                            viewModel.playHistory(history, index, viewModel.videos.value, audioViewModel.audios.value)
                             val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                             onMediaClick(encodedUri, item.mediaType, item.position)
                         },
@@ -170,6 +174,8 @@ fun HistoryScreen(
                     HistoryItem(
                         item = item,
                         onClick = {
+                            val index = history.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
+                            viewModel.playHistory(history, index, viewModel.videos.value, audioViewModel.audios.value)
                             val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                             onMediaClick(encodedUri, item.mediaType, item.position)
                         }

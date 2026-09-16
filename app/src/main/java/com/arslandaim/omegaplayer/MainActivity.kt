@@ -216,6 +216,7 @@ class MainActivity : FragmentActivity() {
                             composable(Screen.History.route) {
                                 HistoryScreen(
                                     viewModel = videoViewModel,
+                                    audioViewModel = audioViewModel,
                                     onBack = { navController.popBackStack() },
                                     onMediaClick = { uri, type, pos ->
                                         if (type == "video") {

@@ -22,6 +22,8 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
+import androidx.core.app.NotificationCompat
+import androidx.media3.session.MediaNotification
 import androidx.media3.session.SessionResult
 import com.arslandaim.omegaplayer.MainActivity
 import com.arslandaim.omegaplayer.R
@@ -109,10 +111,40 @@ class PlaybackService : MediaSessionService() {
                     .add(SessionCommand(ACTION_SPEED, Bundle.EMPTY))
                     .build()
 
+                val playerCommands = session.player.availableCommands.buildUpon()
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .add(Player.COMMAND_SEEK_TO_NEXT)
+                    .add(Player.COMMAND_SEEK_BACK)
+                    .add(Player.COMMAND_SEEK_FORWARD)
+                    .build()
+
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                     .setAvailableSessionCommands(availableCommands)
-                    .setCustomLayout(listOf(rewindButton, forwardButton, speedButton))
+                    .setAvailablePlayerCommands(playerCommands)
+                    .setCustomLayout(listOf(rewindButton, forwardButton))
                     .build()
+            }
+
+            override fun onPlayerCommandRequest(
+                session: MediaSession,
+                controller: MediaSession.ControllerInfo,
+                playerCommand: Int
+            ): Int {
+                if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS) {
+                    if (player.hasPreviousMediaItem()) {
+                        player.seekToPreviousMediaItem()
+                    } else {
+                        player.seekTo(0L)
+                    }
+                    return SessionResult.RESULT_SUCCESS
+                }
+                if (playerCommand == Player.COMMAND_SEEK_TO_NEXT) {
+                    if (player.hasNextMediaItem()) {
+                        player.seekToNextMediaItem()
+                    }
+                    return SessionResult.RESULT_SUCCESS
+                }
+                return super.onPlayerCommandRequest(session, controller, playerCommand)
             }
 
             override fun onCustomCommand(
@@ -188,13 +220,23 @@ class PlaybackService : MediaSessionService() {
                     ImmutableList.of(prevButton, rewindBtn, playPauseBtn, fwdBtn, nextBtn)
                 }
             }
+
+            override fun addNotificationActions(
+                session: MediaSession,
+                mediaButtons: ImmutableList<CommandButton>,
+                builder: NotificationCompat.Builder,
+                actionFactory: MediaNotification.ActionFactory
+            ): IntArray {
+                super.addNotificationActions(session, mediaButtons, builder, actionFactory)
+                return intArrayOf(0, 2, 4)
+            }
         }
         setMediaNotificationProvider(notificationProvider)
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(pendingIntent)
             .setCallback(sessionCallback)
-            .setCustomLayout(listOf(rewindButton, forwardButton, speedButton))
+            .setCustomLayout(listOf(rewindButton, forwardButton))
             .build()
     }
 

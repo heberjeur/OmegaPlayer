@@ -184,6 +184,7 @@ fun HomeScreen(
         (selectedTab == MediaTab.PLAYLISTS && selectedPlaylistForDetails != null)
     }
 
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
     val activity = context as? Activity
     BackHandler(enabled = isFocused) {
         if (isCurrentFolderOpen) {
@@ -191,8 +192,31 @@ fun HomeScreen(
             else if (selectedTab == MediaTab.AUDIOS) audioViewModel.setSelectedFolder(null)
             else selectedPlaylistForDetails = null
         } else {
-            activity?.finish()
+            showExitConfirmDialog = true
         }
+    }
+
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            title = { Text(text = stringResource(R.string.dialog_exit_title)) },
+            text = { Text(text = stringResource(R.string.dialog_exit_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showExitConfirmDialog = false
+                        activity?.finish()
+                    }
+                ) {
+                    Text(text = stringResource(R.string.action_exit))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitConfirmDialog = false }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 
     val sortedFolders = remember(currentFolders, searchQuery, currentSelectedFolder, currentSortOrder) {
@@ -605,13 +629,27 @@ fun HomeScreen(
                         val ratio = if (pageViewMode == 1) 1f else (16f / 9f)
                         LazyVerticalGrid(columns = GridCells.Fixed(cols), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
-                                if (showRecentHistoryOnHome && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item(span = { GridItemSpan(cols) }) { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
+                                if (showRecentHistoryOnHome && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) {
+                                    item(span = { GridItemSpan(cols) }) {
+                                        RecentPlaybackSection(
+                                            recentPlayback = recentPlayback,
+                                            onItemClick = { item, index ->
+                                                viewModel.playHistory(recentPlayback, index, videos, audios)
+                                                val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
+                                                if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
+                                            },
+                                            onViewAllClick = onViewAllHistoryClick
+                                        )
+                                    }
+                                }
                                 if (pageTab == MediaTab.HISTORY) {
                                     if (sortedHistory.isEmpty()) {
                                         item(span = { GridItemSpan(cols) }) { EmptyState(searchQuery.isNotEmpty(), false) }
                                     } else {
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryGridCard(item = item, onClick = {
+                                                val index = sortedHistory.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
+                                                viewModel.playHistory(sortedHistory, index, videos, audios)
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                                                 if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
                                             }, aspectRatio = ratio)
@@ -666,7 +704,19 @@ fun HomeScreen(
                         }
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (showRecentHistoryOnHome && currentSelectedFolder == null && selectedPlaylistForDetails == null && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) { item { RecentPlaybackSection(recentPlayback, onVideoClick, onAudioClick, onViewAllHistoryClick) } }
+                            if (showRecentHistoryOnHome && currentSelectedFolder == null && selectedPlaylistForDetails == null && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY && recentPlayback.isNotEmpty()) {
+                                item {
+                                    RecentPlaybackSection(
+                                        recentPlayback = recentPlayback,
+                                        onItemClick = { item, index ->
+                                            viewModel.playHistory(recentPlayback, index, videos, audios)
+                                            val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
+                                            if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
+                                        },
+                                        onViewAllClick = onViewAllHistoryClick
+                                    )
+                                }
+                            }
                             if (currentSelectedFolder == null && selectedPlaylistForDetails == null) {
                                 if (pageTab == MediaTab.HISTORY) {
                                     if (sortedHistory.isEmpty()) {
@@ -674,6 +724,8 @@ fun HomeScreen(
                                     } else {
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryItem(item = item, onClick = {
+                                                val index = sortedHistory.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
+                                                viewModel.playHistory(sortedHistory, index, videos, audios)
                                                 val encodedUri = URLEncoder.encode(item.uri, StandardCharsets.UTF_8.toString())
                                                 if (item.mediaType == "video") onVideoClick(encodedUri, item.position) else onAudioClick(encodedUri, item.position)
                                             })

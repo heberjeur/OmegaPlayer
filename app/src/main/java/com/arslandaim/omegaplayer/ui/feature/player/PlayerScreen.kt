@@ -9,6 +9,7 @@ package com.arslandaim.omegaplayer.ui.feature.player
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -244,6 +245,13 @@ fun PlayerScreen(
     }
     val activeQueueVideos = remember(folderVideos, videosList) {
         if (folderVideos.isNotEmpty()) folderVideos else videosList
+    }
+    val activeQueue by viewModel.activeQueue.collectAsStateWithLifecycle()
+
+    LaunchedEffect(folderVideos, activeQueue) {
+        if (activeQueue.isEmpty() && folderVideos.isNotEmpty()) {
+            viewModel.setFolderQueue(folderVideos)
+        }
     }
 
     val speedScope by viewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
@@ -1529,39 +1537,64 @@ fun PlayerScreen(
                         fontWeight = FontWeight.Black,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
+                    val queueItems = if (activeQueue.isNotEmpty()) {
+                        activeQueue
+                    } else {
+                        activeQueueVideos.map {
+                            com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                                uri = it.uri.toString(),
+                                title = it.name,
+                                duration = it.duration,
+                                isVideo = true
+                            )
+                        }
+                    }
                     LazyColumn {
-                        items(activeQueueVideos) { video ->
+                        items(queueItems) { item ->
                             val currentUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
-                            val isCurrent = video.uri.toString() == currentUri
+                            val isCurrent = item.uri == currentUri
                             ListItem(
                                 headlineContent = {
                                     Text(
-                                        video.name,
+                                        item.title,
                                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                                         color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White
                                     )
                                 },
-                                supportingContent = { Text(formatDuration(video.duration), color = Color.Gray) },
+                                supportingContent = { Text(formatDuration(item.duration), color = Color.Gray) },
                                 leadingContent = {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(video.uri)
-                                            .videoFrameMillis(1000)
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop,
-                                        error = rememberVectorPainter(Icons.Default.Movie)
-                                    )
+                                    if (item.isVideo) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(LocalContext.current)
+                                                .data(Uri.parse(item.uri))
+                                                .videoFrameMillis(1000)
+                                                .crossfade(true)
+                                                .build(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop,
+                                            error = rememberVectorPainter(Icons.Default.Movie)
+                                        )
+                                    } else {
+                                        val albumArtUri = item.albumId?.let { id: Long ->
+                                            ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), id)
+                                        }
+                                        AsyncImage(
+                                            model = albumArtUri,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop,
+                                            error = rememberVectorPainter(Icons.Default.MusicNote)
+                                        )
+                                    }
                                 },
                                 modifier = Modifier.clickable {
                                     showQueueSheet = false
-                                    val index = activeQueueVideos.indexOfFirst { it.uri == video.uri }
+                                    val index = queueItems.indexOfFirst { it.uri == item.uri }
                                     if (index != -1 && index < (mediaController?.mediaItemCount ?: 0)) {
                                         mediaController?.seekToDefaultPosition(index)
                                     } else {
-                                        mediaController?.setMediaItem(MediaItem.fromUri(video.uri))
+                                        mediaController?.setMediaItem(MediaItem.fromUri(Uri.parse(item.uri)))
                                         mediaController?.prepare()
                                     }
                                     mediaController?.play()
@@ -1650,6 +1683,8 @@ fun SubtitleDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(28.dp),
         title = {
             Text(
                 stringResource(R.string.subtitles_title),
@@ -1769,23 +1804,57 @@ fun SubtitleDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val sizeList = listOf(
+                    val sizeRow1 = listOf(
                         14 to stringResource(R.string.size_small),
-                        18 to stringResource(R.string.size_normal),
+                        18 to stringResource(R.string.size_normal)
+                    )
+                    val sizeRow2 = listOf(
                         22 to stringResource(R.string.size_large),
                         26 to stringResource(R.string.size_extra_large)
                     )
-                    sizeList.forEach { (size, label) ->
-                        val isSelected = (subtitleTextSize == size)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onSubtitleTextSizeChange(size) },
-                            label = { Text(label, fontSize = 11.sp) }
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        sizeRow1.forEach { (size, label) ->
+                            val isSelected = (subtitleTextSize == size)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSubtitleTextSizeChange(size) },
+                                label = { Text(label, fontSize = 12.sp, maxLines = 1) },
+                                modifier = Modifier.weight(1f),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    labelColor = MaterialTheme.colorScheme.onSurface,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        sizeRow2.forEach { (size, label) ->
+                            val isSelected = (subtitleTextSize == size)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSubtitleTextSizeChange(size) },
+                                label = { Text(label, fontSize = 12.sp, maxLines = 1) },
+                                modifier = Modifier.weight(1f),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    labelColor = MaterialTheme.colorScheme.onSurface,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
                     }
                 }
 
@@ -1796,7 +1865,7 @@ fun SubtitleDialog(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val colorList = listOf(
                         0 to stringResource(R.string.color_white),
@@ -1808,7 +1877,14 @@ fun SubtitleDialog(
                         FilterChip(
                             selected = isSelected,
                             onClick = { onSubtitleTextColorChange(col) },
-                            label = { Text(label, fontSize = 11.sp) }
+                            label = { Text(label, fontSize = 12.sp, maxLines = 1) },
+                            modifier = Modifier.weight(1f),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                labelColor = MaterialTheme.colorScheme.onSurface,
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         )
                     }
                 }
@@ -1818,23 +1894,47 @@ fun SubtitleDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val bgList = listOf(
+                    val bgRow1 = listOf(
                         0 to stringResource(R.string.bg_transparent),
-                        1 to stringResource(R.string.bg_semi_transparent),
                         2 to stringResource(R.string.bg_black)
                     )
-                    bgList.forEach { (bg, label) ->
-                        val isSelected = (subtitleBgStyle == bg)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onSubtitleBgStyleChange(bg) },
-                            label = { Text(label, fontSize = 11.sp) }
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        bgRow1.forEach { (bg, label) ->
+                            val isSelected = (subtitleBgStyle == bg)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSubtitleBgStyleChange(bg) },
+                                label = { Text(label, fontSize = 12.sp, maxLines = 1) },
+                                modifier = Modifier.weight(1f),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    labelColor = MaterialTheme.colorScheme.onSurface,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
                     }
+                    val isSemiSelected = (subtitleBgStyle == 1)
+                    FilterChip(
+                        selected = isSemiSelected,
+                        onClick = { onSubtitleBgStyleChange(1) },
+                        label = { Text(stringResource(R.string.bg_semi_transparent), fontSize = 12.sp, maxLines = 1) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
                 }
 
                 Text(
@@ -1873,8 +1973,7 @@ fun SubtitleDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.action_close))
             }
-        },
-        shape = RoundedCornerShape(24.dp)
+        }
     )
 }
 
