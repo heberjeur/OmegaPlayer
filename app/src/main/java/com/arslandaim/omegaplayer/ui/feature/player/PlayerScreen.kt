@@ -7,6 +7,7 @@
 package com.arslandaim.omegaplayer.ui.feature.player
 
 import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,15 +16,25 @@ import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
+import android.util.Rational
 import android.view.LayoutInflater
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.annotation.OptIn as AndroidOptIn
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -107,6 +118,7 @@ fun PlayerScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     initialPosition: Long = -1L,
+    isInPiPMode: Boolean = false,
     onBack: () -> Unit,
     onAudioTransition: (String) -> Unit = {}
 ) {
@@ -127,8 +139,56 @@ fun PlayerScreen(
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
+    var showSubtitleDialog by remember { mutableStateOf(false) }
+    var currentTracks by remember { mutableStateOf(mediaController?.currentTracks ?: Tracks.EMPTY) }
     var showQueueSheet by remember { mutableStateOf(false) }
     val queueSheetState = rememberModalBottomSheetState()
+
+    val enterPiP: () -> Unit = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            activity?.enterPictureInPictureMode(params)
+        }
+    }
+
+    val subtitleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+
+            val player = mediaController ?: return@rememberLauncherForActivityResult
+            val currentItem = player.currentMediaItem ?: return@rememberLauncherForActivityResult
+            val mimeType = if (uri.toString().endsWith(".vtt", ignoreCase = true)) {
+                MimeTypes.TEXT_VTT
+            } else if (uri.toString().endsWith(".ass", ignoreCase = true) || uri.toString().endsWith(".ssa", ignoreCase = true)) {
+                MimeTypes.TEXT_SSA
+            } else {
+                MimeTypes.APPLICATION_SUBRIP
+            }
+            val subConfig = MediaItem.SubtitleConfiguration.Builder(uri)
+                .setMimeType(mimeType)
+                .setLanguage(Locale.getDefault().language)
+                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                .build()
+            val newItem = currentItem.buildUpon()
+                .setSubtitleConfigurations(listOf(subConfig))
+                .build()
+            val pos = player.currentPosition
+            val isPlayingNow = player.isPlaying
+            player.setMediaItem(newItem, pos)
+            player.prepare()
+            if (isPlayingNow) player.play()
+            Toast.makeText(context, context.getString(R.string.subtitles_loaded_success), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val videosList by viewModel.videos.collectAsStateWithLifecycle()
     val currentVideo = remember(videoUri, videosList) {
@@ -221,21 +281,42 @@ fun PlayerScreen(
     }
     var brightness by remember { mutableFloatStateOf(initialBrightness) }
 
-    DisposableEffect(context, audioManager, maxVolume) {
-        val volumeReceiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                if (intent?.action == "android.media.VOLUME_CHANGED_ACTION") {
-                    val current = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
-                    if (current >= 0 && maxVolume > 0) {
-                        volume = (current.toFloat() / maxVolume).coerceIn(0f, 1f)
-                    }
-                }
+    val updateVolumeFromSystem: () -> Unit = {
+        audioManager?.let { am ->
+            val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if (max > 0) {
+                volume = (cur.toFloat() / max).coerceIn(0f, 1f)
             }
         }
-        val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
-        context.registerReceiver(volumeReceiver, filter)
+    }
+
+    DisposableEffect(context, audioManager) {
+        updateVolumeFromSystem()
+        val contentObserver = object : android.database.ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                super.onChange(selfChange)
+                updateVolumeFromSystem()
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Settings.System.CONTENT_URI,
+            true,
+            contentObserver
+        )
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                updateVolumeFromSystem()
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction("android.media.VOLUME_CHANGED_ACTION")
+            addAction("android.media.STREAM_MUTE_CHANGED_ACTION")
+        }
+        context.registerReceiver(receiver, filter)
         onDispose {
-            context.unregisterReceiver(volumeReceiver)
+            context.contentResolver.unregisterContentObserver(contentObserver)
+            context.unregisterReceiver(receiver)
         }
     }
     var isControlsVisible by remember { mutableStateOf(true) }
@@ -361,6 +442,9 @@ fun PlayerScreen(
                     videoResolution = "${videoSize.width}x${videoSize.height}"
                 }
             }
+            override fun onTracksChanged(tracks: Tracks) {
+                currentTracks = tracks
+            }
             override fun onRepeatModeChanged(mode: Int) {
                 repeatMode = mode
             }
@@ -377,6 +461,7 @@ fun PlayerScreen(
             }
         }
         player.addListener(listener)
+        currentTracks = player.currentTracks
         if (player.videoSize.width > 0 && player.videoSize.height > 0) {
             videoResolution = "${player.videoSize.width}x${player.videoSize.height}"
         }
@@ -391,7 +476,7 @@ fun PlayerScreen(
         val player = mediaController
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
-                if (!currentBackgroundPlay.value) {
+                if (!currentBackgroundPlay.value && !isInPiPMode) {
                     player?.pause()
                 }
             }
@@ -491,6 +576,25 @@ fun PlayerScreen(
     }
 
     var showMoreMenu by remember { mutableStateOf(false) }
+
+    if (isInPiPMode) {
+        AndroidView(
+            factory = { ctx ->
+                val view = LayoutInflater.from(ctx).inflate(R.layout.player_view, null) as PlayerView
+                view.apply {
+                    player = mediaController
+                    useController = false
+                }
+            },
+            update = { playerView ->
+                playerView.player = mediaController
+                playerView.useController = false
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        return
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (!isLandscape) {
@@ -631,7 +735,7 @@ fun PlayerScreen(
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
                                             audioManager?.let { am ->
-                                                val targetVol = (volume * maxVolume).toInt()
+                                                val targetVol = kotlin.math.round(volume * maxVolume).toInt()
                                                 am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
                                             }
                                         } else {
@@ -783,9 +887,12 @@ fun PlayerScreen(
                             )
                         }
                         IconButton(onClick = {
-                            Toast.makeText(context, "Subtitles coming soon", Toast.LENGTH_SHORT).show()
+                            showSubtitleDialog = true
                         }) {
-                            Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
+                            Icon(Icons.Default.Subtitles, contentDescription = stringResource(R.string.subtitles_title), tint = Color.White)
+                        }
+                        IconButton(onClick = enterPiP) {
+                            Icon(Icons.Default.PictureInPictureAlt, contentDescription = stringResource(R.string.action_pip), tint = Color.White)
                         }
                         IconButton(onClick = { isLocked = !isLocked }) {
                             Icon(
@@ -915,7 +1022,7 @@ fun PlayerScreen(
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
                                             audioManager?.let { am ->
-                                                val targetVol = (volume * maxVolume).toInt()
+                                                val targetVol = kotlin.math.round(volume * maxVolume).toInt()
                                                 am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
                                             }
                                             isVolumeVisible = true
@@ -1159,6 +1266,12 @@ fun PlayerScreen(
                             }
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { showSubtitleDialog = true }) {
+                                    Icon(Icons.Default.Subtitles, contentDescription = stringResource(R.string.subtitles_title), tint = Color.White)
+                                }
+                                IconButton(onClick = enterPiP) {
+                                    Icon(Icons.Default.PictureInPictureAlt, contentDescription = stringResource(R.string.action_pip), tint = Color.White)
+                                }
                                 IconButton(onClick = { aspectRatio = (aspectRatio + 1) % 3 }) {
                                     Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = "Aspect Ratio", tint = Color.White)
                                 }
@@ -1316,6 +1429,30 @@ fun PlayerScreen(
             }
         }
 
+        if (showSubtitleDialog) {
+            SubtitleDialog(
+                tracks = currentTracks,
+                onDismiss = { showSubtitleDialog = false },
+                onDisableSubtitles = {
+                    mediaController?.trackSelectionParameters = mediaController?.trackSelectionParameters
+                        ?.buildUpon()
+                        ?.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        ?.clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                        ?.build() ?: return@SubtitleDialog
+                },
+                onSelectTrack = { group, trackIndex ->
+                    mediaController?.trackSelectionParameters = mediaController?.trackSelectionParameters
+                        ?.buildUpon()
+                        ?.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        ?.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIndex))
+                        ?.build() ?: return@SubtitleDialog
+                },
+                onLoadExternal = {
+                    subtitleLauncher.launch(arrayOf("text/*", "application/x-subrip", "*/*"))
+                }
+            )
+        }
+
         if (playbackError != null) {
             PlaybackErrorOverlay(
                 error = playbackError!!,
@@ -1327,6 +1464,136 @@ fun PlayerScreen(
             )
         }
     }
+}
+
+@Composable
+fun SubtitleDialog(
+    tracks: Tracks,
+    onDismiss: () -> Unit,
+    onDisableSubtitles: () -> Unit,
+    onSelectTrack: (Tracks.Group, Int) -> Unit,
+    onLoadExternal: () -> Unit
+) {
+    val textTrackGroups = remember(tracks) {
+        tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+    }
+    val hasTracks = textTrackGroups.isNotEmpty()
+    val isAnySelected = textTrackGroups.any { it.isSelected }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                stringResource(R.string.subtitles_title),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            onDisableSubtitles()
+                            onDismiss()
+                        }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = !isAnySelected,
+                        onClick = {
+                            onDisableSubtitles()
+                            onDismiss()
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.subtitles_off),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (!isAnySelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                if (!hasTracks) {
+                    Text(
+                        stringResource(R.string.subtitles_none_found),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp)
+                    )
+                } else {
+                    textTrackGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val format = group.getTrackFormat(i)
+                            val isSelected = group.isTrackSelected(i)
+                            val trackName = format.label
+                                ?: format.language?.uppercase(Locale.getDefault())
+                                ?: "Track ${i + 1}"
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        onSelectTrack(group, i)
+                                        onDismiss()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        onSelectTrack(group, i)
+                                        onDismiss()
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    trackName,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                OutlinedButton(
+                    onClick = {
+                        onDismiss()
+                        onLoadExternal()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.FileOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.subtitles_load_external))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_close))
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
 }
 
 @Composable

@@ -1,7 +1,11 @@
 package com.arslandaim.omegaplayer
 
 import android.os.Bundle
+import android.os.Build
+import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.res.Configuration
+import android.util.Rational
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
@@ -44,6 +48,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private var isPlayerActive = false
+    private var isInPictureInPictureModeState by mutableStateOf(false)
 
     @Inject
     lateinit var playbackConnection: PlaybackConnection
@@ -149,7 +154,10 @@ class MainActivity : FragmentActivity() {
                                 val encodedUri = backStackEntry.arguments?.getString("videoUri") ?: ""
                                 val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
                                 val initialPos = backStackEntry.arguments?.getLong("pos") ?: -1L
-                                isPlayerActive = true
+                                DisposableEffect(Unit) {
+                                    isPlayerActive = true
+                                    onDispose { isPlayerActive = false }
+                                }
                                 PlayerScreen(
                                     videoUri = decodedUri, 
                                     viewModel = videoViewModel,
@@ -157,6 +165,7 @@ class MainActivity : FragmentActivity() {
                                     sharedTransitionScope = this@SharedTransitionLayout,
                                     animatedVisibilityScope = this@composable,
                                     initialPosition = initialPos,
+                                    isInPiPMode = isInPictureInPictureModeState,
                                     onBack = { 
                                         if (!navController.popBackStack()) {
                                             navController.navigate(Screen.Main.createRoute("videos")) {
@@ -250,6 +259,24 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        isInPictureInPictureModeState = isInPictureInPictureMode
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (isPlayerActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                enterPictureInPictureMode(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .build()
+                )
+            } catch (_: Exception) {}
+        }
     }
 }
 

@@ -124,6 +124,15 @@ class VideoViewModel @Inject constructor(
     val showPlayerBrightness: StateFlow<Boolean> = themePreferences.showPlayerBrightness
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val defaultPlaybackSpeed: StateFlow<Float> = themePreferences.defaultPlaybackSpeed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
+
+    val defaultViewMode: StateFlow<Int> = themePreferences.defaultViewMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val defaultSortOrder: StateFlow<String> = themePreferences.defaultSortOrder
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MediaSortOrder.DATE_DESC.name)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawVideos: Flow<List<VideoModel>> = refreshTrigger
         .flatMapLatest { getVideosUseCase() }
@@ -430,5 +439,17 @@ class VideoViewModel @Inject constructor(
 
     fun togglePlayerBrightness(show: Boolean) {
         viewModelScope.launch { themePreferences.saveShowPlayerBrightness(show) }
+    }
+
+    fun setDefaultPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { themePreferences.saveDefaultPlaybackSpeed(speed) }
+    }
+
+    fun setDefaultViewMode(mode: Int) {
+        viewModelScope.launch { themePreferences.saveDefaultViewMode(mode) }
+    }
+
+    fun setDefaultSortOrder(sortOrder: String) {
+        viewModelScope.launch { themePreferences.saveDefaultSortOrder(sortOrder) }
     }
 }

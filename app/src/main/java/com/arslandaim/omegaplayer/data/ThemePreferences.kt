@@ -44,6 +44,9 @@ class ThemePreferences(private val context: Context) {
     private val SHOW_PLAYER_MEDIA_INFO_KEY = booleanPreferencesKey("show_player_media_info")
     private val SHOW_PLAYER_VOLUME_KEY = booleanPreferencesKey("show_player_volume")
     private val SHOW_PLAYER_BRIGHTNESS_KEY = booleanPreferencesKey("show_player_brightness")
+    private val DEFAULT_PLAYBACK_SPEED_KEY = floatPreferencesKey("default_playback_speed")
+    private val DEFAULT_VIEW_MODE_KEY = intPreferencesKey("default_view_mode")
+    private val DEFAULT_SORT_ORDER_KEY = stringPreferencesKey("default_sort_order")
 
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
@@ -246,6 +249,36 @@ class ThemePreferences(private val context: Context) {
     suspend fun saveShowPlayerBrightness(show: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[SHOW_PLAYER_BRIGHTNESS_KEY] = show
+        }
+    }
+
+    val defaultPlaybackSpeed: Flow<Float> = context.dataStore.data.map { preferences ->
+        preferences[DEFAULT_PLAYBACK_SPEED_KEY] ?: 1.0f
+    }
+
+    suspend fun saveDefaultPlaybackSpeed(speed: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_PLAYBACK_SPEED_KEY] = speed
+        }
+    }
+
+    val defaultViewMode: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[DEFAULT_VIEW_MODE_KEY] ?: 0
+    }
+
+    suspend fun saveDefaultViewMode(mode: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_VIEW_MODE_KEY] = mode
+        }
+    }
+
+    val defaultSortOrder: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[DEFAULT_SORT_ORDER_KEY] ?: "date_desc"
+    }
+
+    suspend fun saveDefaultSortOrder(sortOrder: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_SORT_ORDER_KEY] = sortOrder
         }
     }
 }

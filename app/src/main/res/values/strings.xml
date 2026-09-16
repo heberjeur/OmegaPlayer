@@ -149,4 +149,24 @@
     <string name="hud_show_volume">Show Volume Level</string>
     <string name="hud_show_brightness">Show Brightness Level</string>
     <string name="section_playback">Playback</string>
+    <string name="subtitles_title">Subtitles</string>
+    <string name="subtitles_off">Off</string>
+    <string name="subtitles_load_external">Load external subtitle (.srt, .vtt)</string>
+    <string name="subtitles_none_found">No embedded subtitle tracks</string>
+    <string name="subtitles_loaded_success">Subtitle track loaded</string>
+    <string name="action_pip">Picture-in-Picture</string>
+    <string name="section_defaults">Default Preferences</string>
+    <string name="setting_default_speed">Default Playback Speed</string>
+    <string name="setting_default_speed_sub">Initial playback speed for new media</string>
+    <string name="setting_default_view_mode">Default Presentation Mode</string>
+    <string name="setting_default_view_mode_sub">Default display layout across tabs and folders</string>
+    <string name="setting_default_sort_order">Default Sort Order</string>
+    <string name="setting_default_sort_order_sub">Default sorting applied to media lists</string>
+    <string name="view_mode_list">List</string>
+    <string name="view_mode_grid">Grid (2 Col)</string>
+    <string name="view_mode_card">Card (Full Width)</string>
+    <string name="action_previous">Previous</string>
+    <string name="action_next">Next</string>
+    <string name="action_play">Play</string>
+    <string name="action_pause">Pause</string>
 </resources>

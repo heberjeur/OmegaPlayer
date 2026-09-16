@@ -16,13 +16,16 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.common.Player
 import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.arslandaim.omegaplayer.MainActivity
 import com.arslandaim.omegaplayer.R
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.AndroidEntryPoint
@@ -77,13 +80,13 @@ class PlaybackService : MediaSessionService() {
 
         val rewindButton = CommandButton.Builder()
             .setDisplayName("Rewind 10s")
-            .setIconResId(R.drawable.ic_replay_10)
+            .setIconResId(R.drawable.ic_notif_replay_10)
             .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
             .build()
 
         val forwardButton = CommandButton.Builder()
             .setDisplayName("Forward 10s")
-            .setIconResId(R.drawable.ic_forward_10)
+            .setIconResId(R.drawable.ic_notif_forward_10)
             .setSessionCommand(SessionCommand(ACTION_FAST_FORWARD, Bundle.EMPTY))
             .build()
 
@@ -143,6 +146,48 @@ class PlaybackService : MediaSessionService() {
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
             }
         }
+
+        val notificationProvider = object : DefaultMediaNotificationProvider(this) {
+            override fun getMediaButtons(
+                session: MediaSession,
+                playerCommands: Player.Commands,
+                customLayout: ImmutableList<CommandButton>,
+                showWhenCompact: Boolean
+            ): ImmutableList<CommandButton> {
+                val prevButton = CommandButton.Builder()
+                    .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .setIconResId(androidx.media3.ui.R.drawable.exo_notification_previous)
+                    .setDisplayName(getString(R.string.action_previous))
+                    .build()
+                val rewindBtn = CommandButton.Builder()
+                    .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
+                    .setIconResId(R.drawable.ic_notif_replay_10)
+                    .setDisplayName("Rewind 10s")
+                    .build()
+                val playPauseBtn = CommandButton.Builder()
+                    .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+                    .setIconResId(if (session.player.isPlaying) androidx.media3.ui.R.drawable.exo_notification_pause else androidx.media3.ui.R.drawable.exo_notification_play)
+                    .setDisplayName(if (session.player.isPlaying) getString(R.string.action_pause) else getString(R.string.action_play))
+                    .build()
+                val fwdBtn = CommandButton.Builder()
+                    .setSessionCommand(SessionCommand(ACTION_FAST_FORWARD, Bundle.EMPTY))
+                    .setIconResId(R.drawable.ic_notif_forward_10)
+                    .setDisplayName("Forward 10s")
+                    .build()
+                val nextBtn = CommandButton.Builder()
+                    .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                    .setIconResId(androidx.media3.ui.R.drawable.exo_notification_next)
+                    .setDisplayName(getString(R.string.action_next))
+                    .build()
+
+                return if (showWhenCompact) {
+                    ImmutableList.of(prevButton, playPauseBtn, nextBtn)
+                } else {
+                    ImmutableList.of(prevButton, rewindBtn, playPauseBtn, fwdBtn, nextBtn)
+                }
+            }
+        }
+        setMediaNotificationProvider(notificationProvider)
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(pendingIntent)

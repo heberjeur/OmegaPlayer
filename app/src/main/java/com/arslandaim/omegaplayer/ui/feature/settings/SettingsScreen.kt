@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arslandaim.omegaplayer.R
 import com.arslandaim.omegaplayer.data.AppTheme
+import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import com.arslandaim.omegaplayer.viewmodel.ThemeViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
@@ -75,6 +76,11 @@ fun SettingsScreen(
     val showPlayerVolume by videoViewModel.showPlayerVolume.collectAsStateWithLifecycle(initialValue = true)
     val showPlayerBrightness by videoViewModel.showPlayerBrightness.collectAsStateWithLifecycle(initialValue = true)
 
+    val defaultSpeed by videoViewModel.defaultPlaybackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
+    val defaultViewMode by videoViewModel.defaultViewMode.collectAsStateWithLifecycle(initialValue = 0)
+    val defaultSortOrder by videoViewModel.defaultSortOrder.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
+
+    var showSortOrderDialog by remember { mutableStateOf(false) }
     var showAboutDeveloperDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
@@ -221,6 +227,94 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            Text(stringResource(R.string.section_defaults), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(stringResource(R.string.setting_default_speed), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(R.string.setting_default_speed_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        speeds.take(3).forEach { speed ->
+                            FilterChip(
+                                selected = defaultSpeed == speed,
+                                onClick = { videoViewModel.setDefaultPlaybackSpeed(speed) },
+                                label = { Text("${speed}x", maxLines = 1) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        speeds.takeLast(3).forEach { speed ->
+                            FilterChip(
+                                selected = defaultSpeed == speed,
+                                onClick = { videoViewModel.setDefaultPlaybackSpeed(speed) },
+                                label = { Text("${speed}x", maxLines = 1) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(stringResource(R.string.setting_default_view_mode), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(R.string.setting_default_view_mode_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val modes = listOf(
+                            0 to stringResource(R.string.view_mode_list),
+                            1 to stringResource(R.string.view_mode_grid),
+                            2 to stringResource(R.string.view_mode_card)
+                        )
+                        modes.forEachIndexed { index, (mode, label) ->
+                            SegmentedButton(
+                                selected = defaultViewMode == mode,
+                                onClick = { videoViewModel.setDefaultViewMode(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                                label = { Text(label, maxLines = 1) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val currentSortLabel = try {
+                        MediaSortOrder.valueOf(defaultSortOrder).label
+                    } catch (_: Exception) {
+                        defaultSortOrder
+                    }
+
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_default_sort_order), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(currentSortLabel) },
+                        trailingContent = {
+                            TextButton(onClick = { showSortOrderDialog = true }) {
+                                Text(stringResource(R.string.action_filter))
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
                 }
             }
 
@@ -434,6 +528,45 @@ fun SettingsScreen(
                     }
                 },
                 shape = RoundedCornerShape(28.dp)
+            )
+        }
+
+        if (showSortOrderDialog) {
+            AlertDialog(
+                onDismissRequest = { showSortOrderDialog = false },
+                title = { Text(stringResource(R.string.setting_default_sort_order), fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        MediaSortOrder.entries.forEach { order ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        videoViewModel.setDefaultSortOrder(order.name)
+                                        showSortOrderDialog = false
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = defaultSortOrder == order.name,
+                                    onClick = {
+                                        videoViewModel.setDefaultSortOrder(order.name)
+                                        showSortOrderDialog = false
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(order.label, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSortOrderDialog = false }) {
+                        Text(stringResource(R.string.action_close))
+                    }
+                },
+                shape = RoundedCornerShape(24.dp)
             )
         }
     }
