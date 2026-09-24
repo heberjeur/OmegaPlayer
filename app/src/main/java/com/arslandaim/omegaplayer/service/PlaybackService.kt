@@ -25,6 +25,7 @@ import androidx.media3.session.SessionCommand
 import androidx.core.app.NotificationCompat
 import androidx.media3.session.MediaNotification
 import androidx.media3.session.SessionResult
+import androidx.media3.session.SessionError
 import com.arslandaim.omegaplayer.MainActivity
 import com.arslandaim.omegaplayer.R
 import com.google.common.collect.ImmutableList
@@ -224,7 +225,7 @@ class PlaybackService : MediaSessionService() {
                         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                     }
                 }
-                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
+                return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
             }
         }
 
