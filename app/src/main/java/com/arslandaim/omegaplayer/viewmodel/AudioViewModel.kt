@@ -52,7 +52,7 @@ class AudioViewModel @Inject constructor(
     val eqManager: com.arslandaim.omegaplayer.media.EqManager
 ) : AndroidViewModel(application) {
 
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _currentNavPath = MutableStateFlow<String?>(null)

@@ -80,7 +80,7 @@ class VideoViewModel @Inject constructor(
         }
     }
 
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     val activeVideoUri: StateFlow<String?> = playbackConnection.currentMediaItem
