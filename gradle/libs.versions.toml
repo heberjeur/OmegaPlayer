@@ -20,7 +20,7 @@ uiText = "1.11.2"
 foundationLayout = "1.11.3"
 animationCore = "1.11.3"
 hilt = "2.60.1"
-paging = "3.5.0"
+paging = "3.5.1"
 hiltNavigation = "1.4.0"
 
 [libraries]
