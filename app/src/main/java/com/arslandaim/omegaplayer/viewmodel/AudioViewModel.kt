@@ -108,7 +108,7 @@ class AudioViewModel @Inject constructor(
             val folder = File(it.path).parentFile?.name ?: "Internal"
             !excluded.contains(folder)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -140,13 +140,13 @@ class AudioViewModel @Inject constructor(
             MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
             MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentPlayback: StateFlow<List<RecentPlayback>> = getRecentPlaybackUseCase()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val fullHistory: StateFlow<List<RecentPlayback>> = playbackRepository.getAllRecentPlayback()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -240,12 +240,12 @@ class AudioViewModel @Inject constructor(
             audioList.groupBy { File(it.path).parentFile?.name ?: "Internal" }
                 .mapValues { it.value.size }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
     val audiosInSelectedFolder: StateFlow<List<AudioModel>> = combine(audios, _selectedFolder) { audioList, folder ->
         if (folder == null) emptyList()
         else audioList.filter { File(it.path).parentFile?.absolutePath == folder }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun createPlaylist(name: String) {
         viewModelScope.launch {
@@ -529,13 +529,13 @@ class AudioViewModel @Inject constructor(
 
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(audios, folderFlattenThreshold) { audioList, threshold ->
         buildAudioTree(audioList, threshold)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
         if (tree == null) emptyList()
         else if (path.isNullOrEmpty()) tree.getVisibleChildren()
         else (findAudioNode(tree, path) ?: tree).getVisibleChildren()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
 
