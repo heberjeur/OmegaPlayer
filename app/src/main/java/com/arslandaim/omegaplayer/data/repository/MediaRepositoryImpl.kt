@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,10 +30,10 @@ class MediaRepositoryImpl @Inject constructor(
 ) : MediaRepository {
 
     @OptIn(FlowPreview::class)
-    override fun getAudios(): Flow<Resource<List<AudioModel>>> = callbackFlow {
+    override fun getAudios(): Flow<Resource<List<AudioModel>>> = callbackFlow<Unit> {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                launch { trySend(fetchAudios()) }
+                trySend(Unit)
             }
         }
         context.contentResolver.registerContentObserver(
@@ -48,13 +49,13 @@ class MediaRepositoryImpl @Inject constructor(
     .transform {
         emit(Resource.Loading)
         emit(fetchAudios())
-    }
+    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
     @OptIn(FlowPreview::class)
-    override fun getVideos(): Flow<Resource<List<VideoModel>>> = callbackFlow {
+    override fun getVideos(): Flow<Resource<List<VideoModel>>> = callbackFlow<Unit> {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                launch { trySend(fetchVideos()) }
+                trySend(Unit)
             }
         }
         context.contentResolver.registerContentObserver(
@@ -70,7 +71,7 @@ class MediaRepositoryImpl @Inject constructor(
     .transform {
         emit(Resource.Loading)
         emit(fetchVideos())
-    }
+    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
     private fun fetchAudios(): Resource<List<AudioModel>> {
         val list = mutableListOf<AudioModel>()
