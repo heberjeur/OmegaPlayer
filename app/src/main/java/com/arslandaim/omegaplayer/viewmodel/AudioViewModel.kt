@@ -48,7 +48,8 @@ class AudioViewModel @Inject constructor(
     private val getRecentPlaybackUseCase: GetRecentPlaybackUseCase,
     private val playbackConnection: PlaybackConnection,
     private val playbackRepository: PlaybackRepository,
-    private val themePreferences: ThemePreferences
+    private val themePreferences: ThemePreferences,
+    val eqManager: com.arslandaim.omegaplayer.media.EqManager
 ) : AndroidViewModel(application) {
 
     private val _isLoading = MutableStateFlow(false)
@@ -153,13 +154,13 @@ class AudioViewModel @Inject constructor(
     val autoPip: StateFlow<Boolean> = themePreferences.autoPip.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.autoPip.first() }
     )
 
     val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 3
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.controlsTimeout.first() }
     )
 
     val isHistoryPaused: StateFlow<Boolean> = themePreferences.isHistoryPaused
@@ -168,7 +169,7 @@ class AudioViewModel @Inject constructor(
     val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 5
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.folderFlattenThreshold.first() }
     )
 
     private val _sleepTimerActive = MutableStateFlow(false)
@@ -563,8 +564,6 @@ class AudioViewModel @Inject constructor(
     fun playAudios(folderAudios: List<AudioModel>, startIndex: Int) {
         playbackConnection.playAudios(folderAudios, startIndex)
     }
-
-    val eqManager = com.arslandaim.omegaplayer.media.EqManager()
 
     private fun buildAudioTree(audios: List<AudioModel>, threshold: Int): com.arslandaim.omegaplayer.data.model.FolderNode {
         val root = com.arslandaim.omegaplayer.data.model.FolderNode("Internal", "")

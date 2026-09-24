@@ -125,7 +125,7 @@ import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 @AndroidOptIn(UnstableApi::class)
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun PlayerScreen(
+fun VideoPlayerScreen(
     videoUri: String, 
     from: String? = null,
     viewModel: VideoViewModel,
@@ -469,7 +469,7 @@ fun PlayerScreen(
             Toast.makeText(context, "Unlock the player to exit", Toast.LENGTH_SHORT).show()
         } else if (isLandscape) {
             isLandscape = false
-            activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 2) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         } else {
             onBack()
         }
@@ -529,7 +529,7 @@ fun PlayerScreen(
                     else -> "Unexpected error"
                 }
                 playbackError = "$errorType: ${error.message}"
-                Log.e("PlayerScreen", "ExoPlayer Error ($errorType): ${error.message}", error)
+
                 
                 if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
                     error.errorCode == PlaybackException.ERROR_CODE_TIMEOUT) {
@@ -721,7 +721,7 @@ fun PlayerScreen(
                     }
                 }
             } catch (e: Exception) {
-                Log.e("PlayerScreen", "Error resolving video name", e)
+                queriedName = null
             }
             queriedName ?: videoUri.substringAfterLast("/").substringBeforeLast(".")
         }
@@ -1134,7 +1134,7 @@ fun PlayerScreen(
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (playerOrientation == 0) { IconButton(onClick = { isLandscape = true; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }) { Icon(Icons.Default.Fullscreen, contentDescription = "Fullscreen", tint = Color.White) } }
+                        if (playerOrientation == 2) { IconButton(onClick = { isLandscape = true; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }) { Icon(Icons.Default.Fullscreen, contentDescription = "Fullscreen", tint = Color.White) } }
                         IconButton(onClick = { aspectRatio = (aspectRatio + 1) % 3 }) {
                             Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = "Aspect Ratio", tint = Color.White)
                         }
@@ -1408,7 +1408,7 @@ fun PlayerScreen(
                         ) {
                             IconButton(onClick = {
                                 isLandscape = false
-                                activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 2) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
                             }
@@ -1576,7 +1576,7 @@ fun PlayerScreen(
                                 IconButton(onClick = { isLocked = true; isControlsVisible = false }) {
                                     Icon(Icons.Default.LockOpen, contentDescription = "Lock", tint = Color.White)
                                 }
-                                if (playerOrientation == 0) { IconButton(onClick = { isLandscape = false; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }) { Icon(Icons.Default.FullscreenExit, contentDescription = "Exit Fullscreen", tint = Color.White) } }
+                                if (playerOrientation == 2) { IconButton(onClick = { isLandscape = false; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }) { Icon(Icons.Default.FullscreenExit, contentDescription = "Exit Fullscreen", tint = Color.White) } }
                             }
                         }
                     }
@@ -1715,96 +1715,49 @@ fun PlayerScreen(
         }
 
         if (showQueueSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showQueueSheet = false },
-                sheetState = queueSheetState,
-                containerColor = Color(0xFF1A1A1A),
-                contentColor = Color.White
-            ) {
-                Column(modifier = Modifier.fillMaxHeight(0.6f).padding(16.dp)) {
-                    Text(
-                        stringResource(R.string.up_next),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.padding(bottom = 16.dp)
+            val queueItems = if (activeQueue.isNotEmpty()) {
+                activeQueue
+            } else if (activeQueueVideos.isNotEmpty()) {
+                activeQueueVideos.map {
+                    com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                        uri = it.uri.toString(),
+                        title = it.name,
+                        duration = it.duration,
+                        isVideo = true
                     )
-                    val queueItems = if (activeQueue.isNotEmpty()) {
-                        activeQueue
-                    } else if (activeQueueVideos.isNotEmpty()) {
-                        activeQueueVideos.map {
-                            com.arslandaim.omegaplayer.media.PlaybackQueueItem(
-                                uri = it.uri.toString(),
-                                title = it.name,
-                                duration = it.duration,
-                                isVideo = true
-                            )
+                }
+            } else {
+                listOf(
+                    com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                        uri = videoUri,
+                        title = "Unknown",
+                        duration = 0L,
+                        isVideo = true
+                    )
+                )
+            }
+
+            com.arslandaim.omegaplayer.ui.feature.player.PlaybackQueueSheet(
+                queueItems = queueItems,
+                currentMediaIndex = currentMediaIndexState,
+                sheetState = queueSheetState,
+                onDismiss = { showQueueSheet = false },
+                onItemClick = { index ->
+                    showQueueSheet = false
+                    val item = queueItems[index]
+                    val isCurrent = index == currentMediaIndexState
+                    if (!isCurrent) {
+                        val qIndex = queueItems.indexOfFirst { it.uri == item.uri }
+                        if (qIndex != -1 && qIndex < (mediaController?.mediaItemCount ?: 0)) {
+                            mediaController?.seekToDefaultPosition(qIndex)
+                        } else {
+                            mediaController?.setMediaItem(androidx.media3.common.MediaItem.fromUri(android.net.Uri.parse(item.uri)))
+                            mediaController?.prepare()
                         }
-                    } else {
-                        listOf(
-                            com.arslandaim.omegaplayer.media.PlaybackQueueItem(
-                                uri = videoUri,
-                                title = "Unknown",
-                                duration = 0L,
-                                isVideo = true
-                            )
-                        )
-                    }
-                    LazyColumn {
-                        itemsIndexed(queueItems) { index, item ->
-                            val isCurrent = index == currentMediaIndexState
-                            ListItem(
-                                headlineContent = {
-                                    Text(
-                                        item.title,
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White
-                                    )
-                                },
-                                supportingContent = { Text(formatDuration(item.duration), color = Color.Gray) },
-                                leadingContent = {
-                                    if (item.isVideo) {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
-                                                .data(com.arslandaim.omegaplayer.util.SmartVideoThumb(Uri.parse(item.uri), item.duration, item.uri.hashCode().toString()))
-                                                .crossfade(true)
-                                                .build(),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop,
-                                            error = rememberVectorPainter(Icons.Default.Movie)
-                                        )
-                                    } else {
-                                        val albumArtUri = item.albumId?.let { id: Long ->
-                                            ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), id)
-                                        }
-                                        AsyncImage(
-                                            model = albumArtUri,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop,
-                                            error = rememberVectorPainter(Icons.Default.MusicNote)
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.clickable {
-                                    showQueueSheet = false
-                                    if (!isCurrent) {
-                                        val index = queueItems.indexOfFirst { it.uri == item.uri }
-                                        if (index != -1 && index < (mediaController?.mediaItemCount ?: 0)) {
-                                            mediaController?.seekToDefaultPosition(index)
-                                        } else {
-                                            mediaController?.setMediaItem(MediaItem.fromUri(Uri.parse(item.uri)))
-                                            mediaController?.prepare()
-                                        }
-                                        mediaController?.play()
-                                    }
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
+                        mediaController?.play()
                     }
                 }
-            }
+            )
         }
 
         if (showSubtitleDialog) {

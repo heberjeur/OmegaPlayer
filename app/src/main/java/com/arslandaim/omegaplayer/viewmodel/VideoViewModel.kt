@@ -113,10 +113,10 @@ class VideoViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     val showRecentHistoryOnHome: StateFlow<Boolean> = themePreferences.showRecentHistoryOnHome
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val showHistoryTab: StateFlow<Boolean> = themePreferences.showHistoryTab
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val speedScope: StateFlow<PlaybackSpeedScope> = themePreferences.speedScope
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackSpeedScope.GLOBAL)
@@ -125,22 +125,22 @@ class VideoViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
     val showPlayerClock: StateFlow<Boolean> = themePreferences.showPlayerClock
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val showPlayerBattery: StateFlow<Boolean> = themePreferences.showPlayerBattery
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val showPlayerMediaInfo: StateFlow<Boolean> = themePreferences.showPlayerMediaInfo
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val showPlayerVolume: StateFlow<Boolean> = themePreferences.showPlayerVolume
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val showPlayerBrightness: StateFlow<Boolean> = themePreferences.showPlayerBrightness
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
 
     val defaultPlaybackSpeed: StateFlow<Float> = themePreferences.defaultPlaybackSpeed
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)

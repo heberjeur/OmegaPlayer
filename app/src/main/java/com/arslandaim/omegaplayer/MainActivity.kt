@@ -27,7 +27,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.arslandaim.omegaplayer.ui.feature.library.HomeScreen
 import com.arslandaim.omegaplayer.ui.navigation.Screen
-import com.arslandaim.omegaplayer.ui.feature.player.PlayerScreen
+import com.arslandaim.omegaplayer.ui.feature.player.VideoPlayerScreen
 import com.arslandaim.omegaplayer.ui.feature.settings.SettingsScreen
 import com.arslandaim.omegaplayer.ui.theme.OmegaPlayerTheme
 import java.net.URLDecoder
@@ -159,7 +159,7 @@ class MainActivity : FragmentActivity() {
                                     onDispose { isPlayerActive = false }
                                 }
                                 val fromParam = backStackEntry.arguments?.getString("from")
-                                PlayerScreen(
+                                VideoPlayerScreen(
                                     videoUri = decodedUri, 
                                     from = fromParam,
                                     viewModel = videoViewModel,

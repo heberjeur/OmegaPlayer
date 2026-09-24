@@ -434,7 +434,7 @@ fun AudioPlayerScreen(
     val playerOrientation by viewModel.playerOrientation.collectAsStateWithLifecycle(initialValue = 0)
     val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
     LaunchedEffect(playerOrientation) {
-        activity?.requestedOrientation = if (playerOrientation == 1) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 2) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        activity?.requestedOrientation = if (playerOrientation == 0) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
     val globalAudios by viewModel.audios.collectAsStateWithLifecycle()
     val selectedFolder by viewModel.selectedFolder.collectAsStateWithLifecycle()
@@ -1016,47 +1016,18 @@ fun AudioPlayerScreen(
                 }
 
                 if (isLandscape) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .padding(horizontal = 24.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 48.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .graphicsLayer {
-                                    scaleX = artScale
-                                    scaleY = artScale
-                                }
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = albumArtUri,
-                                contentDescription = "Album Art",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                                error = rememberVectorPainter(Icons.Default.MusicNote),
-                                fallback = rememberVectorPainter(Icons.Default.MusicNote)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(32.dp))
-
-                        Column(
-                            modifier = Modifier.weight(1.5f).fillMaxHeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            mediaInfo()
-                            visualizer()
-                            seekBar()
-                            controls()
-                        }
+                        mediaInfo()
+                        visualizer()
+                        seekBar()
+                        controls()
                     }
                 } else {
                     Column(
@@ -1117,99 +1088,52 @@ fun AudioPlayerScreen(
     }
 
     if (showQueueSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showQueueSheet = false },
-            sheetState = sheetState,
-            containerColor = Color(0xFF1A1A1A),
-            contentColor = Color.White
-        ) {
-            Column(modifier = Modifier.fillMaxHeight(0.6f).padding(16.dp)) {
-                Text(
-                    stringResource(R.string.up_next),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.padding(bottom = 16.dp)
+        val queueItems = if (activeQueue.isNotEmpty()) {
+            activeQueue
+        } else if (activeQueueAudios.isNotEmpty()) {
+            activeQueueAudios.map {
+                com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                    uri = it.uri.toString(),
+                    title = it.name,
+                    duration = it.duration,
+                    isVideo = false,
+                    artist = it.artist,
+                    albumId = it.albumId
                 )
-                val queueItems = if (activeQueue.isNotEmpty()) {
-                    activeQueue
-                } else if (activeQueueAudios.isNotEmpty()) {
-                    activeQueueAudios.map {
-                        com.arslandaim.omegaplayer.media.PlaybackQueueItem(
-                            uri = it.uri.toString(),
-                            title = it.name,
-                            duration = it.duration,
-                            isVideo = false,
-                            artist = it.artist,
-                            albumId = it.albumId
-                        )
-                    }
-                } else {
-                    listOf(
-                        com.arslandaim.omegaplayer.media.PlaybackQueueItem(
-                            uri = audioUri,
-                            title = "Unknown",
-                            duration = 0L,
-                            isVideo = false
-                        )
-                    )
-                }
-                LazyColumn {
-                    itemsIndexed(queueItems) { index, item ->
-                        val isCurrent = index == currentMediaIndexState
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    item.title,
-                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White
-                                )
-                            },
-                            supportingContent = { Text(formatDuration(item.duration), color = Color.Gray) },
-                            leadingContent = {
-                                if (item.isVideo) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(com.arslandaim.omegaplayer.util.SmartVideoThumb(Uri.parse(item.uri), item.duration, item.uri.hashCode().toString()))
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop,
-                                        error = rememberVectorPainter(Icons.Default.Movie)
-                                    )
-                                } else {
-                                    val albumArtUri = item.albumId?.let {
-                                        ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), it)
-                                    }
-                                    AsyncImage(
-                                        model = albumArtUri,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop,
-                                        error = rememberVectorPainter(Icons.Default.MusicNote)
-                                    )
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                showQueueSheet = false
-                                if (!isCurrent) {
-                                    val idx = queueItems.indexOfFirst { it.uri == item.uri }
-                                    if (idx != -1 && idx < (controller?.mediaItemCount ?: 0)) {
-                                        controller?.seekToDefaultPosition(idx)
-                                        controller?.play()
-                                    } else if (item.isVideo) {
-                                        onVideoTransition(item.uri)
-                                    } else {
-                                        onAudioTransition(item.uri)
-                                    }
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
+            }
+        } else {
+            listOf(
+                com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                    uri = audioUri,
+                    title = "Unknown",
+                    duration = 0L,
+                    isVideo = false
+                )
+            )
+        }
+
+        com.arslandaim.omegaplayer.ui.feature.player.PlaybackQueueSheet(
+            queueItems = queueItems,
+            currentMediaIndex = currentMediaIndexState,
+            sheetState = sheetState,
+            onDismiss = { showQueueSheet = false },
+            onItemClick = { index ->
+                showQueueSheet = false
+                val item = queueItems[index]
+                val isCurrent = index == currentMediaIndexState
+                if (!isCurrent) {
+                    val idx = queueItems.indexOfFirst { it.uri == item.uri }
+                    if (idx != -1 && idx < (controller?.mediaItemCount ?: 0)) {
+                        controller?.seekToDefaultPosition(idx)
+                        controller?.play()
+                    } else if (item.isVideo) {
+                        onVideoTransition(item.uri)
+                    } else {
+                        onAudioTransition(item.uri)
                     }
                 }
             }
-        }
+        )
     }
 
     if (showInfoDialog && currentAudio != null) {

@@ -37,5 +37,5 @@ data class AppSettings(
     val subtitleTextColor: Int = -1,
     val subtitleBgStyle: Int = 0,
     val controlsTimeout: Int = 3000,
-    val playerOrientation: Int = 0
+    val playerOrientation: Int = 2
 )

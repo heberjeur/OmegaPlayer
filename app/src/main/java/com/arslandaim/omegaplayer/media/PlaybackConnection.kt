@@ -44,7 +44,6 @@ class PlaybackConnection @Inject constructor(
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
-            try {
                 val controller = controllerFuture?.get() ?: return@addListener
                 _mediaController.value = controller
                 _isPlaying.value = controller.isPlaying
@@ -59,9 +58,6 @@ class PlaybackConnection @Inject constructor(
                         _currentMediaItem.value = mediaItem
                     }
                 })
-            } catch (e: Exception) {
-                Log.e("PlaybackConnection", "Failed to connect to MediaController", e)
-            }
         }, MoreExecutors.directExecutor())
     }
 
@@ -157,6 +153,13 @@ class PlaybackConnection @Inject constructor(
         if (mediaItems.isEmpty()) return
 
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val clickedMediaId = mediaItems[safeIndex].mediaId
+        if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            controller.playWhenReady = true
+            controller.play()
+            return
+        }
+
         controller.stop()
         controller.clearMediaItems()
         controller.setMediaItems(mediaItems, safeIndex, startPositionMs)
@@ -230,6 +233,13 @@ class PlaybackConnection @Inject constructor(
         if (mediaItems.isEmpty()) return
 
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val clickedMediaId = mediaItems[safeIndex].mediaId
+        if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            controller.playWhenReady = true
+            controller.play()
+            return
+        }
+
         val initialPos = historyItems[safeIndex].position.coerceAtLeast(0L)
         controller.stop()
         controller.clearMediaItems()
@@ -274,6 +284,13 @@ class PlaybackConnection @Inject constructor(
                 .build()
         }
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val clickedMediaId = mediaItems[safeIndex].mediaId
+        if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            controller.playWhenReady = true
+            controller.play()
+            return
+        }
+
         controller.stop()
         controller.clearMediaItems()
         controller.setMediaItems(mediaItems, safeIndex, startPositionMs)
@@ -320,6 +337,13 @@ class PlaybackConnection @Inject constructor(
                 .build()
         }
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val clickedMediaId = mediaItems[safeIndex].mediaId
+        if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            controller.playWhenReady = true
+            controller.play()
+            return
+        }
+
         controller.stop()
         controller.clearMediaItems()
         controller.setMediaItems(mediaItems, safeIndex, startPositionMs)

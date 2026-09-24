@@ -13,6 +13,7 @@ import com.arslandaim.omegaplayer.data.ThemePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,31 +26,31 @@ class ThemeViewModel @Inject constructor(
     val theme: StateFlow<AppTheme> = themePreferences.theme.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = AppTheme.SYSTEM
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.theme.first() }
     )
 
     val dynamicColor: StateFlow<Boolean> = themePreferences.dynamicColor.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = true
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.dynamicColor.first() }
     )
 
     val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 5
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.folderFlattenThreshold.first() }
     )
 
     val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 3
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.controlsTimeout.first() }
     )
 
     val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0
+        initialValue = kotlinx.coroutines.runBlocking { themePreferences.playerOrientation.first() }
     )
 
     fun setTheme(theme: AppTheme) {

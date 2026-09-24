@@ -119,7 +119,6 @@ class MediaRepositoryImpl @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.e("MediaRepository", "Error fetching audios", e)
             return Resource.Error("Failed to fetch audios", e)
         }
         return Resource.Success(list)
@@ -163,7 +162,6 @@ class MediaRepositoryImpl @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.e("MediaRepository", "Error fetching videos", e)
             return Resource.Error("Failed to fetch videos", e)
         }
         return Resource.Success(list)

@@ -155,10 +155,11 @@ fun SettingsScreen(
                                 AppTheme.DARK -> stringResource(R.string.theme_dark)
                             }
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = currentTheme == theme,
                                 onClick = { themeViewModel.setTheme(theme) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = AppTheme.entries.size),
-                                label = { Text(themeLabel) }
+                                label = { Text(themeLabel, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -192,10 +193,11 @@ fun SettingsScreen(
                         )
                         options.forEachIndexed { index, option ->
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = playerOrientation == index,
                                 onClick = { themeViewModel.setPlayerOrientation(index) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                                label = { Text(option) }
+                                label = { Text(option, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -352,10 +354,11 @@ fun SettingsScreen(
                                 PlaybackSpeedScope.PER_FOLDER -> stringResource(R.string.speed_scope_per_folder)
                             }
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = speedScope == scope,
                                 onClick = { videoViewModel.setSpeedScope(scope) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = PlaybackSpeedScope.entries.size),
-                                label = { Text(label, maxLines = 1) }
+                                label = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -373,10 +376,11 @@ fun SettingsScreen(
                         timeoutOptions.forEachIndexed { index, option ->
                             val label = if (option == 0) stringResource(R.string.controls_manual) else stringResource(R.string.controls_sec, option)
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = controlsTimeout == option,
                                 onClick = { themeViewModel.setControlsTimeout(option) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = timeoutOptions.size),
-                                label = { Text(label, maxLines = 1) }
+                                label = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -450,10 +454,11 @@ fun SettingsScreen(
                         )
                         modes.forEachIndexed { index, (mode, label) ->
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = defaultViewMode == mode,
                                 onClick = { videoViewModel.setDefaultViewMode(mode) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                                label = { Text(label, maxLines = 1) }
+                                label = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -576,10 +581,11 @@ fun SettingsScreen(
                         )
                         sizes.forEachIndexed { index, (size, label) ->
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = subtitleTextSize == size,
                                 onClick = { videoViewModel.setSubtitleTextSize(size) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = sizes.size),
-                                label = { Text(label, maxLines = 1, fontSize = 11.sp) }
+                                label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -598,10 +604,11 @@ fun SettingsScreen(
                         )
                         colors.forEachIndexed { index, (colorKey, label) ->
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = subtitleTextColor == colorKey,
                                 onClick = { videoViewModel.setSubtitleTextColor(colorKey) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = colors.size),
-                                label = { Text(label, maxLines = 1) }
+                                label = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -620,10 +627,11 @@ fun SettingsScreen(
                         )
                         backgrounds.forEachIndexed { index, (bgKey, label) ->
                             SegmentedButton(
+                                modifier = Modifier.weight(1f),
                                 selected = subtitleBgStyle == bgKey,
                                 onClick = { videoViewModel.setSubtitleBgStyle(bgKey) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = backgrounds.size),
-                                label = { Text(label, maxLines = 1, fontSize = 11.sp) }
+                                label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             )
                         }
                     }

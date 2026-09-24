@@ -27,9 +27,21 @@ class EqManager @Inject constructor() {
     fun setupEqualizer(audioSessionId: Int) {
         if (audioSessionId == 0) return
         try {
+            val previousBands = _bands.value
             equalizer?.release()
             equalizer = Equalizer(0, audioSessionId).apply {
                 enabled = _enabled.value
+            }
+            if (previousBands.isNotEmpty()) {
+                previousBands.forEach { band ->
+                    try {
+                        equalizer?.setBandLevel(band.id, band.level)
+                    } catch (e: IllegalArgumentException) {
+                        equalizer = null
+                    } catch (e: IllegalStateException) {
+                        equalizer = null
+                    }
+                }
             }
             loadBands()
             loadPresets()
@@ -40,13 +52,17 @@ class EqManager @Inject constructor() {
                 enabled = true
             }
         } catch (e: IllegalStateException) {
-            Log.e("EqManager", "Failed to initialize audio effects: Illegal state", e)
+            equalizer = null
+            loudnessEnhancer = null
         } catch (e: IllegalArgumentException) {
-            Log.e("EqManager", "Failed to initialize audio effects: Invalid argument", e)
+            equalizer = null
+            loudnessEnhancer = null
         } catch (e: UnsupportedOperationException) {
-            Log.e("EqManager", "Audio effects not supported on this device", e)
+            equalizer = null
+            loudnessEnhancer = null
         } catch (e: RuntimeException) {
-            Log.e("EqManager", "Failed to initialize audio effects: Runtime error", e)
+            equalizer = null
+            loudnessEnhancer = null
         }
     }
 
@@ -64,8 +80,10 @@ class EqManager @Inject constructor() {
         currentBoostScale = scale.coerceIn(1.0f, 2.0f)
         try {
             loudnessEnhancer?.setTargetGain(calculateGainMb(currentBoostScale))
-        } catch (e: Exception) {
-            Log.e("EqManager", "Failed to set LoudnessEnhancer gain", e)
+        } catch (e: IllegalStateException) {
+            loudnessEnhancer = null
+        } catch (e: IllegalArgumentException) {
+            loudnessEnhancer = null
         }
     }
 

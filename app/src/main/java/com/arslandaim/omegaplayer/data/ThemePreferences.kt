@@ -141,7 +141,7 @@ class ThemePreferences(private val context: Context) {
     }
 
     val playerOrientation: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[PLAYER_ORIENTATION_KEY] ?: 0
+        preferences[PLAYER_ORIENTATION_KEY] ?: 2
     }
 
     val folderFlattenThreshold: Flow<Int> = context.dataStore.data.map { preferences ->

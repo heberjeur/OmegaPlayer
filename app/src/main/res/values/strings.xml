@@ -226,7 +226,7 @@
     <string name="setting_player_orientation_sub">Default rotation behavior for the media player</string>
     <string name="orientation_system">Follow System Rotation</string>
     <string name="setting_player_orientation">Player Orientation</string>
-    <string name="orientation_auto">Auto</string>
+    <string name="orientation_auto">System</string>
     <string name="orientation_sensor">Sensor</string>
-    <string name="orientation_fixed">Fixed</string>
+    <string name="orientation_fixed">Locked</string>
 </resources>
