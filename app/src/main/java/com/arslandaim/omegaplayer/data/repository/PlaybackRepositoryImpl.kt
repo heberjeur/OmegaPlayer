@@ -45,6 +45,10 @@ class PlaybackRepositoryImpl @Inject constructor(
         appDao.insertRecentPlayback(recent)
     }
 
+    override suspend fun deleteRecentPlayback(uri: String) {
+        appDao.deleteRecentPlayback(uri)
+    }
+
     override suspend fun clearAllRecentPlayback() {
         appDao.clearAllRecentPlayback()
     }

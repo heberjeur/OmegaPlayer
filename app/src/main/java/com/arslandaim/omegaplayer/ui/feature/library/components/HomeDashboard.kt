@@ -27,8 +27,10 @@ import com.arslandaim.omegaplayer.ui.feature.library.MediaTab
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun HomeDashboard(
+    pagerState: androidx.compose.foundation.pager.PagerState,
     selectedTab: MediaTab,
     onTabSelected: (MediaTab) -> Unit,
     showHistoryTab: Boolean = false
@@ -48,30 +50,49 @@ fun HomeDashboard(
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize().padding(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize().padding(4.dp)
             ) {
-                availableTabs.forEach { tab ->
-                    val isSelected = selectedTab == tab
-                    val background by animateColorAsState(
-                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        label = "tabBg"
-                    )
-                    val contentColor by animateColorAsState(
-                        if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        label = "tabContent"
-                    )
+                val tabWidth = maxWidth / availableTabs.size
+                val tabWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { tabWidth.toPx() }
+                
+                // Sliding indicator synchronized with Pager
+                Box(
+                    modifier = Modifier
+                        .width(tabWidth)
+                        .fillMaxHeight()
+                        .offset {
+                            val fraction = pagerState.currentPage + pagerState.currentPageOffsetFraction
+                            androidx.compose.ui.unit.IntOffset((tabWidthPx * fraction).toInt(), 0)
+                        }
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                )
 
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable { onTabSelected(tab) },
-                        shape = RoundedCornerShape(24.dp),
-                        color = background
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    availableTabs.forEachIndexed { index, tab ->
+                        val isSelected = pagerState.targetPage == index
+                        val contentColor by animateColorAsState(
+                            if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            label = "tabContent"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null, // Remove ripple to make it feel like a pure tab switch
+                                    onClick = { onTabSelected(tab) }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
                             val tabLabel = when (tab) {
                                 MediaTab.VIDEOS -> stringResource(R.string.tab_videos)
                                 MediaTab.AUDIOS -> stringResource(R.string.tab_audios)

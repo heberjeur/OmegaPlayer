@@ -34,6 +34,24 @@ class ThemeViewModel @Inject constructor(
         initialValue = true
     )
 
+    val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 5
+    )
+
+    val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 3
+    )
+
+    val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
+
     fun setTheme(theme: AppTheme) {
         viewModelScope.launch {
             themePreferences.saveTheme(theme)
@@ -43,6 +61,24 @@ class ThemeViewModel @Inject constructor(
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch {
             themePreferences.saveDynamicColor(enabled)
+        }
+    }
+
+    fun setFolderFlattenThreshold(threshold: Int) {
+        viewModelScope.launch {
+            themePreferences.setFolderFlattenThreshold(threshold)
+        }
+    }
+
+    fun setControlsTimeout(timeout: Int) {
+        viewModelScope.launch {
+            themePreferences.saveControlsTimeout(timeout)
+        }
+    }
+
+    fun setPlayerOrientation(mode: Int) {
+        viewModelScope.launch {
+            themePreferences.savePlayerOrientation(mode)
         }
     }
 }

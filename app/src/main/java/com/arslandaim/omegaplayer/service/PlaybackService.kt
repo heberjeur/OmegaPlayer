@@ -32,21 +32,54 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.AndroidEntryPoint
 
+import javax.inject.Inject
+import com.arslandaim.omegaplayer.media.EqManager
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime
+
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import com.arslandaim.omegaplayer.data.ThemePreferences
+
 @UnstableApi
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
 
+    @Inject
+    lateinit var eqManager: EqManager
+    
+    @Inject
+    lateinit var themePreferences: ThemePreferences
+
     private var mediaSession: MediaSession? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private var notifShowPrev = true
+    private var notifShowRewind = true
+    private var notifShowForward = true
+    private var notifShowNext = true
+    private var notifShowSpeed = false
+    private var notifShowStop = false
+    private var notifShowClose = false
+    private var notifShowRepeat = false
+    private var notifShowShuffle = false
+    private var autoPlayNext = true
 
     companion object {
-        const val ACTION_REWIND = "com.arslandaim.omegaplayer.REWIND_10"
-        const val ACTION_FAST_FORWARD = "com.arslandaim.omegaplayer.FAST_FORWARD_10"
         const val ACTION_SPEED = "com.arslandaim.omegaplayer.CYCLE_SPEED"
+        const val ACTION_CLOSE = "com.arslandaim.omegaplayer.ACTION_CLOSE"
     }
 
     override fun onCreate() {
         super.onCreate()
         
+        serviceScope.launch {
+            themePreferences.autoPlayNext.collect { autoPlayNext = it }
+        }
+
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 15_000,
@@ -72,6 +105,21 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
+        player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onAudioSessionIdChanged(eventTime: EventTime, audioSessionId: Int) {
+                super.onAudioSessionIdChanged(eventTime, audioSessionId)
+                eqManager.setupEqualizer(audioSessionId)
+            }
+        })
+        
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !autoPlayNext) {
+                    player.pause()
+                }
+            }
+        })
+
         val intent = Intent(this, MainActivity::class.java).apply {
             data = Uri.parse("omegaplayer://main?tab=audios")
         }
@@ -85,19 +133,43 @@ class PlaybackService : MediaSessionService() {
         val rewindButton = CommandButton.Builder()
             .setDisplayName("Rewind 10s")
             .setIconResId(R.drawable.ic_notif_replay_10)
-            .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
+            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
             .build()
 
         val forwardButton = CommandButton.Builder()
             .setDisplayName("Forward 10s")
             .setIconResId(R.drawable.ic_notif_forward_10)
-            .setSessionCommand(SessionCommand(ACTION_FAST_FORWARD, Bundle.EMPTY))
+            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
             .build()
 
         val speedButton = CommandButton.Builder()
             .setDisplayName("Speed")
             .setIconResId(R.drawable.ic_speed)
             .setSessionCommand(SessionCommand(ACTION_SPEED, Bundle.EMPTY))
+            .build()
+            
+        val closeButton = CommandButton.Builder()
+            .setDisplayName(getString(R.string.action_close))
+            .setIconResId(R.drawable.ic_close)
+            .setSessionCommand(SessionCommand(ACTION_CLOSE, Bundle.EMPTY))
+            .build()
+            
+        val stopButton = CommandButton.Builder()
+            .setDisplayName("Stop")
+            .setIconResId(R.drawable.ic_stop)
+            .setPlayerCommand(Player.COMMAND_STOP)
+            .build()
+            
+        val repeatButton = CommandButton.Builder()
+            .setDisplayName("Repeat")
+            .setIconResId(R.drawable.ic_repeat)
+            .setPlayerCommand(Player.COMMAND_SET_REPEAT_MODE)
+            .build()
+            
+        val shuffleButton = CommandButton.Builder()
+            .setDisplayName("Shuffle")
+            .setIconResId(R.drawable.ic_shuffle)
+            .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE)
             .build()
 
         val sessionCallback = object : MediaSession.Callback {
@@ -106,9 +178,8 @@ class PlaybackService : MediaSessionService() {
                 controller: MediaSession.ControllerInfo
             ): MediaSession.ConnectionResult {
                 val availableCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
-                    .add(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
-                    .add(SessionCommand(ACTION_FAST_FORWARD, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_SPEED, Bundle.EMPTY))
+                    .add(SessionCommand(ACTION_CLOSE, Bundle.EMPTY))
                     .build()
 
                 val playerCommands = session.player.availableCommands.buildUpon()
@@ -116,6 +187,8 @@ class PlaybackService : MediaSessionService() {
                     .add(Player.COMMAND_SEEK_TO_NEXT)
                     .add(Player.COMMAND_SEEK_BACK)
                     .add(Player.COMMAND_SEEK_FORWARD)
+                    .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                    .add(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
                     .build()
 
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
@@ -132,17 +205,7 @@ class PlaybackService : MediaSessionService() {
                 args: Bundle
             ): ListenableFuture<SessionResult> {
                 when (customCommand.customAction) {
-                    ACTION_REWIND -> {
-                        val pos = (player.currentPosition - 10000L).coerceAtLeast(0L)
-                        player.seekTo(pos)
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-                    }
-                    ACTION_FAST_FORWARD -> {
-                        val duration = if (player.duration > 0L) player.duration else Long.MAX_VALUE
-                        val pos = (player.currentPosition + 10000L).coerceAtMost(duration)
-                        player.seekTo(pos)
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-                    }
+
                     ACTION_SPEED -> {
                         val currentSpeed = player.playbackParameters.speed
                         val nextSpeed = when {
@@ -152,6 +215,12 @@ class PlaybackService : MediaSessionService() {
                             else -> 1.0f
                         }
                         player.setPlaybackSpeed(nextSpeed)
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    }
+                    ACTION_CLOSE -> {
+                        player.stop()
+                        player.clearMediaItems()
+                        stopSelf()
                         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                     }
                 }
@@ -192,11 +261,21 @@ class PlaybackService : MediaSessionService() {
                     .setDisplayName(getString(R.string.action_next))
                     .build()
 
-                return if (showWhenCompact) {
-                    ImmutableList.of(prevButton, playPauseBtn, nextBtn)
-                } else {
-                    ImmutableList.of(prevButton, rewindBtn, playPauseBtn, fwdBtn, nextBtn)
-                }
+                val buttons = mutableListOf<CommandButton>()
+                if (notifShowShuffle) buttons.add(shuffleButton)
+                if (notifShowPrev) buttons.add(prevButton)
+                if (notifShowRewind) buttons.add(rewindBtn)
+                
+                buttons.add(playPauseBtn)
+                
+                if (notifShowForward) buttons.add(fwdBtn)
+                if (notifShowNext) buttons.add(nextBtn)
+                if (notifShowRepeat) buttons.add(repeatButton)
+                if (notifShowSpeed) buttons.add(speedButton)
+                if (notifShowStop) buttons.add(stopButton)
+                if (notifShowClose) buttons.add(closeButton)
+                
+                return ImmutableList.copyOf(buttons)
             }
         }
         setMediaNotificationProvider(notificationProvider)
@@ -204,8 +283,22 @@ class PlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(pendingIntent)
             .setCallback(sessionCallback)
-            .setCustomLayout(listOf(rewindButton, forwardButton))
+            .setCustomLayout(listOf(speedButton, closeButton))
             .build()
+            
+        serviceScope.launch { themePreferences.notifShowPrevious.collect { notifShowPrev = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowRewind.collect { notifShowRewind = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowForward.collect { notifShowForward = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowNext.collect { notifShowNext = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowSpeed.collect { notifShowSpeed = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowStop.collect { notifShowStop = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowClose.collect { notifShowClose = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowRepeat.collect { notifShowRepeat = it; updateNotification() } }
+        serviceScope.launch { themePreferences.notifShowShuffle.collect { notifShowShuffle = it; updateNotification() } }
+    }
+
+    private fun updateNotification() {
+        mediaSession?.setCustomLayout(ImmutableList.of()) // Trigger a notification refresh
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -219,11 +312,13 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         mediaSession?.run {
             player.release()
             release()
             mediaSession = null
         }
+        eqManager.release()
         super.onDestroy()
     }
 }

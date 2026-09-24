@@ -68,9 +68,13 @@ fun AudioMiniPlayer(
     val haptic = LocalHapticFeedback.current
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var hasNext by remember { mutableStateOf(mediaController?.hasNextMediaItem() ?: false) }
+    var hasPrevious by remember { mutableStateOf(mediaController?.hasPreviousMediaItem() ?: false) }
 
-    LaunchedEffect(isPlaying, mediaItem) {
+    LaunchedEffect(isPlaying, mediaItem, mediaController) {
         val player = mediaController ?: return@LaunchedEffect
+        hasNext = player.hasNextMediaItem()
+        hasPrevious = player.hasPreviousMediaItem()
         while (isPlaying) {
             position = player.currentPosition
             duration = player.duration.coerceAtLeast(0L)
@@ -120,10 +124,10 @@ fun AudioMiniPlayer(
                             onBarClick()
                         } else if (totalDragX > 120f) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            mediaController?.seekToPreviousMediaItem()
+                            mediaController?.seekToPrevious()
                         } else if (totalDragX < -120f) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            mediaController?.seekToNextMediaItem()
+                            mediaController?.seekToNext()
                         }
                         totalDragX = 0f
                         totalDragY = 0f
@@ -227,15 +231,16 @@ fun AudioMiniPlayer(
                     IconButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            mediaController?.seekToPreviousMediaItem()
+                            mediaController?.seekToPrevious()
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(34.dp),
+                        enabled = hasPrevious
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
                             contentDescription = "Previous Track",
                             modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (hasPrevious) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         )
                     }
 
@@ -266,15 +271,16 @@ fun AudioMiniPlayer(
                     IconButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            mediaController?.seekToNextMediaItem()
+                            mediaController?.seekToNext()
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(34.dp),
+                        enabled = hasNext
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = stringResource(R.string.next_track),
                             modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (hasNext) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         )
                     }
 

@@ -44,15 +44,28 @@ fun NowPlayingBar(
             { if (uriString.isNotEmpty()) onAudioClick(uriString) }
         }
 
-        AudioMiniPlayer(
-            mediaItem = item,
-            isPlaying = isPlaying,
-            mediaController = mediaController,
-            onBarClick = onClick,
-            onCloseClick = {
-                mediaController?.stop()
-                mediaController?.clearMediaItems()
-            }
-        )
+        if (isVideo) {
+            VideoMiniPlayer(
+                mediaItem = item,
+                isPlaying = isPlaying,
+                mediaController = mediaController,
+                onExpandClick = onClick,
+                onCloseClick = {
+                    mediaController?.stop()
+                    mediaController?.clearMediaItems()
+                }
+            )
+        } else {
+            AudioMiniPlayer(
+                mediaItem = item,
+                isPlaying = isPlaying,
+                mediaController = mediaController,
+                onBarClick = onClick,
+                onCloseClick = {
+                    mediaController?.stop()
+                    mediaController?.clearMediaItems()
+                }
+            )
+        }
     }
 }

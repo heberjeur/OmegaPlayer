@@ -9,6 +9,8 @@ package com.arslandaim.omegaplayer.ui.feature.player
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +25,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -39,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.palette.graphics.Palette
 import com.arslandaim.omegaplayer.util.MediaUtils
+import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -63,10 +68,13 @@ import android.content.Intent
 import android.widget.Toast
 import com.arslandaim.omegaplayer.data.Playlist
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Switch
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import com.arslandaim.omegaplayer.data.AudioModel
 import android.content.Context
 import android.app.ActivityManager
@@ -90,11 +98,29 @@ fun SleepTimerDialog(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!stopAfterCurrent) {
                     Text(stringResource(R.string.minutes_format, minutes))
+                    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
                     Slider(
                         value = minutes.toFloat(),
                         onValueChange = { minutes = it.toInt() },
                         valueRange = 0f..120f,
-                        steps = 23 // 5 min increments if 0-120
+                        steps = 23, // 5 min increments if 0-120
+                        thumb = {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            )
+                        },
+                        track = { sliderState ->
+                            androidx.compose.material3.SliderDefaults.Track(
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = Color.Gray.copy(alpha = 0.5f)
+                                ),
+                                sliderState = sliderState,
+                                modifier = Modifier.height(2.dp)
+                            )
+                        }
                     )
                 }
                 
@@ -212,29 +238,29 @@ fun AddToPlaylistDialog(
 
 @Composable
 fun AudioEqualizerDialog(
+    eqManager: com.arslandaim.omegaplayer.media.EqManager,
     onDismiss: () -> Unit
 ) {
-    var bassLevel by remember { mutableFloatStateOf(0.5f) }
-    var midLevel by remember { mutableFloatStateOf(0.5f) }
-    var trebleLevel by remember { mutableFloatStateOf(0.5f) }
-    var selectedPreset by remember { mutableStateOf("Flat") }
-
-    val presetFlat = stringResource(R.string.preset_flat)
-    val presetBassBoost = stringResource(R.string.preset_bass_boost)
-    val presetTrebleBoost = stringResource(R.string.preset_treble_boost)
-    val presetRock = stringResource(R.string.preset_rock)
-    val presetPop = stringResource(R.string.preset_pop)
-    val presetVocal = stringResource(R.string.preset_vocal)
-
-    val presets = listOf(presetFlat, presetBassBoost, presetTrebleBoost, presetRock, presetPop, presetVocal)
+    val enabled by eqManager.enabled.collectAsState()
+    val bands by eqManager.bands.collectAsState()
+    val presets by eqManager.presets.collectAsState()
+    
+    var selectedPreset by remember { mutableStateOf("Custom") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.audio_equalizer), fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.audio_equalizer), fontWeight = FontWeight.Bold)
+                }
+                Switch(checked = enabled, onCheckedChange = { eqManager.setEnabled(it) })
             }
         },
         text = {
@@ -242,58 +268,48 @@ fun AudioEqualizerDialog(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(stringResource(R.string.presets), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    presets.take(3).forEach { preset ->
-                        FilterChip(
-                            selected = selectedPreset == preset,
-                            onClick = {
-                                selectedPreset = preset
-                                when (preset) {
-                                    presetFlat -> { bassLevel = 0.5f; midLevel = 0.5f; trebleLevel = 0.5f }
-                                    presetBassBoost -> { bassLevel = 0.85f; midLevel = 0.5f; trebleLevel = 0.4f }
-                                    presetTrebleBoost -> { bassLevel = 0.4f; midLevel = 0.5f; trebleLevel = 0.85f }
-                                }
-                            },
-                            label = { Text(preset, fontSize = 11.sp) }
-                        )
+                if (presets.isNotEmpty()) {
+                    Text(stringResource(R.string.presets), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(presets) { presetName ->
+                            val index = presets.indexOf(presetName).toShort()
+                            FilterChip(
+                                selected = selectedPreset == presetName,
+                                onClick = {
+                                    selectedPreset = presetName
+                                    eqManager.usePreset(index)
+                                },
+                                label = { Text(presetName) }
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    presets.drop(3).forEach { preset ->
-                        FilterChip(
-                            selected = selectedPreset == preset,
-                            onClick = {
-                                selectedPreset = preset
-                                when (preset) {
-                                    presetRock -> { bassLevel = 0.75f; midLevel = 0.6f; trebleLevel = 0.75f }
-                                    presetPop -> { bassLevel = 0.6f; midLevel = 0.7f; trebleLevel = 0.6f }
-                                    presetVocal -> { bassLevel = 0.3f; midLevel = 0.8f; trebleLevel = 0.5f }
-                                }
+                if (bands.isNotEmpty()) {
+                    bands.forEach { band ->
+                        val freqStr = if (band.centerFreq >= 1000000) {
+                            "${band.centerFreq / 1000000} kHz"
+                        } else {
+                            "${band.centerFreq / 1000} Hz"
+                        }
+                        Text(freqStr, style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = band.level.toFloat(),
+                            valueRange = band.minLevel.toFloat()..band.maxLevel.toFloat(),
+                            onValueChange = { 
+                                eqManager.setBandLevel(band.id, it.toInt().toShort())
+                                selectedPreset = "Custom"
                             },
-                            label = { Text(preset, fontSize = 11.sp) }
+                            enabled = enabled
                         )
                     }
+                } else {
+                    Text(stringResource(R.string.error_not_supported), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(stringResource(R.string.bass_label), style = MaterialTheme.typography.labelSmall)
-                Slider(value = bassLevel, onValueChange = { bassLevel = it; selectedPreset = "Custom" })
-
-                Text(stringResource(R.string.mid_label), style = MaterialTheme.typography.labelSmall)
-                Slider(value = midLevel, onValueChange = { midLevel = it; selectedPreset = "Custom" })
-
-                Text(stringResource(R.string.treble_label), style = MaterialTheme.typography.labelSmall)
-                Slider(value = trebleLevel, onValueChange = { trebleLevel = it; selectedPreset = "Custom" })
             }
         },
         confirmButton = {
@@ -313,27 +329,113 @@ fun AudioEqualizerDialog(
 @Composable
 fun AudioPlayerScreen(
     audioUri: String,
+    from: String? = null,
     viewModel: AudioViewModel,
     onBack: () -> Unit,
     onVideoTransition: (String) -> Unit = {},
+    onAudioTransition: (String) -> Unit = {},
     initialPosition: Long = -1L
 ) {
-    BackHandler(onBack = onBack)
-
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var showMoreOptions by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showPlaybackSpeedDialog by remember { mutableStateOf(false) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
     var showQueueSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEqualizerDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
+    
+    val isAnyDialogShown = showMoreOptions || showSleepTimerDialog || showPlaylistDialog || 
+                           showQueueSheet || showDeleteDialog || showEqualizerDialog || showInfoDialog || showPlaybackSpeedDialog
+
+    BackHandler(enabled = !isAnyDialogShown, onBack = onBack)
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     val sheetState = rememberModalBottomSheetState()
+
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val volumeBoostEnabled by viewModel.volumeBoostEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager }
+    val maxVolume = remember(audioManager) { audioManager?.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC) ?: 15 }
+    val initialVolume = remember(audioManager, maxVolume) {
+        val current = audioManager?.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) ?: (maxVolume / 2)
+        (current.toFloat() / maxVolume).coerceIn(0f, 1f)
+    }
+    var volume by remember { mutableFloatStateOf(initialVolume) }
+
+    val initialBrightness = remember {
+        val activity = context as? android.app.Activity
+        val currentAttr = activity?.window?.attributes?.screenBrightness
+        if (currentAttr != null && currentAttr >= 0) {
+            currentAttr
+        } else {
+            try {
+                val sysBrightness = android.provider.Settings.System.getInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS)
+                (sysBrightness / 255f).coerceIn(0.01f, 1f)
+            } catch (_: Exception) {
+                0.5f
+            }
+        }
+    }
+    var brightness by remember { mutableFloatStateOf(initialBrightness) }
+
+    val updateVolumeFromSystem: () -> Unit = {
+        audioManager?.let { am ->
+            val cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+            if (max > 0) {
+                val expectedSysVol = kotlin.math.round(volume.coerceAtMost(1f) * max).toInt()
+                if (cur != expectedSysVol) {
+                    val newVol = (cur.toFloat() / max).coerceIn(0f, 1f)
+                    if (volume > 1f && newVol < 1f) {
+                        viewModel.eqManager.setVolumeBoostScale(1.0f)
+                        volume = newVol
+                    } else if (volume <= 1f) {
+                        volume = newVol
+                    }
+                }
+            }
+        }
+    }
+
+    DisposableEffect(context, audioManager) {
+        updateVolumeFromSystem()
+        val contentObserver = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                super.onChange(selfChange)
+                updateVolumeFromSystem()
+            }
+        }
+        try {
+            context.contentResolver.registerContentObserver(
+                android.provider.Settings.System.CONTENT_URI,
+                true,
+                contentObserver
+            )
+        } catch (_: Exception) {}
+        
+        onDispose {
+            try {
+                context.contentResolver.unregisterContentObserver(contentObserver)
+            } catch (_: Exception) {}
+        }
+    }
+    
+    var isVolumeVisible by remember { mutableStateOf(false) }
+    var isBrightnessVisible by remember { mutableStateOf(false) }
 
     val controller by viewModel.mediaController.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val sleepTimerActive by viewModel.sleepTimerActive.collectAsStateWithLifecycle()
     val sleepTimerTimeLeft by viewModel.sleepTimerTimeLeft.collectAsStateWithLifecycle()
     val stopAfterCurrent by viewModel.stopAfterCurrent.collectAsStateWithLifecycle()
+    val playerOrientation by viewModel.playerOrientation.collectAsStateWithLifecycle(initialValue = 0)
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    LaunchedEffect(playerOrientation) {
+        activity?.requestedOrientation = if (playerOrientation == 1) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 2) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
     val globalAudios by viewModel.audios.collectAsStateWithLifecycle()
     val selectedFolder by viewModel.selectedFolder.collectAsStateWithLifecycle()
     val audios by viewModel.audiosInSelectedFolder.collectAsStateWithLifecycle()
@@ -347,22 +449,37 @@ fun AudioPlayerScreen(
 
     var currentAudio by remember { mutableStateOf(globalAudios.find { it.uri.toString() == audioUri }) }
 
+    var pendingUrisToDelete by remember { mutableStateOf<List<Uri>>(emptyList()) }
+
     val deleteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
-            currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
+            pendingUrisToDelete.forEach { uri -> viewModel.deleteHistoryItem(uri.toString()) }
+            val autoPlayNext = viewModel.autoPlayNext.value
+            val hasNext = controller?.hasNextMediaItem() == true
+            if (hasNext && autoPlayNext) {
+                val currentIndex = controller?.currentMediaItemIndex ?: -1
+                if (currentIndex != -1) {
+                    controller?.removeMediaItem(currentIndex)
+                }
+            } else {
+                currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
+                onBack()
+            }
             viewModel.refreshAudios(context)
-            onBack()
+            pendingUrisToDelete = emptyList()
+        } else {
+            pendingUrisToDelete = emptyList()
         }
     }
 
     val currentFolder = remember(currentAudio, audioUri, globalAudios) {
         val path = currentAudio?.path ?: globalAudios.find { it.uri.toString() == audioUri }?.path
         if (!path.isNullOrBlank()) {
-            java.io.File(path).parentFile?.name ?: "Internal"
+            java.io.File(path).parentFile?.absolutePath ?: ""
         } else {
-            "Internal"
+            ""
         }
     }
     val folderAudios = remember(currentFolder, globalAudios) {
@@ -375,11 +492,7 @@ fun AudioPlayerScreen(
     }
     val activeQueue by viewModel.activeQueue.collectAsStateWithLifecycle()
 
-    LaunchedEffect(folderAudios, activeQueue) {
-        if (activeQueue.isEmpty() && folderAudios.isNotEmpty()) {
-            viewModel.setFolderQueue(folderAudios)
-        }
-    }
+
 
     LaunchedEffect(globalAudios, audioUri) {
         if (selectedFolder == null && globalAudios.isNotEmpty()) {
@@ -398,9 +511,19 @@ fun AudioPlayerScreen(
     var currentPosition by remember { mutableStateOf(controller?.currentPosition ?: 0L) }
     var duration by remember { mutableStateOf(controller?.duration?.coerceAtLeast(0L) ?: 0L) }
     var repeatMode by remember { mutableStateOf(controller?.repeatMode ?: Player.REPEAT_MODE_OFF) }
+    var isShuffle by remember { mutableStateOf(controller?.shuffleModeEnabled ?: false) }
+    var currentMediaIndexState by remember { mutableIntStateOf(controller?.currentMediaItemIndex ?: 0) }
     var playbackSpeed by remember { mutableFloatStateOf(effectiveSpeed) }
-    var showEqualizerDialog by remember { mutableStateOf(false) }
-    var showInfoDialog by remember { mutableStateOf(false) }
+    var hasNext by remember { mutableStateOf(controller?.hasNextMediaItem() ?: false) }
+    var hasPrevious by remember { mutableStateOf(controller?.hasPreviousMediaItem() ?: false) }
+    var isDraggingSlider by remember { mutableStateOf(false) }
+    var pendingSeekPosition by remember { mutableLongStateOf(-1L) }
+    var seekGracePeriod by remember { mutableLongStateOf(0L) }
+    var currentUriState by remember { mutableStateOf(audioUri) }
+
+    LaunchedEffect(audioUri) {
+        currentUriState = audioUri
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "breathing")
     val artScale by infiniteTransition.animateFloat(
@@ -422,10 +545,18 @@ fun AudioPlayerScreen(
         }
     }
 
-    var hasSeekedInitialPosition by remember(audioUri, initialPosition) { mutableStateOf(false) }
+    var hasSeekedInitialPosition by remember(currentUriState, initialPosition) { mutableStateOf(false) }
 
-    LaunchedEffect(controller, activeQueueAudios, audioUri, initialPosition, effectiveSpeed) {
-        val player = controller ?: return@LaunchedEffect
+    LaunchedEffect(currentMediaIndexState) {
+        controller?.let { player ->
+            if (playbackSpeed != effectiveSpeed) {
+                playbackSpeed = effectiveSpeed
+                player.setPlaybackSpeed(effectiveSpeed)
+            }
+        }
+    }
+    DisposableEffect(controller, activeQueueAudios, globalAudios, effectiveSpeed) {
+        val player = controller ?: return@DisposableEffect onDispose {}
         
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -437,11 +568,24 @@ fun AudioPlayerScreen(
             override fun onRepeatModeChanged(mode: Int) {
                 repeatMode = mode
             }
+            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                isShuffle = shuffleModeEnabled
+            }
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                currentMediaIndexState = player.currentMediaItemIndex
                 val currentUri = mediaItem?.localConfiguration?.uri?.toString()
-                currentAudio = activeQueueAudios.find { it.uri.toString() == currentUri } ?: globalAudios.find { it.uri.toString() == currentUri }
-                if (currentUri != null && currentUri != audioUri && MediaUtils.isVideoMediaItem(mediaItem)) {
-                    onVideoTransition(currentUri)
+                if (currentUri != null) {
+                    currentUriState = currentUri
+                    currentAudio = activeQueueAudios.find { it.uri.toString() == currentUri } ?: globalAudios.find { it.uri.toString() == currentUri }
+                    if (currentUri != audioUri && MediaUtils.isVideoMediaItem(mediaItem)) {
+                        onVideoTransition(currentUri)
+                    }
+                }
+            }
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) || events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+                    hasNext = player.hasNextMediaItem()
+                    hasPrevious = player.hasPreviousMediaItem()
                 }
             }
         }
@@ -450,74 +594,72 @@ fun AudioPlayerScreen(
         isPlaying = player.isPlaying
         duration = player.duration.coerceAtLeast(0L)
         repeatMode = player.repeatMode
-        
-        val targetPos = if (initialPosition >= 0L) initialPosition else viewModel.getSavedPosition(audioUri)
-        val currentUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
-        if (currentUri != audioUri) {
-            var matchedIndex = -1
-            for (i in 0 until player.mediaItemCount) {
-                if (player.getMediaItemAt(i).localConfiguration?.uri?.toString() == audioUri) {
-                    matchedIndex = i
-                    break
-                }
-            }
-            if (matchedIndex != -1) {
-                player.seekTo(matchedIndex, targetPos.coerceAtLeast(0L))
-                player.play()
-            } else {
-                val mediaItems = activeQueueAudios.map { audioItem ->
-                    val artUri = ContentUris.withAppendedId(
-                        Uri.parse("content://media/external/audio/albumart"),
-                        audioItem.albumId
-                    )
-                    androidx.media3.common.MediaItem.Builder()
-                        .setUri(audioItem.uri)
-                        .setMediaId(audioItem.id.toString())
-                        .setMediaMetadata(
-                            androidx.media3.common.MediaMetadata.Builder()
-                                .setTitle(audioItem.name)
-                                .setArtist(audioItem.artist)
-                                .setAlbumTitle(audioItem.album)
-                                .setArtworkUri(artUri)
-                                .build()
-                        )
-                        .build()
-                }
-                val index = activeQueueAudios.indexOfFirst { it.uri.toString() == audioUri }.coerceAtLeast(0)
-                
-                if (mediaItems.isNotEmpty()) {
-                    player.setMediaItems(mediaItems, index, targetPos.coerceAtLeast(0L))
-                    player.prepare()
-                    player.play()
-                }
-            }
-            hasSeekedInitialPosition = true
-        } else {
-            currentAudio = activeQueueAudios.find { it.uri.toString() == audioUri } ?: globalAudios.find { it.uri.toString() == audioUri }
-            if (!hasSeekedInitialPosition && targetPos > 0L) {
-                player.seekTo(targetPos)
-                hasSeekedInitialPosition = true
-            }
-        }
+        isShuffle = player.shuffleModeEnabled
         player.setPlaybackSpeed(effectiveSpeed)
         playbackSpeed = effectiveSpeed
         
-        try {
-            while (true) {
-                if (player.playbackState != Player.STATE_IDLE && player.playbackState != Player.STATE_ENDED) {
-                    currentPosition = player.currentPosition
-                }
-                delay(1000)
-            }
-        } catch (e: Exception) {
-            // Player might have been released
-        } finally {
+        onDispose {
             player.removeListener(listener)
         }
     }
 
+
+
+    LaunchedEffect(controller, currentUriState, initialPosition) {
+        val player = controller ?: return@LaunchedEffect
+        val targetPos = if (initialPosition >= 0L) initialPosition else viewModel.getSavedPosition(currentUriState)
+        val currentUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
+        
+        if (from == "intent" || from == null) {
+            if (currentUri != currentUriState) {
+                player.stop()
+                player.clearMediaItems()
+                player.setMediaItem(androidx.media3.common.MediaItem.fromUri(currentUriState))
+                player.prepare()
+                if (targetPos > 0L) {
+                    player.seekTo(targetPos)
+                }
+                player.play()
+                hasSeekedInitialPosition = true
+            } else {
+                currentAudio = activeQueueAudios.find { it.uri.toString() == currentUriState } ?: globalAudios.find { it.uri.toString() == currentUriState }
+                if (!hasSeekedInitialPosition && targetPos > 0L) {
+                    player.seekTo(targetPos)
+                    hasSeekedInitialPosition = true
+                }
+            }
+        } else {
+            currentAudio = activeQueueAudios.find { it.uri.toString() == currentUriState } ?: globalAudios.find { it.uri.toString() == currentUriState }
+        }
+    }
+
+    LaunchedEffect(controller) {
+        val player = controller ?: return@LaunchedEffect
+        try {
+            while (true) {
+                if (player.playbackState != Player.STATE_IDLE && player.playbackState != Player.STATE_ENDED) {
+                    val pos = player.currentPosition
+                    val dur = player.duration.coerceAtLeast(0L)
+                    if (dur > 0) duration = dur
+                    if (!isDraggingSlider) {
+                        if (pendingSeekPosition >= 0) {
+                            if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < 2000L) {
+                                pendingSeekPosition = -1L
+                                currentPosition = pos
+                            }
+                        } else {
+                            currentPosition = pos
+                        }
+                    }
+                }
+                delay(200)
+            }
+        } catch (e: Exception) {}
+    }
+
     if (showEqualizerDialog) {
         AudioEqualizerDialog(
+            eqManager = viewModel.eqManager,
             onDismiss = { showEqualizerDialog = false }
         )
     }
@@ -533,6 +675,25 @@ fun AudioPlayerScreen(
             },
             onStopAfterCurrentToggle = { enabled ->
                 viewModel.setStopAfterCurrent(enabled)
+            }
+        )
+    }
+
+    if (showPlaybackSpeedDialog) {
+        PlaybackSpeedDialog(
+            currentSpeed = playbackSpeed,
+            onDismiss = { showPlaybackSpeedDialog = false },
+            onConfirm = { speed, applyTemporarily ->
+                playbackSpeed = speed
+                controller?.setPlaybackSpeed(speed)
+                if (!applyTemporarily) {
+                    if (speedScope == com.arslandaim.omegaplayer.data.PlaybackSpeedScope.GLOBAL) {
+                        viewModel.setGlobalPlaybackSpeed(speed)
+                    } else if (selectedFolder != null) {
+                        viewModel.setFolderPlaybackSpeed(selectedFolder!!, speed)
+                    }
+                }
+                showPlaybackSpeedDialog = false
             }
         )
     }
@@ -565,6 +726,45 @@ fun AudioPlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = {
+                        isVolumeVisible = false
+                        isBrightnessVisible = false
+                    },
+                    onDragCancel = {
+                        isVolumeVisible = false
+                        isBrightnessVisible = false
+                    }
+                ) { change, dragAmount ->
+                    change.consume()
+                    val isRightSide = change.position.x > size.width / 2
+                    if (isRightSide) {
+                        val oldVolume = volume
+                        val maxVolMultiplier = if (volumeBoostEnabled) 2f else 1f
+                        volume = (volume - dragAmount.y / size.height).coerceIn(0f, maxVolMultiplier)
+                        if (kotlin.math.abs(volume - oldVolume) > 0.05f) {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                        }
+                        audioManager?.let { am ->
+                            val targetVol = kotlin.math.round(volume.coerceAtMost(1f) * maxVolume).toInt()
+                            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetVol, 0)
+                        }
+                        if (volumeBoostEnabled) {
+                            viewModel.eqManager.setVolumeBoostScale(if (volume > 1f) volume else 1.0f)
+                        }
+                        isVolumeVisible = true
+                    } else {
+                        val oldBrightness = brightness
+                        brightness = (brightness - dragAmount.y / size.height).coerceIn(0.01f, 1f)
+                        if (kotlin.math.abs(brightness - oldBrightness) > 0.05f) {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                        }
+                        setBrightness(context, brightness)
+                        isBrightnessVisible = true
+                    }
+                }
+            }
     ) {
         Scaffold(
             containerColor = Color.Black,
@@ -598,7 +798,7 @@ fun AudioPlayerScreen(
                             DropdownMenuItem(
                                 text = { 
                                     val text = if (stopAfterCurrent) stringResource(R.string.sleep_timer_end_of_track)
-                                              else if (sleepTimerActive) stringResource(R.string.sleep_timer_format, formatTime(sleepTimerTimeLeft)) 
+                                              else if (sleepTimerActive) stringResource(R.string.sleep_timer_format, formatDuration(sleepTimerTimeLeft)) 
                                               else stringResource(R.string.sleep_timer)
                                     Text(text)
                                 },
@@ -609,18 +809,10 @@ fun AudioPlayerScreen(
                                 leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) MaterialTheme.colorScheme.primary else Color.White) }
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.playback_speed_format, playbackSpeed.toString())) },
+                                text = { Text(stringResource(R.string.playback_speed_format, String.format(java.util.Locale.US, "%.2f", playbackSpeed))) },
                                 onClick = { 
-                                    val nextSpeed = when(playbackSpeed) {
-                                        1.0f -> 1.25f
-                                        1.25f -> 1.5f
-                                        1.5f -> 2.0f
-                                        2.0f -> 0.75f
-                                        else -> 1.0f
-                                    }
-                                    playbackSpeed = nextSpeed
-                                    controller?.setPlaybackSpeed(nextSpeed)
                                     showMoreOptions = false
+                                    showPlaybackSpeedDialog = true
                                 },
                                 leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null) }
                             )
@@ -644,7 +836,15 @@ fun AudioPlayerScreen(
                                 text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
                                 onClick = { 
                                     showMoreOptions = false
-                                    showDeleteDialog = true
+                                    if (currentAudio != null) {
+                                        pendingUrisToDelete = listOf(currentAudio!!.uri)
+                                        com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(
+                                            context = context,
+                                            uris = listOf(currentAudio!!.uri),
+                                            deleteLauncher = deleteLauncher,
+                                            onRequireInternalPopup = { showDeleteDialog = true }
+                                        )
+                                    }
                                 },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                             )
@@ -662,38 +862,10 @@ fun AudioPlayerScreen(
                 }
             } else {
                 val player = controller!!
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Album Art with Breathing Animation
-                    Box(
-                        modifier = Modifier
-                            .size(320.dp)
-                            .graphicsLayer {
-                                scaleX = artScale
-                                scaleY = artScale
-                            }
-                            .clip(RoundedCornerShape(32.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AsyncImage(
-                            model = albumArtUri,
-                            contentDescription = "Album Art",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            error = rememberVectorPainter(Icons.Default.MusicNote),
-                            fallback = rememberVectorPainter(Icons.Default.MusicNote)
-                        )
-                    }
-
+                val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+                val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                
+                val mediaInfo: @Composable () -> Unit = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = currentAudio?.name ?: "Unknown Title",
@@ -703,51 +875,78 @@ fun AudioPlayerScreen(
                             color = Color.White
                         )
                     }
+                }
 
-                    // Waveform Visualizer
+                val visualizer: @Composable () -> Unit = {
                     WaveformVisualizer(
                         isPlaying = isPlaying,
-                        modifier = Modifier.padding(vertical = 24.dp),
+                        modifier = Modifier.padding(vertical = if (isLandscape) 8.dp else 24.dp),
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
 
-                    Column {
-                        // Seek Bar
-                        Slider(
-                            value = currentPosition.toFloat(),
-                            onValueChange = { 
-                                currentPosition = it.toLong()
-                                player.seekTo(it.toLong())
+                val seekBar: @Composable () -> Unit = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+                        androidx.compose.material3.Slider(
+                            value = if (duration > 0) {
+                                val pos = if (pendingSeekPosition >= 0) pendingSeekPosition else currentPosition
+                                pos.toFloat() / duration.toFloat()
+                            } else 0f,
+                            onValueChange = { fraction ->
+                                isDraggingSlider = true
+                                val target = (fraction * duration).toLong()
+                                currentPosition = target
+                                pendingSeekPosition = target
                             },
-                            valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color.White,
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.2f)
-                            )
+                            onValueChangeFinished = {
+                                isDraggingSlider = false
+                                val target = pendingSeekPosition.coerceAtLeast(0L)
+                                seekGracePeriod = System.currentTimeMillis() + 2000L
+                                player.seekTo(target)
+                            },
+                            valueRange = 0f..1f,
+                            thumb = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                )
+                            },
+                            track = { sliderState ->
+                                androidx.compose.material3.SliderDefaults.Track(
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                        inactiveTrackColor = Color.White.copy(alpha = 0.24f)
+                                    ),
+                                    sliderState = sliderState,
+                                    modifier = Modifier.height(2.dp)
+                                )
+                            }
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = formatTime(currentPosition),
+                                text = formatDuration(currentPosition),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White.copy(alpha = 0.6f)
                             )
                             Text(
-                                text = formatTime(duration),
+                                text = formatDuration(duration),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White.copy(alpha = 0.6f)
                             )
                         }
                     }
+                }
 
-                    // Controls
+                val controls: @Composable () -> Unit = {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = if (isLandscape) 8.dp else 32.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -769,12 +968,12 @@ fun AudioPlayerScreen(
                             )
                         }
 
-                        IconButton(onClick = { player.seekToPreviousMediaItem() }) {
+                        IconButton(onClick = { player.seekToPrevious() }, enabled = hasPrevious) {
                             Icon(
                                 Icons.Default.SkipPrevious,
                                 contentDescription = "Previous",
                                 modifier = Modifier.size(36.dp),
-                                tint = Color.White
+                                tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f)
                             )
                         }
                         
@@ -794,16 +993,15 @@ fun AudioPlayerScreen(
                             )
                         }
 
-                        IconButton(onClick = { player.seekToNextMediaItem() }) {
+                        IconButton(onClick = { player.seekToNext() }, enabled = hasNext) {
                             Icon(
                                 Icons.Default.SkipNext,
                                 contentDescription = "Next",
                                 modifier = Modifier.size(36.dp),
-                                tint = Color.White
+                                tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f)
                             )
                         }
 
-                        var isShuffle by remember { mutableStateOf(player.shuffleModeEnabled) }
                         IconButton(onClick = {
                             isShuffle = !isShuffle
                             player.shuffleModeEnabled = isShuffle
@@ -816,8 +1014,106 @@ fun AudioPlayerScreen(
                         }
                     }
                 }
+
+                if (isLandscape) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .graphicsLayer {
+                                    scaleX = artScale
+                                    scaleY = artScale
+                                }
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = albumArtUri,
+                                contentDescription = "Album Art",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                error = rememberVectorPainter(Icons.Default.MusicNote),
+                                fallback = rememberVectorPainter(Icons.Default.MusicNote)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(32.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1.5f).fillMaxHeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            mediaInfo()
+                            visualizer()
+                            seekBar()
+                            controls()
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(320.dp)
+                                .graphicsLayer {
+                                    scaleX = artScale
+                                    scaleY = artScale
+                                }
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = albumArtUri,
+                                contentDescription = "Album Art",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                error = rememberVectorPainter(Icons.Default.MusicNote),
+                                fallback = rememberVectorPainter(Icons.Default.MusicNote)
+                            )
+                        }
+                        mediaInfo()
+                        visualizer()
+                        seekBar()
+                        controls()
+                    }
+                }
             }
         }
+
+        VerticalIndicator(
+            value = volume / if (volumeBoostEnabled) 2f else 1f,
+            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            visible = isVolumeVisible,
+            text = (volume * 100).toInt().toString(),
+            color = if (volume > 1f) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterEnd)
+        )
+        
+        VerticalIndicator(
+            value = brightness,
+            icon = Icons.Default.BrightnessMedium,
+            visible = isBrightnessVisible,
+            text = (brightness * 100).toInt().toString(),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterStart)
+        )
     }
 
     if (showQueueSheet) {
@@ -836,7 +1132,7 @@ fun AudioPlayerScreen(
                 )
                 val queueItems = if (activeQueue.isNotEmpty()) {
                     activeQueue
-                } else {
+                } else if (activeQueueAudios.isNotEmpty()) {
                     activeQueueAudios.map {
                         com.arslandaim.omegaplayer.media.PlaybackQueueItem(
                             uri = it.uri.toString(),
@@ -847,11 +1143,19 @@ fun AudioPlayerScreen(
                             albumId = it.albumId
                         )
                     }
+                } else {
+                    listOf(
+                        com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                            uri = audioUri,
+                            title = "Unknown",
+                            duration = 0L,
+                            isVideo = false
+                        )
+                    )
                 }
                 LazyColumn {
-                    items(queueItems) { item ->
-                        val currentUri = controller?.currentMediaItem?.localConfiguration?.uri?.toString() ?: audioUri
-                        val isCurrent = item.uri == currentUri
+                    itemsIndexed(queueItems) { index, item ->
+                        val isCurrent = index == currentMediaIndexState
                         ListItem(
                             headlineContent = {
                                 Text(
@@ -865,8 +1169,7 @@ fun AudioPlayerScreen(
                                 if (item.isVideo) {
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current)
-                                            .data(Uri.parse(item.uri))
-                                            .videoFrameMillis(1000)
+                                            .data(com.arslandaim.omegaplayer.util.SmartVideoThumb(Uri.parse(item.uri), item.duration, item.uri.hashCode().toString()))
                                             .crossfade(true)
                                             .build(),
                                         contentDescription = null,
@@ -888,19 +1191,18 @@ fun AudioPlayerScreen(
                                 }
                             },
                             modifier = Modifier.clickable {
-                                val idx = queueItems.indexOfFirst { it.uri == item.uri }
-                                if (idx != -1 && idx < (controller?.mediaItemCount ?: 0)) {
-                                    controller?.seekToDefaultPosition(idx)
-                                    controller?.play()
-                                } else if (item.isVideo) {
-                                    onVideoTransition(item.uri)
-                                } else {
-                                    val audioModel = activeQueueAudios.find { it.uri.toString() == item.uri } ?: globalAudios.find { it.uri.toString() == item.uri }
-                                    if (audioModel != null) {
-                                        viewModel.togglePlayPause(audioModel)
+                                showQueueSheet = false
+                                if (!isCurrent) {
+                                    val idx = queueItems.indexOfFirst { it.uri == item.uri }
+                                    if (idx != -1 && idx < (controller?.mediaItemCount ?: 0)) {
+                                        controller?.seekToDefaultPosition(idx)
+                                        controller?.play()
+                                    } else if (item.isVideo) {
+                                        onVideoTransition(item.uri)
+                                    } else {
+                                        onAudioTransition(item.uri)
                                     }
                                 }
-                                showQueueSheet = false
                             },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
@@ -943,14 +1245,25 @@ fun AudioPlayerScreen(
                     onClick = {
                         val audio = currentAudio!!
                         showDeleteDialog = false
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(audio.uri))
-                            deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
-                        } else {
-                            viewModel.stopIfPlaying(audio.uri)
+                        try {
+                            viewModel.deleteHistoryItem(audio.uri.toString())
                             context.contentResolver.delete(audio.uri, null, null)
+                            
+                            val autoPlayNext = viewModel.autoPlayNext.value
+                            val hasNext = controller?.hasNextMediaItem() == true
+                            if (hasNext && autoPlayNext) {
+                                val currentIndex = controller?.currentMediaItemIndex ?: -1
+                                if (currentIndex != -1) {
+                                    controller?.removeMediaItem(currentIndex)
+                                }
+                            } else {
+                                viewModel.stopIfPlaying(audio.uri)
+                                onBack()
+                            }
+                            
                             viewModel.refreshAudios(context)
-                            onBack()
+                        } catch (e: SecurityException) {
+                            throw e
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -65,17 +66,24 @@ fun SettingsScreen(
     val videoViewModel: VideoViewModel = hiltViewModel()
     val currentTheme by themeViewModel.theme.collectAsState()
     val dynamicColorEnabled by themeViewModel.dynamicColor.collectAsState()
+    val playerOrientation by themeViewModel.playerOrientation.collectAsState()
+    val folderFlattenThreshold by themeViewModel.folderFlattenThreshold.collectAsState()
+    val controlsTimeout by themeViewModel.controlsTimeout.collectAsState()
     val isHistoryPaused by videoViewModel.isHistoryPaused.collectAsStateWithLifecycle()
     val excludedFolders by videoViewModel.excludedFolders.collectAsStateWithLifecycle(initialValue = emptySet())
+    val volumeBoostEnabled by videoViewModel.volumeBoostEnabled.collectAsStateWithLifecycle(initialValue = false)
     val showRecentHistoryOnHome by videoViewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
     val showHistoryTab by videoViewModel.showHistoryTab.collectAsStateWithLifecycle()
 
+    val autoPlayNext by videoViewModel.autoPlayNext.collectAsStateWithLifecycle(initialValue = true)
+    val autoPip by videoViewModel.autoPip.collectAsStateWithLifecycle(initialValue = true)
     val speedScope by videoViewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
-    val showPlayerClock by videoViewModel.showPlayerClock.collectAsStateWithLifecycle(initialValue = true)
-    val showPlayerBattery by videoViewModel.showPlayerBattery.collectAsStateWithLifecycle(initialValue = true)
-    val showPlayerMediaInfo by videoViewModel.showPlayerMediaInfo.collectAsStateWithLifecycle(initialValue = true)
-    val showPlayerVolume by videoViewModel.showPlayerVolume.collectAsStateWithLifecycle(initialValue = true)
-    val showPlayerBrightness by videoViewModel.showPlayerBrightness.collectAsStateWithLifecycle(initialValue = true)
+    val showSystemStatusBar by videoViewModel.showSystemStatusBar.collectAsStateWithLifecycle(initialValue = true)
+    val showPlayerClock by videoViewModel.showPlayerClock.collectAsStateWithLifecycle(initialValue = false)
+    val showPlayerBattery by videoViewModel.showPlayerBattery.collectAsStateWithLifecycle(initialValue = false)
+    val showPlayerMediaInfo by videoViewModel.showPlayerMediaInfo.collectAsStateWithLifecycle(initialValue = false)
+    val showPlayerVolume by videoViewModel.showPlayerVolume.collectAsStateWithLifecycle(initialValue = false)
+    val showPlayerBrightness by videoViewModel.showPlayerBrightness.collectAsStateWithLifecycle(initialValue = false)
 
     val defaultSpeed by videoViewModel.defaultPlaybackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
     val defaultViewMode by videoViewModel.defaultViewMode.collectAsStateWithLifecycle(initialValue = 0)
@@ -84,6 +92,18 @@ fun SettingsScreen(
     val subtitleTextSize by videoViewModel.subtitleTextSize.collectAsStateWithLifecycle(initialValue = 18)
     val subtitleTextColor by videoViewModel.subtitleTextColor.collectAsStateWithLifecycle(initialValue = 0)
     val subtitleBgStyle by videoViewModel.subtitleBgStyle.collectAsStateWithLifecycle(initialValue = 1)
+
+    val notifShowPrev by videoViewModel.notifShowPrevious.collectAsStateWithLifecycle(initialValue = true)
+    val notifShowRewind by videoViewModel.notifShowRewind.collectAsStateWithLifecycle(initialValue = true)
+    val notifShowForward by videoViewModel.notifShowForward.collectAsStateWithLifecycle(initialValue = true)
+    val notifShowNext by videoViewModel.notifShowNext.collectAsStateWithLifecycle(initialValue = true)
+    val notifShowSpeed by videoViewModel.notifShowSpeed.collectAsStateWithLifecycle(initialValue = false)
+    val notifShowStop by videoViewModel.notifShowStop.collectAsStateWithLifecycle(initialValue = false)
+    val notifShowClose by videoViewModel.notifShowClose.collectAsStateWithLifecycle(initialValue = false)
+    val notifShowRepeat by videoViewModel.notifShowRepeat.collectAsStateWithLifecycle(initialValue = false)
+    val notifShowShuffle by videoViewModel.notifShowShuffle.collectAsStateWithLifecycle(initialValue = false)
+
+    val activeNotifCount = listOf(notifShowPrev, notifShowRewind, notifShowForward, notifShowNext, notifShowSpeed, notifShowStop, notifShowClose, notifShowRepeat, notifShowShuffle).count { it }
 
     var showSortOrderDialog by remember { mutableStateOf(false) }
     var showAboutDeveloperDialog by remember { mutableStateOf(false) }
@@ -157,6 +177,76 @@ fun SettingsScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(stringResource(R.string.setting_player_orientation), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val options = listOf(
+                            stringResource(R.string.orientation_auto),
+                            stringResource(R.string.orientation_sensor),
+                            stringResource(R.string.orientation_fixed)
+                        )
+                        options.forEachIndexed { index, option ->
+                            SegmentedButton(
+                                selected = playerOrientation == index,
+                                onClick = { themeViewModel.setPlayerOrientation(index) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                                label = { Text(option) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(stringResource(R.string.setting_folder_flatten_threshold), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(R.string.setting_folder_flatten_threshold_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        @OptIn(ExperimentalMaterial3Api::class)
+                        Slider(
+                            value = folderFlattenThreshold.toFloat(),
+                            onValueChange = { themeViewModel.setFolderFlattenThreshold(it.toInt()) },
+                            valueRange = 1f..15f,
+                            steps = 13,
+                            modifier = Modifier.weight(1f),
+                            thumb = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                )
+                            },
+                            track = { sliderState ->
+                                SliderDefaults.Track(
+                                    colors = SliderDefaults.colors(
+                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.24f)
+                                    ),
+                                    sliderState = sliderState,
+                                    modifier = Modifier.height(2.dp)
+                                )
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = folderFlattenThreshold.toString(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(24.dp)
+                        )
+                    }
                 }
             }
 
@@ -213,8 +303,45 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(stringResource(R.string.setting_speed_scope), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Column {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_auto_play_next), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(stringResource(R.string.setting_auto_play_next_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = autoPlayNext,
+                                onCheckedChange = { videoViewModel.setAutoPlayNext(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_volume_boost), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(stringResource(R.string.setting_volume_boost_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = volumeBoostEnabled,
+                                onCheckedChange = { videoViewModel.toggleVolumeBoost(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_auto_pip), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(stringResource(R.string.setting_auto_pip_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = autoPip,
+                                onCheckedChange = { videoViewModel.setAutoPip(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(stringResource(R.string.setting_speed_scope), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(stringResource(R.string.setting_speed_scope_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
@@ -232,10 +359,32 @@ fun SettingsScreen(
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(stringResource(R.string.setting_controls_timeout), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(R.string.setting_controls_timeout_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val timeoutOptions = listOf(0, 3, 5, 10)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        timeoutOptions.forEachIndexed { index, option ->
+                            val label = if (option == 0) stringResource(R.string.controls_manual) else stringResource(R.string.controls_sec, option)
+                            SegmentedButton(
+                                selected = controlsTimeout == option,
+                                onClick = { themeViewModel.setControlsTimeout(option) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = timeoutOptions.size),
+                                label = { Text(label, maxLines = 1) }
+                            )
+                        }
+                    }
                 }
             }
+        }
 
-            Text(stringResource(R.string.section_defaults), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.section_defaults), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -247,33 +396,42 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(stringResource(R.string.setting_default_speed_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
-                    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        speeds.take(3).forEach { speed ->
-                            FilterChip(
-                                selected = defaultSpeed == speed,
-                                onClick = { videoViewModel.setDefaultPlaybackSpeed(speed) },
-                                label = { Text("${speed}x", maxLines = 1) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        speeds.takeLast(3).forEach { speed ->
-                            FilterChip(
-                                selected = defaultSpeed == speed,
-                                onClick = { videoViewModel.setDefaultPlaybackSpeed(speed) },
-                                label = { Text("${speed}x", maxLines = 1) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                        @OptIn(ExperimentalMaterial3Api::class)
+                        Slider(
+                            value = defaultSpeed,
+                            onValueChange = { videoViewModel.setDefaultPlaybackSpeed(it) },
+                            valueRange = 0.25f..3.0f,
+                            modifier = Modifier.weight(1f),
+                            thumb = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                )
+                            },
+                            track = { sliderState ->
+                                SliderDefaults.Track(
+                                    colors = SliderDefaults.colors(
+                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.24f)
+                                    ),
+                                    sliderState = sliderState,
+                                    modifier = Modifier.height(2.dp)
+                                )
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = String.format(java.util.Locale.US, "%.2fx", defaultSpeed),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(56.dp)
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -331,6 +489,17 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Column {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.hud_show_system_status_bar), fontWeight = FontWeight.Medium) },
+                        trailingContent = {
+                            Switch(
+                                checked = showSystemStatusBar,
+                                onCheckedChange = { videoViewModel.toggleSystemStatusBar(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.hud_show_clock), fontWeight = FontWeight.Medium) },
                         trailingContent = {
@@ -533,6 +702,72 @@ fun SettingsScreen(
                 }
             }
 
+            Text(stringResource(R.string.section_notification_controls), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.notif_limit_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_prev),
+                        checked = notifShowPrev,
+                        enabled = notifShowPrev || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowPrevious(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_rewind),
+                        checked = notifShowRewind,
+                        enabled = notifShowRewind || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowRewind(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_forward),
+                        checked = notifShowForward,
+                        enabled = notifShowForward || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowForward(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_next),
+                        checked = notifShowNext,
+                        enabled = notifShowNext || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowNext(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_speed),
+                        checked = notifShowSpeed,
+                        enabled = notifShowSpeed || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowSpeed(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_stop),
+                        checked = notifShowStop,
+                        enabled = notifShowStop || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowStop(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_close),
+                        checked = notifShowClose,
+                        enabled = notifShowClose || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowClose(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_repeat),
+                        checked = notifShowRepeat,
+                        enabled = notifShowRepeat || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowRepeat(it) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_notif_shuffle),
+                        checked = notifShowShuffle,
+                        enabled = notifShowShuffle || activeNotifCount < 5,
+                        onCheckedChange = { videoViewModel.setNotifShowShuffle(it) }
+                    )
+                }
+            }
+
             Text(stringResource(R.string.section_about), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
             Card(
@@ -648,4 +883,24 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+@Composable
+fun SwitchPreference(
+    title: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(title, fontWeight = FontWeight.Medium, color = if (enabled) Color.Unspecified else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+        trailingContent = {
+            Switch(
+                checked = checked,
+                enabled = enabled,
+                onCheckedChange = onCheckedChange
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
 }

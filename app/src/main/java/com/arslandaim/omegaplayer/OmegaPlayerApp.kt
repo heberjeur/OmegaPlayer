@@ -12,6 +12,7 @@ import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.arslandaim.omegaplayer.util.SmartVideoThumbFetcher
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
@@ -19,6 +20,7 @@ class OmegaPlayerApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {
+                add(SmartVideoThumbFetcher.Factory(this@OmegaPlayerApp))
                 add(VideoFrameDecoder.Factory())
             }
             .memoryCache {

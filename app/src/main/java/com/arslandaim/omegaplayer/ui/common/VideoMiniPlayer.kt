@@ -8,28 +8,37 @@ package com.arslandaim.omegaplayer.ui.common
 
 import android.net.Uri
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -44,7 +53,7 @@ import androidx.media3.session.MediaController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import coil.size.Precision
+import com.arslandaim.omegaplayer.util.MediaUtils
 import kotlinx.coroutines.delay
 
 @Composable
@@ -56,13 +65,16 @@ fun VideoMiniPlayer(
     onCloseClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var hasNext by remember { mutableStateOf(mediaController?.hasNextMediaItem() ?: false) }
+    var hasPrevious by remember { mutableStateOf(mediaController?.hasPreviousMediaItem() ?: false) }
 
-    LaunchedEffect(isPlaying, mediaItem) {
+    LaunchedEffect(isPlaying, mediaItem, mediaController) {
         val player = mediaController ?: return@LaunchedEffect
+        hasNext = player.hasNextMediaItem()
+        hasPrevious = player.hasPreviousMediaItem()
         while (isPlaying) {
             position = player.currentPosition
             duration = player.duration.coerceAtLeast(0L)
@@ -70,27 +82,66 @@ fun VideoMiniPlayer(
         }
     }
 
-    val defaultTitle = stringResource(R.string.video_playback_default_title)
-    val uri = mediaItem.localConfiguration?.uri ?: Uri.EMPTY
-    val title = mediaItem.mediaMetadata.title?.toString() 
-        ?: uri.lastPathSegment 
-        ?: defaultTitle
+    val infiniteTransition = rememberInfiniteTransition(label = "artworkPulse")
+    val artworkScale by if (isPlaying) {
+        infiniteTransition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.04f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1200, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+    } else {
+        remember { mutableFloatStateOf(1.0f) }
+    }
+
+    val metadata = mediaItem.mediaMetadata
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(68.dp)
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .shadow(
-                elevation = 10.dp,
+                elevation = 8.dp,
                 shape = RoundedCornerShape(20.dp)
             )
             .clip(RoundedCornerShape(20.dp))
-            .clickable { onExpandClick() },
+            .clickable { onExpandClick() }
+            .pointerInput(Unit) {
+                var totalDragX = 0f
+                var totalDragY = 0f
+                detectDragGestures(
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        totalDragX += dragAmount.x
+                        totalDragY += dragAmount.y
+                    },
+                    onDragEnd = {
+                        if (totalDragY < -80f) {
+                            onExpandClick()
+                        } else if (totalDragX > 120f) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            mediaController?.seekToPrevious()
+                        } else if (totalDragX < -120f) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            mediaController?.seekToNext()
+                        }
+                        totalDragX = 0f
+                        totalDragY = 0f
+                    },
+                    onDragCancel = {
+                        totalDragX = 0f
+                        totalDragY = 0f
+                    }
+                )
+            },
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(
             width = 0.5.dp,
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -111,81 +162,90 @@ fun VideoMiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Video Frame Thumbnail
+                // Album Artwork
                 Box(
                     modifier = Modifier
-                        .width(64.dp)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.Black),
+                        .size(46.dp)
+                        .graphicsLayer {
+                            scaleX = artworkScale
+                            scaleY = artworkScale
+                        }
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(uri)
-                            .videoFrameMillis(1000)
-                            .size(300)
-                            .precision(Precision.INEXACT)
-                            .build(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        error = rememberVectorPainter(Icons.Default.Movie),
-                        fallback = rememberVectorPainter(Icons.Default.Movie)
-                    )
-
-                    // Video Badge Overlay
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(2.dp),
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color.Black.copy(alpha = 0.7f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.video_badge),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary
-                            ),
-                            modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                    val isVideo = remember(mediaItem) { MediaUtils.isVideoMediaItem(mediaItem) }
+                    if (isVideo) {
+                        val videoUri = mediaItem.localConfiguration?.uri ?: Uri.EMPTY
+                        val imageRequest = ImageRequest.Builder(LocalContext.current)
+                            .data(com.arslandaim.omegaplayer.util.SmartVideoThumb(videoUri, 60000L, videoUri.toString()))
+                            .crossfade(true)
+                            .build()
+                        AsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = rememberVectorPainter(Icons.Default.Movie),
+                            fallback = rememberVectorPainter(Icons.Default.Movie)
+                        )
+                    } else {
+                        AsyncImage(
+                            model = metadata.artworkUri ?: metadata.artworkData,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = rememberVectorPainter(Icons.Default.MusicNote),
+                            fallback = rememberVectorPainter(Icons.Default.MusicNote)
                         )
                     }
                 }
 
-                // Video Title
-                Column(
+                val defaultTitle = stringResource(R.string.unknown_track)
+                val mediaTitle = metadata.title?.toString()
+                    ?: mediaItem.localConfiguration?.uri?.lastPathSegment
+                    ?: defaultTitle
+
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 12.dp)
                 ) {
                     Text(
-                        text = title,
+                        text = mediaTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (isPlaying) stringResource(R.string.playing_in_background) else stringResource(R.string.state_paused),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Clip,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.basicMarquee()
                     )
                 }
 
-                // Controls
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            mediaController?.seekToPrevious()
+                        },
+                        modifier = Modifier.size(34.dp),
+                        enabled = hasPrevious
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous Track",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (hasPrevious) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(2.dp))
+
                     IconButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -209,20 +269,24 @@ fun VideoMiniPlayer(
                     Spacer(modifier = Modifier.width(2.dp))
 
                     IconButton(
-                        onClick = onExpandClick,
-                        modifier = Modifier.size(36.dp)
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            mediaController?.seekToNext()
+                        },
+                        modifier = Modifier.size(34.dp),
+                        enabled = hasNext
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Fullscreen,
-                            contentDescription = stringResource(R.string.expand_video_player),
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = stringResource(R.string.next_track),
                             modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            tint = if (hasNext) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         )
                     }
 
                     IconButton(
                         onClick = onCloseClick,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,

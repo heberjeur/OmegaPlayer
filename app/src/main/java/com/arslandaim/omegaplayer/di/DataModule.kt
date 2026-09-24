@@ -22,6 +22,7 @@ object DataModule {
     }
 
     @Provides
+    @Singleton
     fun provideAppDao(database: AppDatabase): AppDao {
         return database.appDao()
     }

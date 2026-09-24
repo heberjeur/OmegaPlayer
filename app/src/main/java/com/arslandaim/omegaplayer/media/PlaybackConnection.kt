@@ -84,7 +84,8 @@ class PlaybackConnection @Inject constructor(
         playlistItems: List<com.arslandaim.omegaplayer.data.PlaylistItem>,
         startIndex: Int,
         videos: List<com.arslandaim.omegaplayer.data.VideoModel>,
-        audios: List<com.arslandaim.omegaplayer.data.AudioModel>
+        audios: List<com.arslandaim.omegaplayer.data.AudioModel>,
+        startPositionMs: Long = 0L
     ) {
         val controller = _mediaController.value ?: return
         if (playlistItems.isEmpty()) return
@@ -123,6 +124,9 @@ class PlaybackConnection @Inject constructor(
                     .setMediaMetadata(
                         androidx.media3.common.MediaMetadata.Builder()
                             .setTitle(title)
+                            .setArtist("")
+                            .setAlbumTitle("")
+                            .setAlbumArtist("")
                             .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_VIDEO)
                             .build()
                     )
@@ -140,9 +144,9 @@ class PlaybackConnection @Inject constructor(
                     .setMediaMetadata(
                         androidx.media3.common.MediaMetadata.Builder()
                             .setTitle(title)
-                            .setArtist(audio?.artist ?: "")
-                            .setAlbumTitle(audio?.album ?: "")
-                            .setArtworkUri(albumArtUri)
+                            .setArtist("")
+                            .setAlbumTitle("")
+                            .setAlbumArtist("")
                             .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
                             .build()
                     )
@@ -150,11 +154,14 @@ class PlaybackConnection @Inject constructor(
             }
         }
 
+        if (mediaItems.isEmpty()) return
+
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         controller.stop()
         controller.clearMediaItems()
-        controller.setMediaItems(mediaItems, safeIndex, 0L)
+        controller.setMediaItems(mediaItems, safeIndex, startPositionMs)
         controller.prepare()
+        controller.playWhenReady = true
         controller.play()
     }
 
@@ -191,6 +198,9 @@ class PlaybackConnection @Inject constructor(
                     .setMediaMetadata(
                         androidx.media3.common.MediaMetadata.Builder()
                             .setTitle(item.name)
+                            .setArtist("")
+                            .setAlbumTitle("")
+                            .setAlbumArtist("")
                             .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_VIDEO)
                             .build()
                     )
@@ -207,9 +217,9 @@ class PlaybackConnection @Inject constructor(
                     .setMediaMetadata(
                         androidx.media3.common.MediaMetadata.Builder()
                             .setTitle(item.name)
-                            .setArtist(audio?.artist ?: "")
-                            .setAlbumTitle(audio?.album ?: "")
-                            .setArtworkUri(albumArtUri)
+                            .setArtist("")
+                            .setAlbumTitle("")
+                            .setAlbumArtist("")
                             .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
                             .build()
                     )
@@ -217,12 +227,104 @@ class PlaybackConnection @Inject constructor(
             }
         }
 
+        if (mediaItems.isEmpty()) return
+
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         val initialPos = historyItems[safeIndex].position.coerceAtLeast(0L)
         controller.stop()
         controller.clearMediaItems()
         controller.setMediaItems(mediaItems, safeIndex, initialPos)
         controller.prepare()
+        controller.playWhenReady = true
+        controller.play()
+    }
+
+    fun playVideos(
+        videos: List<com.arslandaim.omegaplayer.data.VideoModel>,
+        startIndex: Int,
+        startPositionMs: Long = 0L
+    ) {
+        val controller = _mediaController.value ?: return
+        if (videos.isEmpty()) return
+
+        val queueItems = videos.map { video ->
+            PlaybackQueueItem(
+                uri = video.uri.toString(),
+                title = video.name,
+                duration = video.duration,
+                isVideo = true
+            )
+        }
+        setQueue(queueItems)
+
+        val mediaItems = videos.map { video ->
+            MediaItem.Builder()
+                .setUri(video.uri)
+                .setMediaId(video.uri.toString())
+                .setMimeType("video/*")
+                .setMediaMetadata(
+                    androidx.media3.common.MediaMetadata.Builder()
+                        .setTitle(video.name)
+                        .setArtist("")
+                        .setAlbumTitle("")
+                        .setAlbumArtist("")
+                        .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_VIDEO)
+                        .build()
+                )
+                .build()
+        }
+        val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        controller.stop()
+        controller.clearMediaItems()
+        controller.setMediaItems(mediaItems, safeIndex, startPositionMs)
+        controller.prepare()
+        controller.playWhenReady = true
+        controller.play()
+    }
+
+    fun playAudios(
+        audios: List<com.arslandaim.omegaplayer.data.AudioModel>,
+        startIndex: Int,
+        startPositionMs: Long = 0L
+    ) {
+        val controller = _mediaController.value ?: return
+        if (audios.isEmpty()) return
+
+        val queueItems = audios.map { audio ->
+            PlaybackQueueItem(
+                uri = audio.uri.toString(),
+                title = audio.name,
+                duration = audio.duration,
+                isVideo = false,
+                artist = audio.artist,
+                albumId = audio.albumId
+            )
+        }
+        setQueue(queueItems)
+
+        val mediaItems = audios.map { audio ->
+            val albumArtUri = android.content.ContentUris.withAppendedId(android.net.Uri.parse("content://media/external/audio/albumart"), audio.albumId)
+            MediaItem.Builder()
+                .setUri(audio.uri)
+                .setMediaId(audio.uri.toString())
+                .setMimeType("audio/*")
+                .setMediaMetadata(
+                    androidx.media3.common.MediaMetadata.Builder()
+                        .setTitle(audio.name)
+                        .setArtist("")
+                        .setAlbumTitle("")
+                        .setAlbumArtist("")
+                        .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
+                        .build()
+                )
+                .build()
+        }
+        val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        controller.stop()
+        controller.clearMediaItems()
+        controller.setMediaItems(mediaItems, safeIndex, startPositionMs)
+        controller.prepare()
+        controller.playWhenReady = true
         controller.play()
     }
 }

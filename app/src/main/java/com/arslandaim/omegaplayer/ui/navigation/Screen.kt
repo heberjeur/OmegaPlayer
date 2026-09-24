@@ -11,9 +11,9 @@ sealed class Screen(val route: String) {
         fun createRoute(videoUri: String, from: String? = null, pos: Long = -1L) = 
             "player/${MediaUtils.safeEncodeUri(videoUri)}" + (if (from != null) "?from=$from" else "?from=none") + "&pos=$pos"
     }
-    object AudioPlayer : Screen("audio_player/{audioUri}?pos={pos}") {
-        fun createRoute(audioUri: String, pos: Long = -1L) = "audio_player/${MediaUtils.safeEncodeUri(audioUri)}?pos=$pos"
+    object AudioPlayer : Screen("audio_player/{audioUri}?from={from}&pos={pos}") {
+        fun createRoute(audioUri: String, from: String? = null, pos: Long = -1L) = 
+            "audio_player/${MediaUtils.safeEncodeUri(audioUri)}" + (if (from != null) "?from=$from" else "?from=none") + "&pos=$pos"
     }
-    object History : Screen("history")
     object Settings : Screen("settings")
 }

@@ -51,6 +51,23 @@ class ThemePreferences(private val context: Context) {
     private val SUBTITLE_TEXT_COLOR_KEY = intPreferencesKey("subtitle_text_color")
     private val SUBTITLE_BG_STYLE_KEY = intPreferencesKey("subtitle_bg_style")
 
+    private val NOTIF_SHOW_PREVIOUS_KEY = booleanPreferencesKey("notif_show_previous")
+    private val NOTIF_SHOW_REWIND_KEY = booleanPreferencesKey("notif_show_rewind")
+    private val NOTIF_SHOW_FORWARD_KEY = booleanPreferencesKey("notif_show_forward")
+    private val NOTIF_SHOW_NEXT_KEY = booleanPreferencesKey("notif_show_next")
+    private val NOTIF_SHOW_SPEED_KEY = booleanPreferencesKey("notif_show_speed")
+    private val NOTIF_SHOW_STOP_KEY = booleanPreferencesKey("notif_show_stop")
+    private val NOTIF_SHOW_CLOSE_KEY = booleanPreferencesKey("notif_show_close")
+    private val NOTIF_SHOW_REPEAT_KEY = booleanPreferencesKey("notif_show_repeat")
+    private val NOTIF_SHOW_SHUFFLE_KEY = booleanPreferencesKey("notif_show_shuffle")
+    private val AUTO_PLAY_NEXT_KEY = booleanPreferencesKey("auto_play_next")
+    private val AUTO_PIP_KEY = booleanPreferencesKey("auto_pip")
+    private val SHOW_SYSTEM_STATUS_BAR_KEY = booleanPreferencesKey("show_system_status_bar")
+    private val FOLDER_FLATTEN_THRESHOLD_KEY = intPreferencesKey("folder_flatten_threshold")
+    private val CONTROLS_TIMEOUT_KEY = intPreferencesKey("controls_timeout")
+    private val VOLUME_BOOST_ENABLED_KEY = booleanPreferencesKey("volume_boost_enabled")
+    private val PLAYER_ORIENTATION_KEY = intPreferencesKey("player_orientation")
+
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
         try {
@@ -72,12 +89,16 @@ class ThemePreferences(private val context: Context) {
         preferences[EXCLUDED_FOLDERS_KEY] ?: emptySet()
     }
 
+    val volumeBoostEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[VOLUME_BOOST_ENABLED_KEY] ?: false
+    }
+
     val showRecentHistoryOnHome: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_RECENT_HISTORY_HOME_KEY] ?: true
+        preferences[SHOW_RECENT_HISTORY_HOME_KEY] ?: false
     }
 
     val showHistoryTab: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_HISTORY_TAB_KEY] ?: false
+        preferences[SHOW_HISTORY_TAB_KEY] ?: true
     }
 
     val speedScope: Flow<PlaybackSpeedScope> = context.dataStore.data.map { preferences ->
@@ -94,23 +115,53 @@ class ThemePreferences(private val context: Context) {
     }
 
     val showPlayerClock: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_PLAYER_CLOCK_KEY] ?: true
+        preferences[SHOW_PLAYER_CLOCK_KEY] ?: false
+    }
+
+    val showSystemStatusBar: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SHOW_SYSTEM_STATUS_BAR_KEY] ?: true
+    }
+
+    val notifShowPrevious: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_PREVIOUS_KEY] ?: true }
+    val notifShowRewind: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_REWIND_KEY] ?: true }
+    val notifShowForward: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_FORWARD_KEY] ?: true }
+    val notifShowNext: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_NEXT_KEY] ?: true }
+    val notifShowSpeed: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_SPEED_KEY] ?: false }
+    val notifShowStop: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_STOP_KEY] ?: false }
+    val notifShowClose: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_CLOSE_KEY] ?: false }
+    val notifShowRepeat: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_REPEAT_KEY] ?: false }
+    val notifShowShuffle: Flow<Boolean> = context.dataStore.data.map { it[NOTIF_SHOW_SHUFFLE_KEY] ?: false }
+
+    val autoPlayNext: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AUTO_PLAY_NEXT_KEY] ?: true
+    }
+
+    val autoPip: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AUTO_PIP_KEY] ?: false
+    }
+
+    val playerOrientation: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[PLAYER_ORIENTATION_KEY] ?: 0
+    }
+
+    val folderFlattenThreshold: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[FOLDER_FLATTEN_THRESHOLD_KEY] ?: 5
     }
 
     val showPlayerBattery: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_PLAYER_BATTERY_KEY] ?: true
+        preferences[SHOW_PLAYER_BATTERY_KEY] ?: false
     }
 
     val showPlayerMediaInfo: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_PLAYER_MEDIA_INFO_KEY] ?: true
+        preferences[SHOW_PLAYER_MEDIA_INFO_KEY] ?: false
     }
 
     val showPlayerVolume: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_PLAYER_VOLUME_KEY] ?: true
+        preferences[SHOW_PLAYER_VOLUME_KEY] ?: false
     }
 
     val showPlayerBrightness: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[SHOW_PLAYER_BRIGHTNESS_KEY] ?: true
+        preferences[SHOW_PLAYER_BRIGHTNESS_KEY] ?: false
     }
 
     suspend fun saveTheme(theme: AppTheme) {
@@ -125,9 +176,21 @@ class ThemePreferences(private val context: Context) {
         }
     }
 
+    suspend fun savePlayerOrientation(mode: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PLAYER_ORIENTATION_KEY] = mode
+        }
+    }
+
     suspend fun saveHistoryPaused(paused: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[HISTORY_PAUSED_KEY] = paused
+        }
+    }
+
+    suspend fun saveVolumeBoostEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[VOLUME_BOOST_ENABLED_KEY] = enabled
         }
     }
 
@@ -287,7 +350,7 @@ class ThemePreferences(private val context: Context) {
     }
 
     val subtitleTextSize: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[SUBTITLE_TEXT_SIZE_KEY] ?: 16
+        preferences[SUBTITLE_TEXT_SIZE_KEY] ?: 18
     }
 
     suspend fun saveSubtitleTextSize(size: Int) {
@@ -310,9 +373,32 @@ class ThemePreferences(private val context: Context) {
         preferences[SUBTITLE_BG_STYLE_KEY] ?: 1
     }
 
-    suspend fun saveSubtitleBgStyle(bgIndex: Int) {
+    suspend fun saveSubtitleBgStyle(style: Int) {
         context.dataStore.edit { preferences ->
-            preferences[SUBTITLE_BG_STYLE_KEY] = bgIndex
+            preferences[SUBTITLE_BG_STYLE_KEY] = style
         }
     }
+
+    suspend fun saveNotifShowPrevious(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_PREVIOUS_KEY] = show } }
+    suspend fun saveNotifShowRewind(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_REWIND_KEY] = show } }
+    suspend fun saveNotifShowForward(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_FORWARD_KEY] = show } }
+    suspend fun saveNotifShowNext(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_NEXT_KEY] = show } }
+    suspend fun saveNotifShowSpeed(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_SPEED_KEY] = show } }
+    suspend fun saveNotifShowStop(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_STOP_KEY] = show } }
+    suspend fun saveNotifShowClose(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_CLOSE_KEY] = show } }
+    suspend fun saveNotifShowRepeat(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_REPEAT_KEY] = show } }
+    suspend fun saveNotifShowShuffle(show: Boolean) { context.dataStore.edit { it[NOTIF_SHOW_SHUFFLE_KEY] = show } }
+    suspend fun saveAutoPlayNext(autoPlay: Boolean) { context.dataStore.edit { it[AUTO_PLAY_NEXT_KEY] = autoPlay } }
+
+    suspend fun saveShowSystemStatusBar(show: Boolean) { context.dataStore.edit { it[SHOW_SYSTEM_STATUS_BAR_KEY] = show } }
+
+    suspend fun saveAutoPip(autoPip: Boolean) { context.dataStore.edit { it[AUTO_PIP_KEY] = autoPip } }
+
+    suspend fun setFolderFlattenThreshold(threshold: Int) { context.dataStore.edit { it[FOLDER_FLATTEN_THRESHOLD_KEY] = threshold } }
+
+    val controlsTimeout: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[CONTROLS_TIMEOUT_KEY] ?: 3
+    }
+
+    suspend fun saveControlsTimeout(timeout: Int) { context.dataStore.edit { it[CONTROLS_TIMEOUT_KEY] = timeout } }
 }

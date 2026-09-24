@@ -61,7 +61,8 @@ class VideoViewModel @Inject constructor(
     private val getRecentPlaybackUseCase: GetRecentPlaybackUseCase,
     private val playbackRepository: PlaybackRepository,
     private val playbackConnection: PlaybackConnection,
-    private val themePreferences: ThemePreferences
+    private val themePreferences: ThemePreferences,
+    val eqManager: com.arslandaim.omegaplayer.media.EqManager
 ) : AndroidViewModel(application) {
 
     val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
@@ -97,6 +98,13 @@ class VideoViewModel @Inject constructor(
     val selectedFolder: StateFlow<String?> = _selectedFolder.asStateFlow()
 
     private val _videoError = MutableStateFlow<String?>(null)
+
+    private val _volumeKeyEvents = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val volumeKeyEvents = _volumeKeyEvents.asSharedFlow()
+
+    fun dispatchVolumeKeyEvent(keyCode: Int) {
+        _volumeKeyEvents.tryEmit(keyCode)
+    }
     val videoError: StateFlow<String?> = _videoError.asStateFlow()
 
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1).apply { tryEmit(Unit) }
@@ -131,6 +139,9 @@ class VideoViewModel @Inject constructor(
     val showPlayerBrightness: StateFlow<Boolean> = themePreferences.showPlayerBrightness
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val defaultPlaybackSpeed: StateFlow<Float> = themePreferences.defaultPlaybackSpeed
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
@@ -139,6 +150,15 @@ class VideoViewModel @Inject constructor(
 
     val defaultSortOrder: StateFlow<String> = themePreferences.defaultSortOrder
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MediaSortOrder.DATE_DESC.name)
+
+    val volumeBoostEnabled: StateFlow<Boolean> = themePreferences.volumeBoostEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun toggleVolumeBoost(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.saveVolumeBoostEnabled(enabled)
+        }
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawVideos: Flow<List<VideoModel>> = refreshTrigger
@@ -184,6 +204,12 @@ class VideoViewModel @Inject constructor(
     fun clearAllHistory() {
         viewModelScope.launch {
             playbackRepository.clearAllRecentPlayback()
+        }
+    }
+
+    fun deleteHistoryItem(uri: String) {
+        viewModelScope.launch {
+            playbackRepository.deleteRecentPlayback(uri)
         }
     }
 
@@ -241,7 +267,9 @@ class VideoViewModel @Inject constructor(
             MediaSortOrder.DATE_ASC -> result.reversed()
             MediaSortOrder.NAME_ASC -> result.sortedBy { it.name.lowercase() }
             MediaSortOrder.NAME_DESC -> result.sortedByDescending { it.name.lowercase() }
+            MediaSortOrder.SIZE_ASC -> result.sortedBy { it.size }
             MediaSortOrder.SIZE_DESC -> result.sortedByDescending { it.size }
+            MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
             MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -255,7 +283,7 @@ class VideoViewModel @Inject constructor(
 
     val videosInSelectedFolder: StateFlow<List<VideoModel>> = combine(videos, _selectedFolder) { videoList, folder ->
         if (folder == null) emptyList()
-        else videoList.filter { (File(it.path).parentFile?.name ?: "Internal") == folder }
+        else videoList.filter { File(it.path).parentFile?.absolutePath == folder }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @androidx.annotation.OptIn(UnstableApi::class)
@@ -318,29 +346,36 @@ class VideoViewModel @Inject constructor(
     }
 
     fun stopIfPlaying(uri: Uri) {
-        playbackConnection.mediaController.value?.let { player ->
-            val currentUri = player.currentMediaItem?.localConfiguration?.uri
-            if (currentUri == uri) {
-                player.stop()
-                player.clearMediaItems()
-            }
-        }
+        stopIfPlaying(listOf(uri))
     }
 
     fun stopIfPlaying(uris: List<Uri>) {
         playbackConnection.mediaController.value?.let { player ->
             val currentUri = player.currentMediaItem?.localConfiguration?.uri
-            if (currentUri != null && uris.contains(currentUri)) {
+            val isCurrentDeleted = currentUri != null && uris.contains(currentUri)
+
+            if (isCurrentDeleted && !autoPlayNext.value) {
                 player.stop()
                 player.clearMediaItems()
+            } else {
+                for (i in player.mediaItemCount - 1 downTo 0) {
+                    val itemUri = player.getMediaItemAt(i).localConfiguration?.uri
+                    if (itemUri != null && uris.contains(itemUri)) {
+                        player.removeMediaItem(i)
+                    }
+                }
+                if (player.mediaItemCount == 0) {
+                    player.stop()
+                    player.clearMediaItems()
+                }
             }
         }
     }
 
 
 
-    fun getVideosInFolder(folderName: String): List<VideoModel> {
-        return videos.value.filter { (File(it.path).parentFile?.name ?: "Internal") == folderName }
+    fun getVideosInFolder(folderPath: String): List<VideoModel> {
+        return videos.value.filter { File(it.path).parentFile?.absolutePath == folderPath }
     }
 
     fun fetchVideos(context: Context) {
@@ -499,6 +534,9 @@ class VideoViewModel @Inject constructor(
         playbackConnection.playHistory(historyItems, startIndex, videos, audios)
     }
 
+
+
+
     fun setFolderQueue(folderVideos: List<VideoModel>) {
         val queueItems = folderVideos.map { video ->
             PlaybackQueueItem(
@@ -510,4 +548,132 @@ class VideoViewModel @Inject constructor(
         }
         playbackConnection.setQueue(queueItems)
     }
+
+    val showSystemStatusBar: StateFlow<Boolean> = themePreferences.showSystemStatusBar.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val autoPlayNext: StateFlow<Boolean> = themePreferences.autoPlayNext.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val autoPip: StateFlow<Boolean> = themePreferences.autoPip.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 3)
+    val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 5)
+
+    val notifShowPrevious: StateFlow<Boolean> = themePreferences.notifShowPrevious.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifShowRewind: StateFlow<Boolean> = themePreferences.notifShowRewind.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifShowForward: StateFlow<Boolean> = themePreferences.notifShowForward.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifShowNext: StateFlow<Boolean> = themePreferences.notifShowNext.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifShowSpeed: StateFlow<Boolean> = themePreferences.notifShowSpeed.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val notifShowStop: StateFlow<Boolean> = themePreferences.notifShowStop.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val notifShowClose: StateFlow<Boolean> = themePreferences.notifShowClose.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val notifShowRepeat: StateFlow<Boolean> = themePreferences.notifShowRepeat.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val notifShowShuffle: StateFlow<Boolean> = themePreferences.notifShowShuffle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val _stopAfterCurrent = MutableStateFlow(false)
+    val stopAfterCurrent: StateFlow<Boolean> = _stopAfterCurrent.asStateFlow()
+
+    fun setStopAfterCurrent(stop: Boolean) {
+        _stopAfterCurrent.value = stop
+    }
+
+
+    fun toggleSystemStatusBar(show: Boolean) = viewModelScope.launch { themePreferences.saveShowSystemStatusBar(show) }
+    fun setNotifShowPrevious(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowPrevious(show) }
+    fun setNotifShowRewind(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowRewind(show) }
+    fun setNotifShowForward(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowForward(show) }
+    fun setNotifShowNext(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowNext(show) }
+    fun setNotifShowSpeed(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowSpeed(show) }
+    fun setNotifShowStop(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowStop(show) }
+    fun setNotifShowClose(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowClose(show) }
+    fun setNotifShowRepeat(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowRepeat(show) }
+    fun setNotifShowShuffle(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowShuffle(show) }
+    fun setAutoPlayNext(autoPlay: Boolean) = viewModelScope.launch { themePreferences.saveAutoPlayNext(autoPlay) }
+    fun setAutoPip(autoPip: Boolean) = viewModelScope.launch { themePreferences.saveAutoPip(autoPip) }
+
+    private val _currentNavPath = MutableStateFlow<String?>(null)
+    val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
+
+    val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(videos, folderFlattenThreshold) { videoList, threshold ->
+        buildVideoTree(videoList, threshold)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
+        if (tree == null) emptyList()
+        else if (path.isNullOrEmpty()) tree.getVisibleChildren()
+        else (findVideoNode(tree, path) ?: tree).getVisibleChildren()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun navigateIntoFolder(path: String) {
+        _currentNavPath.value = path
+    }
+
+    fun navigateUp(tree: com.arslandaim.omegaplayer.data.model.FolderNode?) {
+        val current = _currentNavPath.value ?: return
+        if (tree == null) { _currentNavPath.value = null; return }
+        var parent = findVideoNode(tree, current)?.let { findVideoParent(tree, current) }
+        while (parent != null && parent.isFlattened && parent.path != tree.path) {
+            parent = findVideoParent(tree, parent.path)
+        }
+        if (parent == null || parent.path == tree.path) {
+            _currentNavPath.value = null
+        } else {
+            _currentNavPath.value = parent.path.takeIf { it.isNotEmpty() }
+        }
+    }
+
+    fun navigateToRoot() {
+        _currentNavPath.value = null
+    }
+
+    fun playVideos(folderVideos: List<VideoModel>, startIndex: Int) {
+        playbackConnection.playVideos(folderVideos, startIndex)
+    }
+
+    private fun buildVideoTree(videos: List<VideoModel>, threshold: Int): com.arslandaim.omegaplayer.data.model.FolderNode {
+        val root = com.arslandaim.omegaplayer.data.model.FolderNode("Internal", "")
+        for (video in videos) {
+            val parentFile = File(video.path).parentFile ?: continue
+            val absPath = parentFile.absolutePath
+            val parts = absPath.split("/").filter { it.isNotEmpty() }
+            var node = root
+            var builtPath = ""
+            for (part in parts) {
+                builtPath = "/$builtPath/$part".replace(Regex("/+"), "/")
+                node = node.subFolders.getOrPut(part) { com.arslandaim.omegaplayer.data.model.FolderNode(part, builtPath) }
+                node.videoCount++
+            }
+            node.directMediaCount++
+            root.videoCount++
+        }
+        flattenVideoTree(root, threshold)
+        var effective = root
+        while (effective.subFolders.size == 1 && effective.getVisibleChildren().size == 1 && effective.directMediaCount == 0) {
+            val candidate = effective.getVisibleChildren().first()
+            if (candidate.subFolders.isEmpty()) break
+            effective = candidate
+        }
+        return effective
+    }
+
+    private fun flattenVideoTree(node: com.arslandaim.omegaplayer.data.model.FolderNode, threshold: Int) {
+        for (child in node.subFolders.values) flattenVideoTree(child, threshold)
+        if (node.subFolders.isNotEmpty() && node.subFolders.size <= threshold) {
+            node.isFlattened = true
+        }
+    }
+
+    private fun findVideoNode(root: com.arslandaim.omegaplayer.data.model.FolderNode, path: String): com.arslandaim.omegaplayer.data.model.FolderNode? {
+        if (root.path == path) return root
+        for (child in root.subFolders.values) {
+            val found = findVideoNode(child, path)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun findVideoParent(root: com.arslandaim.omegaplayer.data.model.FolderNode, targetPath: String): com.arslandaim.omegaplayer.data.model.FolderNode? {
+        for (child in root.subFolders.values) {
+            if (child.path == targetPath) return root
+            val found = findVideoParent(child, targetPath)
+            if (found != null) return found
+        }
+        return null
+    }
+
 }

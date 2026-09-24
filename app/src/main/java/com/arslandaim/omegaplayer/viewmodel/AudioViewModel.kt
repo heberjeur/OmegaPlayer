@@ -54,12 +54,16 @@ class AudioViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _currentNavPath = MutableStateFlow<String?>(null)
     private val _selectedFolder = MutableStateFlow<String?>(null)
     val selectedFolder: StateFlow<String?> = _selectedFolder.asStateFlow()
 
     val activeAudioUri: StateFlow<String?> = playbackConnection.currentMediaItem
         .map { it?.localConfiguration?.uri?.toString() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val volumeBoostEnabled: StateFlow<Boolean> = themePreferences.volumeBoostEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isPlaying: StateFlow<Boolean> = playbackConnection.isPlaying
     val mediaController: StateFlow<MediaController?> = playbackConnection.mediaController
@@ -72,6 +76,12 @@ class AudioViewModel @Inject constructor(
 
     val excludedFolders: StateFlow<Set<String>> = themePreferences.excludedFolders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val autoPlayNext: StateFlow<Boolean> = themePreferences.autoPlayNext
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawAudios: Flow<List<AudioModel>> = refreshTrigger
@@ -124,7 +134,9 @@ class AudioViewModel @Inject constructor(
             MediaSortOrder.DATE_ASC -> result.reversed()
             MediaSortOrder.NAME_ASC -> result.sortedBy { it.name.lowercase() }
             MediaSortOrder.NAME_DESC -> result.sortedByDescending { it.name.lowercase() }
+            MediaSortOrder.SIZE_ASC -> result.sortedBy { it.size }
             MediaSortOrder.SIZE_DESC -> result.sortedByDescending { it.size }
+            MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
             MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -138,8 +150,26 @@ class AudioViewModel @Inject constructor(
     val fullHistory: StateFlow<List<RecentPlayback>> = playbackRepository.getAllRecentPlayback()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val autoPip: StateFlow<Boolean> = themePreferences.autoPip.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 3
+    )
+
     val isHistoryPaused: StateFlow<Boolean> = themePreferences.isHistoryPaused
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 5
+    )
 
     private val _sleepTimerActive = MutableStateFlow(false)
     val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
@@ -171,6 +201,12 @@ class AudioViewModel @Inject constructor(
             }
             playbackConnection.pause()
             _sleepTimerActive.value = false
+        }
+    }
+
+    fun deleteHistoryItem(uri: String) {
+        viewModelScope.launch {
+            playbackRepository.deleteRecentPlayback(uri)
         }
     }
 
@@ -207,7 +243,7 @@ class AudioViewModel @Inject constructor(
 
     val audiosInSelectedFolder: StateFlow<List<AudioModel>> = combine(audios, _selectedFolder) { audioList, folder ->
         if (folder == null) emptyList()
-        else audioList.filter { (File(it.path).parentFile?.name ?: "Internal") == folder }
+        else audioList.filter { File(it.path).parentFile?.absolutePath == folder }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun createPlaylist(name: String) {
@@ -257,9 +293,9 @@ class AudioViewModel @Inject constructor(
                     .setMediaMetadata(
                         MediaMetadata.Builder()
                             .setTitle(audioItem.name)
-                            .setArtist(audioItem.artist)
-                            .setAlbumTitle(audioItem.album)
-                            .setArtworkUri(albumArtUri)
+                            .setArtist("")
+                            .setAlbumTitle("")
+                            .setAlbumArtist("")
                             .build()
                     )
                     .build()
@@ -274,6 +310,9 @@ class AudioViewModel @Inject constructor(
             }
         }
     }
+
+
+
 
     fun setSelectedFolder(folderName: String?) {
         _selectedFolder.value = folderName
@@ -338,25 +377,33 @@ class AudioViewModel @Inject constructor(
     }
 
     fun stopIfPlaying(uri: Uri) {
-        val controller = playbackConnection.mediaController.value ?: return
-        val currentUri = controller.currentMediaItem?.localConfiguration?.uri
-        if (currentUri == uri) {
-            controller.stop()
-            controller.clearMediaItems()
-        }
+        stopIfPlaying(listOf(uri))
     }
 
     fun stopIfPlaying(uris: List<Uri>) {
         val controller = playbackConnection.mediaController.value ?: return
         val currentUri = controller.currentMediaItem?.localConfiguration?.uri
-        if (currentUri != null && uris.contains(currentUri)) {
+        val isCurrentDeleted = currentUri != null && uris.contains(currentUri)
+
+        if (isCurrentDeleted && !autoPlayNext.value) {
             controller.stop()
             controller.clearMediaItems()
+        } else {
+            for (i in controller.mediaItemCount - 1 downTo 0) {
+                val itemUri = controller.getMediaItemAt(i).localConfiguration?.uri
+                if (itemUri != null && uris.contains(itemUri)) {
+                    controller.removeMediaItem(i)
+                }
+            }
+            if (controller.mediaItemCount == 0) {
+                controller.stop()
+                controller.clearMediaItems()
+            }
         }
     }
 
-    fun getAudiosInFolder(folderName: String): List<AudioModel> {
-        return audios.value.filter { (File(it.path).parentFile?.name ?: "Internal") == folderName }
+    fun getAudiosInFolder(folderPath: String): List<AudioModel> {
+        return audios.value.filter { File(it.path).parentFile?.absolutePath == folderPath }
     }
 
     fun fetchAudios(context: Context) {
@@ -478,4 +525,96 @@ class AudioViewModel @Inject constructor(
     fun togglePlayerBrightness(show: Boolean) {
         viewModelScope.launch { themePreferences.saveShowPlayerBrightness(show) }
     }
+
+    val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(audios, folderFlattenThreshold) { audioList, threshold ->
+        buildAudioTree(audioList, threshold)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
+        if (tree == null) emptyList()
+        else if (path.isNullOrEmpty()) tree.getVisibleChildren()
+        else (findAudioNode(tree, path) ?: tree).getVisibleChildren()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
+
+    fun navigateIntoFolder(path: String) {
+        _currentNavPath.value = path
+    }
+
+    fun navigateUp(tree: com.arslandaim.omegaplayer.data.model.FolderNode?) {
+        val current = _currentNavPath.value ?: return
+        if (tree == null) { _currentNavPath.value = null; return }
+        var parent = findAudioNode(tree, current)?.let { findAudioParent(tree, current) }
+        while (parent != null && parent.isFlattened && parent.path != tree.path) {
+            parent = findAudioParent(tree, parent.path)
+        }
+        if (parent == null || parent.path == tree.path) {
+            _currentNavPath.value = null
+        } else {
+            _currentNavPath.value = parent.path.takeIf { it.isNotEmpty() }
+        }
+    }
+
+    fun navigateToRoot() {
+        _currentNavPath.value = null
+    }
+
+    fun playAudios(folderAudios: List<AudioModel>, startIndex: Int) {
+        playbackConnection.playAudios(folderAudios, startIndex)
+    }
+
+    val eqManager = com.arslandaim.omegaplayer.media.EqManager()
+
+    private fun buildAudioTree(audios: List<AudioModel>, threshold: Int): com.arslandaim.omegaplayer.data.model.FolderNode {
+        val root = com.arslandaim.omegaplayer.data.model.FolderNode("Internal", "")
+        for (audio in audios) {
+            val parentFile = File(audio.path).parentFile ?: continue
+            val absPath = parentFile.absolutePath
+            val parts = absPath.split("/").filter { it.isNotEmpty() }
+            var node = root
+            var builtPath = ""
+            for (part in parts) {
+                builtPath = "/$builtPath/$part".replace(Regex("/+"), "/")
+                node = node.subFolders.getOrPut(part) { com.arslandaim.omegaplayer.data.model.FolderNode(part, builtPath) }
+                node.videoCount++
+            }
+            node.directMediaCount++
+            root.videoCount++
+        }
+        flattenAudioTree(root, threshold)
+        var effective = root
+        while (effective.subFolders.size == 1 && effective.getVisibleChildren().size == 1 && effective.directMediaCount == 0) {
+            val candidate = effective.getVisibleChildren().first()
+            if (candidate.subFolders.isEmpty()) break
+            effective = candidate
+        }
+        return effective
+    }
+
+    private fun flattenAudioTree(node: com.arslandaim.omegaplayer.data.model.FolderNode, threshold: Int) {
+        for (child in node.subFolders.values) flattenAudioTree(child, threshold)
+        if (node.subFolders.isNotEmpty() && node.subFolders.size <= threshold) {
+            node.isFlattened = true
+        }
+    }
+
+    private fun findAudioNode(root: com.arslandaim.omegaplayer.data.model.FolderNode, path: String): com.arslandaim.omegaplayer.data.model.FolderNode? {
+        if (root.path == path) return root
+        for (child in root.subFolders.values) {
+            val found = findAudioNode(child, path)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun findAudioParent(root: com.arslandaim.omegaplayer.data.model.FolderNode, targetPath: String): com.arslandaim.omegaplayer.data.model.FolderNode? {
+        for (child in root.subFolders.values) {
+            if (child.path == targetPath) return root
+            val found = findAudioParent(child, targetPath)
+            if (found != null) return found
+        }
+        return null
+    }
+
 }

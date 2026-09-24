@@ -184,7 +184,8 @@ fun FolderListItem(
     count: Int,
     onClick: () -> Unit,
     onDelete: () -> Unit,
-    onExclude: () -> Unit = {}
+    onExclude: () -> Unit = {},
+    onAddToPlaylist: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -245,6 +246,14 @@ fun FolderListItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_add_to_playlist)) },
+                        onClick = {
+                            showMenu = false
+                            onAddToPlaylist()
+                        },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_exclude_folder)) },
                         onClick = {
                             showMenu = false
@@ -272,6 +281,8 @@ fun FolderGridItem(
     count: Int,
     onClick: () -> Unit,
     onExclude: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
     aspectRatio: Float = 1f
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -299,6 +310,16 @@ fun FolderGridItem(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        if (onAddToPlaylist != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_add_to_playlist)) },
+                                onClick = {
+                                    showMenu = false
+                                    onAddToPlaylist()
+                                },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.menu_exclude_folder)) },
                             onClick = {
@@ -307,6 +328,16 @@ fun FolderGridItem(
                             },
                             leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) }
                         )
+                        if (onDelete != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_delete_folder), color = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showMenu = false
+                                    onDelete()
+                                },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                            )
+                        }
                     }
                 }
             }
@@ -1155,3 +1186,157 @@ fun formatDuration(durationMs: Long): String {
     return if (hours > 0) String.format("%d:%02d:%02d", hours, minutes, seconds)
     else String.format("%d:%02d", minutes, seconds)
 }
+
+@Composable
+fun HistoryItem(
+    item: RecentPlayback,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    onDeleteFromDevice: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+                .heightIn(min = 84.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(118.dp)
+                    .height(74.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.mediaType == "video") {
+                    val context = LocalContext.current
+                    val imageRequest = remember(item.uri) {
+                        ImageRequest.Builder(context)
+                            .data(Uri.parse(item.uri))
+                            .videoFrameMillis(1000)
+                            .size(400)
+                            .precision(Precision.INEXACT)
+                            .build()
+                    }
+                    AsyncImage(
+                        model = imageRequest,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        text = formatDuration(item.duration),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (item.size > 0L) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                    ) {
+                        Text(
+                            text = "${item.size / (1024 * 1024)} MB",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Justify,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.remove_from_history)) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete_from_device), color = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showMenu = false
+                                onDeleteFromDevice()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

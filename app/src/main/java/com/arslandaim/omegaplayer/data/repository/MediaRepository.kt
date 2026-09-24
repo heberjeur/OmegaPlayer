@@ -8,5 +8,4 @@ import kotlinx.coroutines.flow.Flow
 interface MediaRepository {
     fun getAudios(): Flow<Resource<List<AudioModel>>>
     fun getVideos(): Flow<Resource<List<VideoModel>>>
-    suspend fun refreshMedia()
 }

@@ -18,7 +18,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,12 +40,15 @@ class MediaRepositoryImpl @Inject constructor(
             true,
             observer
         )
-        trySend(Resource.Loading)
-        trySend(fetchAudios())
+        trySend(Unit)
         awaitClose {
             context.contentResolver.unregisterContentObserver(observer)
         }
-    }.debounce(300).flowOn(Dispatchers.IO)
+    }.debounce(300)
+    .transform {
+        emit(Resource.Loading)
+        emit(fetchAudios())
+    }
 
     @OptIn(FlowPreview::class)
     override fun getVideos(): Flow<Resource<List<VideoModel>>> = callbackFlow {
@@ -59,16 +62,14 @@ class MediaRepositoryImpl @Inject constructor(
             true,
             observer
         )
-        trySend(Resource.Loading)
-        trySend(fetchVideos())
+        trySend(Unit)
         awaitClose {
             context.contentResolver.unregisterContentObserver(observer)
         }
-    }.debounce(300).flowOn(Dispatchers.IO)
-
-    override suspend fun refreshMedia() {
-        fetchAudios()
-        fetchVideos()
+    }.debounce(300)
+    .transform {
+        emit(Resource.Loading)
+        emit(fetchVideos())
     }
 
     private fun fetchAudios(): Resource<List<AudioModel>> {

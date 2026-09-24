@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.util.Rational
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -25,7 +26,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.arslandaim.omegaplayer.ui.feature.library.HomeScreen
-import com.arslandaim.omegaplayer.ui.feature.library.HistoryScreen
 import com.arslandaim.omegaplayer.ui.navigation.Screen
 import com.arslandaim.omegaplayer.ui.feature.player.PlayerScreen
 import com.arslandaim.omegaplayer.ui.feature.settings.SettingsScreen
@@ -49,6 +49,7 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     private var isPlayerActive = false
     private var isInPictureInPictureModeState by mutableStateOf(false)
+    private val videoViewModel: VideoViewModel by viewModels()
 
     @Inject
     lateinit var playbackConnection: PlaybackConnection
@@ -57,7 +58,6 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val videoViewModel: VideoViewModel = hiltViewModel()
             val audioViewModel: AudioViewModel = hiltViewModel()
             val themeViewModel: ThemeViewModel = hiltViewModel()
             val appTheme by themeViewModel.theme.collectAsState()
@@ -158,8 +158,10 @@ class MainActivity : FragmentActivity() {
                                     isPlayerActive = true
                                     onDispose { isPlayerActive = false }
                                 }
+                                val fromParam = backStackEntry.arguments?.getString("from")
                                 PlayerScreen(
                                     videoUri = decodedUri, 
+                                    from = fromParam,
                                     viewModel = videoViewModel,
                                     isDarkTheme = isDarkTheme,
                                     sharedTransitionScope = this@SharedTransitionLayout,
@@ -184,6 +186,11 @@ class MainActivity : FragmentActivity() {
                                 route = Screen.AudioPlayer.route,
                                 arguments = listOf(
                                     navArgument("audioUri") { type = NavType.StringType },
+                                    navArgument("from") { 
+                                        type = NavType.StringType
+                                        nullable = true
+                                        defaultValue = null
+                                    },
                                     navArgument("pos") {
                                         type = NavType.LongType
                                         defaultValue = -1L
@@ -193,8 +200,15 @@ class MainActivity : FragmentActivity() {
                                 val encodedUri = backStackEntry.arguments?.getString("audioUri") ?: ""
                                 val decodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeDecodeUri(encodedUri)
                                 val initialPos = backStackEntry.arguments?.getLong("pos") ?: -1L
+                                
+                                DisposableEffect(Unit) {
+                                    isPlayerActive = false
+                                    onDispose {}
+                                }
+                                val fromParam = backStackEntry.arguments?.getString("from")
                                 AudioPlayerScreen(
                                     audioUri = decodedUri,
+                                    from = fromParam,
                                     viewModel = audioViewModel,
                                     initialPosition = initialPos,
                                     onBack = { 
@@ -208,23 +222,15 @@ class MainActivity : FragmentActivity() {
                                         navController.navigate(Screen.Player.createRoute(videoUri)) {
                                             popUpTo(Screen.AudioPlayer.route) { inclusive = true }
                                         }
-                                    }
-                                )
-                            }
-                            composable(Screen.History.route) {
-                                HistoryScreen(
-                                    viewModel = videoViewModel,
-                                    audioViewModel = audioViewModel,
-                                    onBack = { navController.popBackStack() },
-                                    onMediaClick = { uri, type, pos ->
-                                        if (type == "video") {
-                                            navController.navigate(Screen.Player.createRoute(uri, pos = pos))
-                                        } else {
-                                            navController.navigate(Screen.AudioPlayer.createRoute(uri, pos = pos))
+                                    },
+                                    onAudioTransition = { newAudioUri ->
+                                        navController.navigate(Screen.AudioPlayer.createRoute(newAudioUri)) {
+                                            popUpTo(Screen.AudioPlayer.route) { inclusive = true }
                                         }
                                     }
                                 )
                             }
+
                             composable(
                                 route = Screen.Settings.route,
                                 enterTransition = {
@@ -260,6 +266,16 @@ class MainActivity : FragmentActivity() {
         setIntent(intent)
     }
 
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (isPlayerActive) {
+            if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+                videoViewModel.dispatchVolumeKeyEvent(keyCode)
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         isInPictureInPictureModeState = isInPictureInPictureMode
@@ -267,14 +283,27 @@ class MainActivity : FragmentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (isPlayerActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                enterPictureInPictureMode(
-                    PictureInPictureParams.Builder()
-                        .setAspectRatio(Rational(16, 9))
-                        .build()
-                )
-            } catch (_: Exception) {}
+        val autoPip = videoViewModel.autoPip.value
+        if (autoPip && isPlayerActive) {
+            val player = playbackConnection.mediaController.value
+            if (player != null && player.isPlaying) {
+                val isVideo = player.videoSize.width > 0 || player.videoSize.height > 0
+                if (isVideo) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val rational = if (player.videoSize.width > 0 && player.videoSize.height > 0) {
+                            val aspect = player.videoSize.width.toFloat() / player.videoSize.height.toFloat()
+                            if (aspect in 0.45f..2.35f) Rational(player.videoSize.width, player.videoSize.height) else Rational(16, 9)
+                        } else Rational(16, 9)
+                        val builder = PictureInPictureParams.Builder().setAspectRatio(rational)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            builder.setAutoEnterEnabled(true)
+                        }
+                        try {
+                            enterPictureInPictureMode(builder.build())
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
         }
     }
 }
@@ -315,14 +344,13 @@ fun MainScreen(
             audioViewModel = audioViewModel,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
-            onVideoClick = { videoUri, pos ->
-                navController.navigate(Screen.Player.createRoute(videoUri, pos = pos)) 
+            onVideoClick = { videoUri, pos, from ->
+                navController.navigate(Screen.Player.createRoute(videoUri, from = from, pos = pos)) 
             },
-            onAudioClick = { audioUri, pos ->
-                navController.navigate(Screen.AudioPlayer.createRoute(audioUri, pos = pos))
+            onAudioClick = { audioUri, pos, from ->
+                navController.navigate(Screen.AudioPlayer.createRoute(audioUri, from = from, pos = pos))
             },
             onSettingsClick = { navController.navigate(Screen.Settings.route) },
-            onViewAllHistoryClick = { navController.navigate(Screen.History.route) },
             bottomPadding = padding.calculateBottomPadding(),
             isFocused = true,
             initialTab = initialTab
