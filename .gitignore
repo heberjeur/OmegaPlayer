@@ -9,3 +9,13 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Exclude kotlin errors and logs
+.kotlin/
+
+# Exclude build artifacts
+*.apk
+*.aab
+*.ap_
+*.aab
+app/release/
