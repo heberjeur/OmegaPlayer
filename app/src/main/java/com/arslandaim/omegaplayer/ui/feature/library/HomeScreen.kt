@@ -759,7 +759,7 @@ fun HomeScreen(
                 }
             }
         } else {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), beyondBoundsPageCount = 1, userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), beyondViewportPageCount = 1, userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
             val pageTab = activeTabs.getOrNull(page) ?: activeTabs.first()
             val pageContextKey = when {
                 pageTab == MediaTab.VIDEOS && selectedVideoFolder != null -> "folder_video_$selectedVideoFolder"
