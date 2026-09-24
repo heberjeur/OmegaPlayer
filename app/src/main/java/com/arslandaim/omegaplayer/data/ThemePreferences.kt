@@ -67,6 +67,7 @@ class ThemePreferences(private val context: Context) {
     private val CONTROLS_TIMEOUT_KEY = intPreferencesKey("controls_timeout")
     private val VOLUME_BOOST_ENABLED_KEY = booleanPreferencesKey("volume_boost_enabled")
     private val PLAYER_ORIENTATION_KEY = intPreferencesKey("player_orientation")
+    private val UP_NEXT_FULLY_EXPANDED_KEY = booleanPreferencesKey("up_next_fully_expanded")
 
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
@@ -140,6 +141,10 @@ class ThemePreferences(private val context: Context) {
         preferences[AUTO_PIP_KEY] ?: false
     }
 
+    val upNextFullyExpanded: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[UP_NEXT_FULLY_EXPANDED_KEY] ?: false
+    }
+
     val playerOrientation: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[PLAYER_ORIENTATION_KEY] ?: 2
     }
@@ -179,6 +184,12 @@ class ThemePreferences(private val context: Context) {
     suspend fun savePlayerOrientation(mode: Int) {
         context.dataStore.edit { preferences ->
             preferences[PLAYER_ORIENTATION_KEY] = mode
+        }
+    }
+
+    suspend fun saveUpNextFullyExpanded(expanded: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[UP_NEXT_FULLY_EXPANDED_KEY] = expanded
         }
     }
 

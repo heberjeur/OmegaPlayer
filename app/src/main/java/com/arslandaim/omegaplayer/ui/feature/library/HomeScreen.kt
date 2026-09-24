@@ -777,7 +777,7 @@ fun HomeScreen(
 
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    Box(modifier = Modifier.fillMaxSize())
                 } else if (currentSelectedFolder == null && selectedPlaylistForDetails == null && sortedFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY) {
                     EmptyState(searchQuery.isNotEmpty(), true)
                 } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) sortedVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) sortedAudios.isEmpty() else sortedPlaylistItems.isEmpty())) {

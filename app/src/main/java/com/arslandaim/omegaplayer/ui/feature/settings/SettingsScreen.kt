@@ -67,6 +67,7 @@ fun SettingsScreen(
     val currentTheme by themeViewModel.theme.collectAsState()
     val dynamicColorEnabled by themeViewModel.dynamicColor.collectAsState()
     val playerOrientation by themeViewModel.playerOrientation.collectAsState()
+    val upNextFullyExpanded by themeViewModel.upNextFullyExpanded.collectAsState()
     val folderFlattenThreshold by themeViewModel.folderFlattenThreshold.collectAsState()
     val controlsTimeout by themeViewModel.controlsTimeout.collectAsState()
     val isHistoryPaused by videoViewModel.isHistoryPaused.collectAsStateWithLifecycle()
@@ -185,22 +186,49 @@ fun SettingsScreen(
                     
                     Text(stringResource(R.string.setting_player_orientation), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(12.dp))
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
                         val options = listOf(
                             stringResource(R.string.orientation_auto),
                             stringResource(R.string.orientation_sensor),
                             stringResource(R.string.orientation_fixed)
                         )
                         options.forEachIndexed { index, option ->
-                            SegmentedButton(
-                                modifier = Modifier.weight(1f),
-                                selected = playerOrientation == index,
+                            val isSelected = playerOrientation == index
+                            OutlinedButton(
                                 onClick = { themeViewModel.setPlayerOrientation(index) },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                                label = { Text(option, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
-                            )
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 4.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                                    contentColor = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                                ),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(option, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.setting_up_next_expanded), fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text(stringResource(R.string.setting_up_next_expanded_sub)) },
+                        trailingContent = {
+                            Switch(
+                                checked = upNextFullyExpanded,
+                                onCheckedChange = { themeViewModel.setUpNextFullyExpanded(it) }
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
 
                     Spacer(modifier = Modifier.height(16.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))

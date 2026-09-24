@@ -84,6 +84,9 @@ class AudioViewModel @Inject constructor(
     val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val upNextFullyExpanded: StateFlow<Boolean> = themePreferences.upNextFullyExpanded
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawAudios: Flow<List<AudioModel>> = refreshTrigger
         .flatMapLatest { getAudiosUseCase() }
@@ -108,7 +111,7 @@ class AudioViewModel @Inject constructor(
             val folder = File(it.path).parentFile?.name ?: "Internal"
             !excluded.contains(folder)
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -140,7 +143,7 @@ class AudioViewModel @Inject constructor(
             MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
             MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -153,14 +156,14 @@ class AudioViewModel @Inject constructor(
 
     val autoPip: StateFlow<Boolean> = themePreferences.autoPip.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = kotlinx.coroutines.runBlocking { themePreferences.autoPip.first() }
+        started = SharingStarted.Lazily,
+        initialValue = false
     )
 
     val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = kotlinx.coroutines.runBlocking { themePreferences.controlsTimeout.first() }
+        started = SharingStarted.Lazily,
+        initialValue = 3
     )
 
     val isHistoryPaused: StateFlow<Boolean> = themePreferences.isHistoryPaused
@@ -168,8 +171,8 @@ class AudioViewModel @Inject constructor(
 
     val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = kotlinx.coroutines.runBlocking { themePreferences.folderFlattenThreshold.first() }
+        started = SharingStarted.Lazily,
+        initialValue = 5
     )
 
     private val _sleepTimerActive = MutableStateFlow(false)
@@ -240,12 +243,13 @@ class AudioViewModel @Inject constructor(
             audioList.groupBy { File(it.path).parentFile?.name ?: "Internal" }
                 .mapValues { it.value.size }
         }
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
     val audiosInSelectedFolder: StateFlow<List<AudioModel>> = combine(audios, _selectedFolder) { audioList, folder ->
         if (folder == null) emptyList()
         else audioList.filter { File(it.path).parentFile?.absolutePath == folder }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun createPlaylist(name: String) {
         viewModelScope.launch {
@@ -527,15 +531,17 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch { themePreferences.saveShowPlayerBrightness(show) }
     }
 
+    fun setUpNextFullyExpanded(expanded: Boolean) = viewModelScope.launch { themePreferences.saveUpNextFullyExpanded(expanded) }
+
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(audios, folderFlattenThreshold) { audioList, threshold ->
         buildAudioTree(audioList, threshold)
-    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
         if (tree == null) emptyList()
         else if (path.isNullOrEmpty()) tree.getVisibleChildren()
         else (findAudioNode(tree, path) ?: tree).getVisibleChildren()
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
 

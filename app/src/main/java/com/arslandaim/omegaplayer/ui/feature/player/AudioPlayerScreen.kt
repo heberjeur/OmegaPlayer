@@ -353,7 +353,8 @@ fun AudioPlayerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val sheetState = rememberModalBottomSheetState()
+    val upNextFullyExpanded by viewModel.upNextFullyExpanded.collectAsStateWithLifecycle(initialValue = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = upNextFullyExpanded)
 
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val volumeBoostEnabled by viewModel.volumeBoostEnabled.collectAsStateWithLifecycle(initialValue = false)

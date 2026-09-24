@@ -229,4 +229,6 @@
     <string name="orientation_auto">System</string>
     <string name="orientation_sensor">Sensor</string>
     <string name="orientation_fixed">Locked</string>
+    <string name="setting_up_next_expanded">Expand Up Next list by default</string>
+    <string name="setting_up_next_expanded_sub">Open the Up Next queue fully expanded in portrait mode</string>
 </resources>

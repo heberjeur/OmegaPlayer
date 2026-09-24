@@ -161,7 +161,8 @@ fun VideoPlayerScreen(
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var currentTracks by remember { mutableStateOf(mediaController?.currentTracks ?: Tracks.EMPTY) }
     var showQueueSheet by remember { mutableStateOf(false) }
-    val queueSheetState = rememberModalBottomSheetState()
+    val upNextFullyExpanded by viewModel.upNextFullyExpanded.collectAsStateWithLifecycle(initialValue = false)
+    val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = upNextFullyExpanded)
 
     val subtitleTextSize by viewModel.subtitleTextSize.collectAsStateWithLifecycle(initialValue = 18)
     val subtitleTextColor by viewModel.subtitleTextColor.collectAsStateWithLifecycle(initialValue = 0)

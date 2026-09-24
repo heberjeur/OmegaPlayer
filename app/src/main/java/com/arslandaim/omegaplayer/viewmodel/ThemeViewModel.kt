@@ -48,8 +48,14 @@ class ThemeViewModel @Inject constructor(
 
     val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Lazily,
         initialValue = 0
+    )
+
+    val upNextFullyExpanded: StateFlow<Boolean> = themePreferences.upNextFullyExpanded.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Lazily,
+        initialValue = false
     )
 
     fun setTheme(theme: AppTheme) {
@@ -79,6 +85,12 @@ class ThemeViewModel @Inject constructor(
     fun setPlayerOrientation(mode: Int) {
         viewModelScope.launch {
             themePreferences.savePlayerOrientation(mode)
+        }
+    }
+
+    fun setUpNextFullyExpanded(expanded: Boolean) {
+        viewModelScope.launch {
+            themePreferences.saveUpNextFullyExpanded(expanded)
         }
     }
 }

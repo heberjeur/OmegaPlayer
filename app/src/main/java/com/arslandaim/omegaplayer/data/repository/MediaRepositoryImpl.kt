@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,47 +33,53 @@ class MediaRepositoryImpl @Inject constructor(
 ) : MediaRepository {
 
     @OptIn(FlowPreview::class)
-    override fun getAudios(): Flow<Resource<List<AudioModel>>> = callbackFlow<Unit> {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                trySend(Unit)
-            }
-        }
-        context.contentResolver.registerContentObserver(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            true,
-            observer
-        )
-        trySend(Unit)
-        awaitClose {
-            context.contentResolver.unregisterContentObserver(observer)
-        }
-    }.debounce(300)
-    .transform {
+    override fun getAudios(): Flow<Resource<List<AudioModel>>> = flow {
         emit(Resource.Loading)
-        emit(fetchAudios())
+        emitAll(
+            callbackFlow<Unit> {
+                val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        trySend(Unit)
+                    }
+                }
+                context.contentResolver.registerContentObserver(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    true,
+                    observer
+                )
+                trySend(Unit)
+                awaitClose {
+                    context.contentResolver.unregisterContentObserver(observer)
+                }
+            }
+            .debounce(300)
+            .map { fetchAudios() }
+        )
     }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
     @OptIn(FlowPreview::class)
-    override fun getVideos(): Flow<Resource<List<VideoModel>>> = callbackFlow<Unit> {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                trySend(Unit)
-            }
-        }
-        context.contentResolver.registerContentObserver(
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            true,
-            observer
-        )
-        trySend(Unit)
-        awaitClose {
-            context.contentResolver.unregisterContentObserver(observer)
-        }
-    }.debounce(300)
-    .transform {
+    override fun getVideos(): Flow<Resource<List<VideoModel>>> = flow {
         emit(Resource.Loading)
-        emit(fetchVideos())
+        emitAll(
+            callbackFlow<Unit> {
+                val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        trySend(Unit)
+                    }
+                }
+                context.contentResolver.registerContentObserver(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    true,
+                    observer
+                )
+                trySend(Unit)
+                awaitClose {
+                    context.contentResolver.unregisterContentObserver(observer)
+                }
+            }
+            .debounce(300)
+            .map { fetchVideos() }
+        )
     }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
     private fun fetchAudios(): Resource<List<AudioModel>> {

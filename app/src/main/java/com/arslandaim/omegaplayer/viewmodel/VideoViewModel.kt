@@ -142,6 +142,9 @@ class VideoViewModel @Inject constructor(
     val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
 
+    val upNextFullyExpanded: StateFlow<Boolean> = themePreferences.upNextFullyExpanded
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val defaultPlaybackSpeed: StateFlow<Float> = themePreferences.defaultPlaybackSpeed
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
@@ -184,7 +187,7 @@ class VideoViewModel @Inject constructor(
             val folder = File(it.path).parentFile?.name ?: "Internal"
             !excluded.contains(folder)
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentPlayback: StateFlow<List<RecentPlayback>> = getRecentPlaybackUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -272,19 +275,20 @@ class VideoViewModel @Inject constructor(
             MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
             MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val folders: StateFlow<Map<String, Int>> = videos
         .map { videoList ->
             videoList.groupBy { File(it.path).parentFile?.name ?: "Internal" }
                 .mapValues { it.value.size }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
     val videosInSelectedFolder: StateFlow<List<VideoModel>> = combine(videos, _selectedFolder) { videoList, folder ->
         if (folder == null) emptyList()
         else videoList.filter { File(it.path).parentFile?.absolutePath == folder }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     @androidx.annotation.OptIn(UnstableApi::class)
     fun toggleBackgroundPlay(context: Context, enabled: Boolean) {
@@ -585,19 +589,20 @@ class VideoViewModel @Inject constructor(
     fun setNotifShowShuffle(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowShuffle(show) }
     fun setAutoPlayNext(autoPlay: Boolean) = viewModelScope.launch { themePreferences.saveAutoPlayNext(autoPlay) }
     fun setAutoPip(autoPip: Boolean) = viewModelScope.launch { themePreferences.saveAutoPip(autoPip) }
+    fun setUpNextFullyExpanded(expanded: Boolean) = viewModelScope.launch { themePreferences.saveUpNextFullyExpanded(expanded) }
 
     private val _currentNavPath = MutableStateFlow<String?>(null)
     val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
 
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(videos, folderFlattenThreshold) { videoList, threshold ->
         buildVideoTree(videoList, threshold)
-    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
         if (tree == null) emptyList()
         else if (path.isNullOrEmpty()) tree.getVisibleChildren()
         else (findVideoNode(tree, path) ?: tree).getVisibleChildren()
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun navigateIntoFolder(path: String) {
         _currentNavPath.value = path
