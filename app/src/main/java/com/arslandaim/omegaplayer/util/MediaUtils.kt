@@ -32,7 +32,7 @@ object MediaUtils {
         while (raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) {
             try {
                 raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
-            } catch (_: Exception) {
+            } catch (_: IllegalArgumentException) {
                 break
             }
         }
@@ -44,7 +44,7 @@ object MediaUtils {
         while (raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) {
             try {
                 raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
-            } catch (_: Exception) {
+            } catch (_: IllegalArgumentException) {
                 break
             }
         }

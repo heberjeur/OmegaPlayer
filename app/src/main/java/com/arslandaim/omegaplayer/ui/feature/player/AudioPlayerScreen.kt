@@ -82,7 +82,10 @@ import com.arslandaim.omegaplayer.data.AudioModel
 import android.content.Context
 import android.app.ActivityManager
 import android.os.Build
+import android.util.Log
 import androidx.compose.ui.graphics.graphicsLayer
+
+private const val TAG = "AudioPlayerScreen"
 
 @Composable
 fun SleepTimerDialog(
@@ -378,7 +381,7 @@ fun AudioPlayerScreen(
             try {
                 val sysBrightness = android.provider.Settings.System.getInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS)
                 (sysBrightness / 255f).coerceIn(0.01f, 1f)
-            } catch (_: Exception) {
+            } catch (_: android.provider.Settings.SettingNotFoundException) {
                 0.5f
             }
         }
@@ -418,12 +421,16 @@ fun AudioPlayerScreen(
                 true,
                 contentObserver
             )
-        } catch (_: Exception) {}
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Failed to register volume observer", e)
+        }
         
         onDispose {
             try {
                 context.contentResolver.unregisterContentObserver(contentObserver)
-            } catch (_: Exception) {}
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Failed to unregister volume observer", e)
+            }
         }
     }
     
@@ -654,7 +661,9 @@ fun AudioPlayerScreen(
                 }
                 delay(200)
             }
-        } catch (e: Exception) {}
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "Playback position polling stopped", e)
+        }
     }
 
     if (showEqualizerDialog) {
@@ -1170,29 +1179,25 @@ fun AudioPlayerScreen(
                         val audio = currentAudio!!
                         showDeleteDialog = false
                         scope.launch {
-                            try {
-                                viewModel.deleteHistoryItem(audio.uri.toString())
-                                val deleted = withContext(Dispatchers.IO) {
-                                    context.contentResolver.delete(audio.uri, null, null)
-                                }
-                            
-                                val autoPlayNext = viewModel.autoPlayNext.value
-                                val hasNext = controller?.hasNextMediaItem() == true
-                                if (hasNext && autoPlayNext) {
-                                    val currentIndex = controller?.currentMediaItemIndex ?: -1
-                                    if (currentIndex != -1) {
-                                        controller?.removeMediaItem(currentIndex)
-                                    }
-                                } else {
-                                    viewModel.stopIfPlaying(audio.uri)
-                                    onBack()
-                                }
-                            
-                                if (deleted > 0) viewModel.onAudiosDeleted(listOf(audio.uri))
-                                else viewModel.refreshAudios(context)
-                            } catch (e: SecurityException) {
-                                throw e
+                            viewModel.deleteHistoryItem(audio.uri.toString())
+                            val deleted = withContext(Dispatchers.IO) {
+                                context.contentResolver.delete(audio.uri, null, null)
                             }
+                        
+                            val autoPlayNext = viewModel.autoPlayNext.value
+                            val hasNext = controller?.hasNextMediaItem() == true
+                            if (hasNext && autoPlayNext) {
+                                val currentIndex = controller?.currentMediaItemIndex ?: -1
+                                if (currentIndex != -1) {
+                                    controller?.removeMediaItem(currentIndex)
+                                }
+                            } else {
+                                viewModel.stopIfPlaying(audio.uri)
+                                onBack()
+                            }
+                        
+                            if (deleted > 0) viewModel.onAudiosDeleted(listOf(audio.uri))
+                            else viewModel.refreshAudios(context)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

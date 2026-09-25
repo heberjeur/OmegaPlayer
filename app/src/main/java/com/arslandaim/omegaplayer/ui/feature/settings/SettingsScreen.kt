@@ -64,7 +64,7 @@ fun SettingsScreen(
                 context.packageManager.getPackageInfo(context.packageName, 0)
             }
             packageInfo.versionName
-        } catch (_: Exception) {
+        } catch (_: PackageManager.NameNotFoundException) {
             "1.4.2"
         }
     }
@@ -505,7 +505,7 @@ fun SettingsScreen(
 
                     val currentSortLabel = try {
                         MediaSortOrder.valueOf(defaultSortOrder).label
-                    } catch (_: Exception) {
+                    } catch (_: IllegalArgumentException) {
                         defaultSortOrder
                     }
 

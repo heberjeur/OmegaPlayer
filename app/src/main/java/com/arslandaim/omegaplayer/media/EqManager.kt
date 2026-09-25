@@ -9,6 +9,8 @@ import android.util.Log
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val TAG = "EqManager"
+
 @Singleton
 class EqManager @Inject constructor() {
     private var equalizer: Equalizer? = null
@@ -36,10 +38,9 @@ class EqManager @Inject constructor() {
                 previousBands.forEach { band ->
                     try {
                         equalizer?.setBandLevel(band.id, band.level)
-                    } catch (e: IllegalArgumentException) {
+                    } catch (e: RuntimeException) {
                         equalizer = null
-                    } catch (e: IllegalStateException) {
-                        equalizer = null
+                        Log.w(TAG, "Failed to restore equalizer band ${band.id}", e)
                     }
                 }
             }
@@ -51,18 +52,10 @@ class EqManager @Inject constructor() {
                 setTargetGain(calculateGainMb(currentBoostScale))
                 enabled = true
             }
-        } catch (e: IllegalStateException) {
-            equalizer = null
-            loudnessEnhancer = null
-        } catch (e: IllegalArgumentException) {
-            equalizer = null
-            loudnessEnhancer = null
-        } catch (e: UnsupportedOperationException) {
-            equalizer = null
-            loudnessEnhancer = null
         } catch (e: RuntimeException) {
             equalizer = null
             loudnessEnhancer = null
+            Log.w(TAG, "Failed to set up equalizer for audio session $audioSessionId", e)
         }
     }
 
@@ -78,10 +71,9 @@ class EqManager @Inject constructor() {
         currentBoostScale = scale.coerceIn(1.0f, 2.0f)
         try {
             loudnessEnhancer?.setTargetGain(calculateGainMb(currentBoostScale))
-        } catch (e: IllegalStateException) {
+        } catch (e: RuntimeException) {
             loudnessEnhancer = null
-        } catch (e: IllegalArgumentException) {
-            loudnessEnhancer = null
+            Log.w(TAG, "Failed to update volume boost gain", e)
         }
     }
 

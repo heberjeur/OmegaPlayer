@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.util.Log
 import coil.ImageLoader
 import coil.decode.DataSource
 import coil.fetch.DrawableResult
@@ -19,6 +20,8 @@ import coil.size.pxOrElse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.sqrt
+
+private const val TAG = "SmartVideoThumbFetcher"
 
 data class SmartVideoThumb(
     val uri: Uri,
@@ -82,11 +85,16 @@ class SmartVideoThumbFetcher(
                 } else {
                     null
                 }
-            } catch (e: Exception) {
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Frame extraction failed for ${model.uri}", e)
                 null
             } finally {
                 StartupTrace.count("thumbnails.frameExtraction (MediaMetadataRetriever)", SystemClock.uptimeMillis() - slowPathStarted)
-                try { retriever.release() } catch (e: Exception) {}
+                try {
+                    retriever.release()
+                } catch (e: RuntimeException) {
+                    Log.w(TAG, "MediaMetadataRetriever release failed", e)
+                }
             }
         }
     }
@@ -98,7 +106,8 @@ class SmartVideoThumbFetcher(
             } else {
                 mediaStoreThumbnailLegacy(context, uri)
             }
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
+            Log.w(TAG, "System thumbnail load failed for $uri", e)
             null
         } ?: return null
 
@@ -114,7 +123,8 @@ class SmartVideoThumbFetcher(
             )
             if (scaled !== original) original.recycle()
             scaled
-        } catch (e: Exception) {
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Thumbnail downscale failed", e)
             original
         }
     }
@@ -156,7 +166,8 @@ class SmartVideoThumbFetcher(
             val scaled = Bitmap.createScaledBitmap(frame, targetWidth, targetHeight, true)
             if (scaled !== frame) frame.recycle()
             scaled
-        } catch (e: Exception) {
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Frame downscale failed", e)
             frame
         }
     }
@@ -191,7 +202,8 @@ class SmartVideoThumbFetcher(
             val stdDev = sqrt((variance / count).toDouble())
             
             return stdDev < 15.0
-        } catch (e: Exception) {
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Solid color check failed", e)
             return false
         }
     }

@@ -154,7 +154,7 @@ object StartupTrace {
                     if (busyFor >= STALL_THRESHOLD_MS) {
                         val stack = try {
                             mainThread.stackTrace
-                        } catch (t: Throwable) {
+                        } catch (_: Exception) {
                             emptyArray()
                         }
                         episodeIndex = recordStallSample(episodeIndex, busyFor, stack)
@@ -185,8 +185,8 @@ object StartupTrace {
                 builder.penaltyLog()
             }
             StrictMode.setThreadPolicy(builder.build())
-        } catch (t: Throwable) {
-            Log.w(TAG, "Could not install StrictMode policy", t)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not install StrictMode policy", e)
         }
     }
 
@@ -208,8 +208,8 @@ object StartupTrace {
                 file.writeText(text)
                 _latestReport.value = text
                 Log.i(TAG, "Startup report written to ${file.absolutePath}")
-            } catch (t: Throwable) {
-                Log.w(TAG, "Could not write startup report", t)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not write startup report", e)
             }
         }
     }
@@ -239,7 +239,7 @@ object StartupTrace {
 
         val versionName = try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        } catch (t: Throwable) {
+        } catch (_: Exception) {
             "?"
         }
         val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0

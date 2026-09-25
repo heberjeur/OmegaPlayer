@@ -73,7 +73,7 @@ class ThemePreferences(private val context: Context) {
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
         try {
             AppTheme.valueOf(themeName)
-        } catch (e: Exception) {
+        } catch (_: IllegalArgumentException) {
             AppTheme.SYSTEM
         }
     }
@@ -106,7 +106,7 @@ class ThemePreferences(private val context: Context) {
         val scopeName = preferences[SPEED_SCOPE_KEY] ?: PlaybackSpeedScope.GLOBAL.name
         try {
             PlaybackSpeedScope.valueOf(scopeName)
-        } catch (e: Exception) {
+        } catch (_: IllegalArgumentException) {
             PlaybackSpeedScope.GLOBAL
         }
     }

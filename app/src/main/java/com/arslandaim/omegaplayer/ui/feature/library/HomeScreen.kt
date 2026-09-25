@@ -188,7 +188,7 @@ fun HomeScreen(
     val currentSortOrder = remember(currentSortOrderName) {
         try {
             MediaSortOrder.valueOf(currentSortOrderName)
-        } catch (e: Exception) {
+        } catch (_: IllegalArgumentException) {
             MediaSortOrder.DATE_DESC
         }
     }

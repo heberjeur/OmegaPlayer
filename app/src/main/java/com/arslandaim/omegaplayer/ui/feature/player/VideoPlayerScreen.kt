@@ -124,6 +124,8 @@ import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 
+private const val TAG = "VideoPlayerScreen"
+
 @AndroidOptIn(UnstableApi::class)
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -216,7 +218,9 @@ fun VideoPlayerScreen(
             }
             try {
                 activity?.enterPictureInPictureMode(builder.build())
-            } catch (_: Exception) {}
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Failed to enter picture-in-picture", e)
+            }
         }
     }
 
@@ -229,7 +233,9 @@ fun VideoPlayerScreen(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-            } catch (_: Exception) {}
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Failed to persist subtitle URI permission", e)
+            }
 
             val player = mediaController ?: return@rememberLauncherForActivityResult
             val currentItem = player.currentMediaItem ?: return@rememberLauncherForActivityResult
@@ -327,11 +333,15 @@ fun VideoPlayerScreen(
                 filter,
                 ContextCompat.RECEIVER_EXPORTED
             )
-        } catch (_: Exception) {}
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Failed to register battery receiver", e)
+        }
         onDispose {
             try {
                 context.unregisterReceiver(receiver)
-            } catch (_: Exception) {}
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Failed to unregister battery receiver", e)
+            }
         }
     }
 
@@ -361,7 +371,7 @@ fun VideoPlayerScreen(
             try {
                 val sysBrightness = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
                 (sysBrightness / 255f).coerceIn(0.01f, 1f)
-            } catch (_: Exception) {
+            } catch (_: Settings.SettingNotFoundException) {
                 0.5f
             }
         }
@@ -401,7 +411,9 @@ fun VideoPlayerScreen(
                 true,
                 contentObserver
             )
-        } catch (_: Exception) {}
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Failed to register volume observer", e)
+        }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 updateVolumeFromSystem()
@@ -418,14 +430,20 @@ fun VideoPlayerScreen(
                 filter,
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
-        } catch (_: Exception) {}
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Failed to register volume receiver", e)
+        }
         onDispose {
             try {
                 context.contentResolver.unregisterContentObserver(contentObserver)
-            } catch (_: Exception) {}
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Failed to unregister volume observer", e)
+            }
             try {
                 context.unregisterReceiver(receiver)
-            } catch (_: Exception) {}
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Failed to unregister volume receiver", e)
+            }
         }
     }
     var isControlsVisible by remember { mutableStateOf(false) }
@@ -717,8 +735,9 @@ fun VideoPlayerScreen(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: RuntimeException) {
                 queriedName = null
+                Log.w(TAG, "Failed to query video display name", e)
             }
             queriedName ?: videoUri.substringAfterLast("/").substringBeforeLast(".")
         }
@@ -1654,18 +1673,14 @@ fun VideoPlayerScreen(
                         onClick = {
                             showDeleteDialog = false
                             scope.launch {
-                                try {
-                                    viewModel.deleteHistoryItem(targetUri.toString())
-                                    viewModel.stopIfPlaying(targetUri)
-                                    val deleted = withContext(Dispatchers.IO) {
-                                        context.contentResolver.delete(targetUri, null, null)
-                                    }
-                                    if (deleted > 0) viewModel.onVideosDeleted(listOf(targetUri))
-                                    else viewModel.refreshVideos(context)
-                                    onBack()
-                                } catch (e: SecurityException) {
-                                    throw e
+                                viewModel.deleteHistoryItem(targetUri.toString())
+                                viewModel.stopIfPlaying(targetUri)
+                                val deleted = withContext(Dispatchers.IO) {
+                                    context.contentResolver.delete(targetUri, null, null)
                                 }
+                                if (deleted > 0) viewModel.onVideosDeleted(listOf(targetUri))
+                                else viewModel.refreshVideos(context)
+                                onBack()
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
