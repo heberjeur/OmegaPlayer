@@ -8,12 +8,14 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.arslandaim.omegaplayer.service.PlaybackService
+import com.arslandaim.omegaplayer.util.StartupTrace
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,30 +36,46 @@ class PlaybackConnection @Inject constructor(
 
     @androidx.annotation.OptIn(UnstableApi::class)
     private var controllerFuture: ListenableFuture<MediaController>? = null
-
-    init {
-        initializeController()
-    }
+    
+    private var isInitializing = false
+    private val pendingActions = mutableListOf<() -> Unit>()
 
     @androidx.annotation.OptIn(UnstableApi::class)
-    private fun initializeController() {
+    private fun initializeController(onInitialized: (() -> Unit)? = null) {
+        if (_mediaController.value != null) {
+            onInitialized?.invoke()
+            return
+        }
+        if (onInitialized != null) {
+            pendingActions.add(onInitialized)
+        }
+        if (isInitializing) return
+        isInitializing = true
+
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+        StartupTrace.mark("playback controller connect requested")
         controllerFuture?.addListener({
-                val controller = controllerFuture?.get() ?: return@addListener
-                _mediaController.value = controller
-                _isPlaying.value = controller.isPlaying
-                _currentMediaItem.value = controller.currentMediaItem
-                
-                controller.addListener(object : Player.Listener {
-                    override fun onIsPlayingChanged(isPlaying: Boolean) {
-                        _isPlaying.value = isPlaying
-                    }
+            val controller = controllerFuture?.get() ?: return@addListener
+            _mediaController.value = controller
+            _isPlaying.value = controller.isPlaying
+            _currentMediaItem.value = controller.currentMediaItem
+            StartupTrace.mark("playback controller connected")
+            
+            controller.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    _isPlaying.value = isPlaying
+                }
 
-                    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                        _currentMediaItem.value = mediaItem
-                    }
-                })
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    _currentMediaItem.value = mediaItem
+                }
+            })
+            
+            isInitializing = false
+            val actionsToRun = pendingActions.toList()
+            pendingActions.clear()
+            actionsToRun.forEach { it.invoke() }
         }, MoreExecutors.directExecutor())
     }
 
@@ -81,14 +99,28 @@ class PlaybackConnection @Inject constructor(
         startIndex: Int,
         videos: List<com.arslandaim.omegaplayer.data.VideoModel>,
         audios: List<com.arslandaim.omegaplayer.data.AudioModel>,
-        startPositionMs: Long = 0L
+        startPositionMs: Long = 0L,
+        videosByUri: Map<String, com.arslandaim.omegaplayer.data.VideoModel>? = null,
+        audiosByUri: Map<String, com.arslandaim.omegaplayer.data.AudioModel>? = null
     ) {
+        if (_mediaController.value == null) {
+            initializeController { playPlaylist(playlistItems, startIndex, videos, audios, startPositionMs, videosByUri, audiosByUri) }
+            return
+        }
         val controller = _mediaController.value ?: return
         if (playlistItems.isEmpty()) return
 
+        // Maps are provided by the callers (ViewModel-cached, built off the main thread); the
+        // fallback keeps this correct for any caller that cannot. The previous per-item
+        // videos.find()/audios.find() made this O(items x library): a 100-item playlist against
+        // 30k audios ran millions of uri.toString() comparisons on the main thread and froze
+        // the UI on each play tap.
+        val videoIndex = videosByUri ?: videos.associateBy { it.uri.toString() }
+        val audioIndex = audiosByUri ?: audios.associateBy { it.uri.toString() }
+
         val queueItems = playlistItems.map { item ->
             if (item.mediaType == "video") {
-                val video = videos.find { it.uri.toString() == item.mediaUri }
+                val video = videoIndex[item.mediaUri]
                 PlaybackQueueItem(
                     uri = item.mediaUri,
                     title = video?.name ?: item.mediaUri.substringAfterLast("/"),
@@ -96,7 +128,7 @@ class PlaybackConnection @Inject constructor(
                     isVideo = true
                 )
             } else {
-                val audio = audios.find { it.uri.toString() == item.mediaUri }
+                val audio = audioIndex[item.mediaUri]
                 PlaybackQueueItem(
                     uri = item.mediaUri,
                     title = audio?.name ?: item.mediaUri.substringAfterLast("/"),
@@ -111,7 +143,7 @@ class PlaybackConnection @Inject constructor(
 
         val mediaItems = playlistItems.map { item ->
             if (item.mediaType == "video") {
-                val video = videos.find { it.uri.toString() == item.mediaUri }
+                val video = videoIndex[item.mediaUri]
                 val title = video?.name ?: item.mediaUri.substringAfterLast("/")
                 MediaItem.Builder()
                     .setUri(item.mediaUri)
@@ -128,7 +160,7 @@ class PlaybackConnection @Inject constructor(
                     )
                     .build()
             } else {
-                val audio = audios.find { it.uri.toString() == item.mediaUri }
+                val audio = audioIndex[item.mediaUri]
                 val title = audio?.name ?: item.mediaUri.substringAfterLast("/")
                 val albumArtUri = audio?.let {
                     android.content.ContentUris.withAppendedId(android.net.Uri.parse("content://media/external/audio/albumart"), it.albumId)
@@ -172,14 +204,22 @@ class PlaybackConnection @Inject constructor(
         historyItems: List<com.arslandaim.omegaplayer.data.RecentPlayback>,
         startIndex: Int,
         videos: List<com.arslandaim.omegaplayer.data.VideoModel>,
-        audios: List<com.arslandaim.omegaplayer.data.AudioModel>
+        audios: List<com.arslandaim.omegaplayer.data.AudioModel>,
+        audiosByUri: Map<String, com.arslandaim.omegaplayer.data.AudioModel>? = null
     ) {
+        if (_mediaController.value == null) {
+            initializeController { playHistory(historyItems, startIndex, videos, audios, audiosByUri) }
+            return
+        }
         val controller = _mediaController.value ?: return
         if (historyItems.isEmpty()) return
 
+        // Same as playPlaylist: one map lookup instead of a library find() per history item.
+        val audioIndex = audiosByUri ?: audios.associateBy { it.uri.toString() }
+
         val queueItems = historyItems.map { item ->
             val isVideo = item.mediaType == "video"
-            val audio = if (!isVideo) audios.find { it.uri.toString() == item.uri } else null
+            val audio = if (!isVideo) audioIndex[item.uri] else null
             PlaybackQueueItem(
                 uri = item.uri,
                 title = item.name,
@@ -209,7 +249,7 @@ class PlaybackConnection @Inject constructor(
                     )
                     .build()
             } else {
-                val audio = audios.find { it.uri.toString() == item.uri }
+                val audio = audioIndex[item.uri]
                 val albumArtUri = audio?.let {
                     android.content.ContentUris.withAppendedId(android.net.Uri.parse("content://media/external/audio/albumart"), it.albumId)
                 }
@@ -254,6 +294,10 @@ class PlaybackConnection @Inject constructor(
         startIndex: Int,
         startPositionMs: Long = 0L
     ) {
+        if (_mediaController.value == null) {
+            initializeController { playVideos(videos, startIndex, startPositionMs) }
+            return
+        }
         val controller = _mediaController.value ?: return
         if (videos.isEmpty()) return
 
@@ -304,6 +348,10 @@ class PlaybackConnection @Inject constructor(
         startIndex: Int,
         startPositionMs: Long = 0L
     ) {
+        if (_mediaController.value == null) {
+            initializeController { playAudios(audios, startIndex, startPositionMs) }
+            return
+        }
         val controller = _mediaController.value ?: return
         if (audios.isEmpty()) return
 

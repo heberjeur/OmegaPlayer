@@ -42,6 +42,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import com.arslandaim.omegaplayer.data.ThemePreferences
 
@@ -287,15 +288,33 @@ class PlaybackService : MediaSessionService() {
             .setCustomLayout(listOf(speedButton, closeButton))
             .build()
             
-        serviceScope.launch { themePreferences.notifShowPrevious.collect { notifShowPrev = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowRewind.collect { notifShowRewind = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowForward.collect { notifShowForward = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowNext.collect { notifShowNext = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowSpeed.collect { notifShowSpeed = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowStop.collect { notifShowStop = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowClose.collect { notifShowClose = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowRepeat.collect { notifShowRepeat = it; updateNotification() } }
-        serviceScope.launch { themePreferences.notifShowShuffle.collect { notifShowShuffle = it; updateNotification() } }
+        // One combined collector instead of 9 separate ones: the notification is
+        // rebuilt once per change instead of once per preference, which removes
+        // nine duplicate rebuilds on service startup.
+        serviceScope.launch {
+            combine(
+                themePreferences.notifShowPrevious,
+                themePreferences.notifShowRewind,
+                themePreferences.notifShowForward,
+                themePreferences.notifShowNext,
+                themePreferences.notifShowSpeed,
+                themePreferences.notifShowStop,
+                themePreferences.notifShowClose,
+                themePreferences.notifShowRepeat,
+                themePreferences.notifShowShuffle
+            ) { values -> values }.collect { values ->
+                notifShowPrev = values[0]
+                notifShowRewind = values[1]
+                notifShowForward = values[2]
+                notifShowNext = values[3]
+                notifShowSpeed = values[4]
+                notifShowStop = values[5]
+                notifShowClose = values[6]
+                notifShowRepeat = values[7]
+                notifShowShuffle = values[8]
+                updateNotification()
+            }
+        }
     }
 
     private fun updateNotification() {

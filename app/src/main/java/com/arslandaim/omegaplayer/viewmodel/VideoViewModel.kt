@@ -31,6 +31,7 @@ import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.domain.usecase.media.GetVideosUseCase
+import com.arslandaim.omegaplayer.domain.usecase.media.SyncMediaUseCase
 import com.arslandaim.omegaplayer.domain.usecase.playback.PlaylistUseCases
 import com.arslandaim.omegaplayer.domain.usecase.playback.GetRecentPlaybackUseCase
 import com.arslandaim.omegaplayer.data.repository.PlaybackRepository
@@ -41,6 +42,7 @@ import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.media.PlaybackQueueItem
 import com.arslandaim.omegaplayer.service.PlaybackService
 import com.arslandaim.omegaplayer.util.Resource
+import com.arslandaim.omegaplayer.util.StartupTrace
 import android.content.ContentUris
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -57,9 +59,11 @@ import javax.inject.Inject
 class VideoViewModel @Inject constructor(
     application: Application,
     private val getVideosUseCase: GetVideosUseCase,
+    private val syncMediaUseCase: SyncMediaUseCase,
     private val playlistUseCases: PlaylistUseCases,
     private val getRecentPlaybackUseCase: GetRecentPlaybackUseCase,
     private val playbackRepository: PlaybackRepository,
+    private val mediaRepository: com.arslandaim.omegaplayer.data.repository.MediaRepository,
     private val playbackConnection: PlaybackConnection,
     private val themePreferences: ThemePreferences,
     val eqManager: com.arslandaim.omegaplayer.media.EqManager
@@ -67,6 +71,7 @@ class VideoViewModel @Inject constructor(
 
     val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
 
     fun addToPlaylist(playlistId: Int, videoUri: String) {
         viewModelScope.launch {
@@ -106,8 +111,6 @@ class VideoViewModel @Inject constructor(
         _volumeKeyEvents.tryEmit(keyCode)
     }
     val videoError: StateFlow<String?> = _videoError.asStateFlow()
-
-    private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1).apply { tryEmit(Unit) }
 
     val excludedFolders: StateFlow<Set<String>> = themePreferences.excludedFolders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -164,8 +167,7 @@ class VideoViewModel @Inject constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val rawVideos: Flow<List<VideoModel>> = refreshTrigger
-        .flatMapLatest { getVideosUseCase() }
+    private val rawVideos: Flow<List<VideoModel>> = getVideosUseCase()
         .onEach { resource ->
             when (resource) {
                 is Resource.Loading -> _isLoading.value = true
@@ -179,7 +181,7 @@ class VideoViewModel @Inject constructor(
                 }
             }
         }
-        .map { resource -> if (resource is Resource.Success) resource.data else emptyList() }
+        .map { resource -> if (resource is Resource.Success) resource.data ?: emptyList() else emptyList() }
 
     val videos: StateFlow<List<VideoModel>> = combine(rawVideos, excludedFolders) { videoList, excluded ->
         if (excluded.isEmpty()) videoList
@@ -187,7 +189,17 @@ class VideoViewModel @Inject constructor(
             val folder = File(it.path).parentFile?.name ?: "Internal"
             !excluded.contains(folder)
         }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.onEach { list -> StartupTrace.markOnce("videos.firstEmission") { "videos flow first emission (${list.size} items)" } }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // URI -> model lookup used to resolve playlist items and playback queues. It is built here,
+    // once per library change on a background thread, instead of inside HomeScreen composition:
+    // rebuilding it there cost main-thread time per emission (Uri.toString() + HashMap.put)
+    // and again on every return to the home destination. See AudioViewModel.audiosByUri.
+    val videosByUri: StateFlow<Map<String, VideoModel>> = videos
+        .map { list -> list.associateBy { it.uri.toString() } }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val recentPlayback: StateFlow<List<RecentPlayback>> = getRecentPlaybackUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -382,15 +394,35 @@ class VideoViewModel @Inject constructor(
         return videos.value.filter { File(it.path).parentFile?.absolutePath == folderPath }
     }
 
-    fun fetchVideos(context: Context) {
-        viewModelScope.launch {
-            refreshTrigger.emit(Unit)
+    fun manualRefresh() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoading.value = true
+            try {
+                syncMediaUseCase()
+            } catch (e: Exception) {
+                _videoError.value = e.message
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
+    fun fetchVideos(context: Context) {
+        manualRefresh()
+    }
+
     fun refreshVideos(context: Context) {
+        manualRefresh()
+    }
+
+    // Removes the given URIs straight from the cached list after MediaStore confirmed a
+    // delete. The success path must NOT go through manualRefresh(): that re-scans all of
+    // MediaStore (seconds on a large library) before the UI reflects the change, which is
+    // exactly the freeze that was reported after each deletion.
+    fun onVideosDeleted(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
-            refreshTrigger.emit(Unit)
+            mediaRepository.removeVideosFromCache(uris.map { it.toString() })
         }
     }
 
@@ -524,18 +556,21 @@ class VideoViewModel @Inject constructor(
         playlistItems: List<PlaylistItem>,
         startIndex: Int,
         videos: List<VideoModel>,
-        audios: List<AudioModel>
+        audios: List<AudioModel>,
+        videosByUri: Map<String, VideoModel>? = null,
+        audiosByUri: Map<String, AudioModel>? = null
     ) {
-        playbackConnection.playPlaylist(playlistItems, startIndex, videos, audios)
+        playbackConnection.playPlaylist(playlistItems, startIndex, videos, audios, videosByUri = videosByUri, audiosByUri = audiosByUri)
     }
 
     fun playHistory(
         historyItems: List<RecentPlayback>,
         startIndex: Int,
         videos: List<VideoModel>,
-        audios: List<AudioModel>
+        audios: List<AudioModel>,
+        audiosByUri: Map<String, AudioModel>? = null
     ) {
-        playbackConnection.playHistory(historyItems, startIndex, videos, audios)
+        playbackConnection.playHistory(historyItems, startIndex, videos, audios, audiosByUri = audiosByUri)
     }
 
 
@@ -594,15 +629,19 @@ class VideoViewModel @Inject constructor(
     private val _currentNavPath = MutableStateFlow<String?>(null)
     val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
 
+    // The tree is rebuilt directly from the Room-backed list (a single O(n) pass) instead of
+    // being read back and Gson-parsed from the cached_trees table: JSON parsing with
+    // reflection was slower than rebuilding on large libraries, and the cached JSON also went
+    // stale after deletions.
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(videos, folderFlattenThreshold) { videoList, threshold ->
-        buildVideoTree(videoList, threshold)
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, null)
+        StartupTrace.trace("folder tree rebuilt (${videoList.size} items)") { buildVideoTree(videoList, threshold) }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
         if (tree == null) emptyList()
         else if (path.isNullOrEmpty()) tree.getVisibleChildren()
         else (findVideoNode(tree, path) ?: tree).getVisibleChildren()
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun navigateIntoFolder(path: String) {
         _currentNavPath.value = path
@@ -639,7 +678,7 @@ class VideoViewModel @Inject constructor(
             var node = root
             var builtPath = ""
             for (part in parts) {
-                builtPath = "/$builtPath/$part".replace(Regex("/+"), "/")
+                builtPath = if (builtPath.isEmpty()) "/$part" else "$builtPath/$part"
                 node = node.subFolders.getOrPut(part) { com.arslandaim.omegaplayer.data.model.FolderNode(part, builtPath) }
                 node.videoCount++
             }
