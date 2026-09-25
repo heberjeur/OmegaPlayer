@@ -51,8 +51,11 @@ import coil.request.SuccessResult
 import coil.request.videoFrameMillis
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.ui.common.WaveformVisualizer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.content.ContentUris
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
@@ -468,7 +471,10 @@ fun AudioPlayerScreen(
                 currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
                 onBack()
             }
-            viewModel.refreshAudios(context)
+            // The system dialog already deleted the files: drop the rows straight from the
+            // cache (instant UI update) instead of a full MediaStore re-scan that froze the
+            // app for seconds after each confirmed delete.
+            if (pendingUrisToDelete.isNotEmpty()) viewModel.onAudiosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
         } else {
             pendingUrisToDelete = emptyList()
@@ -1170,25 +1176,33 @@ fun AudioPlayerScreen(
                     onClick = {
                         val audio = currentAudio!!
                         showDeleteDialog = false
-                        try {
-                            viewModel.deleteHistoryItem(audio.uri.toString())
-                            context.contentResolver.delete(audio.uri, null, null)
-                            
-                            val autoPlayNext = viewModel.autoPlayNext.value
-                            val hasNext = controller?.hasNextMediaItem() == true
-                            if (hasNext && autoPlayNext) {
-                                val currentIndex = controller?.currentMediaItemIndex ?: -1
-                                if (currentIndex != -1) {
-                                    controller?.removeMediaItem(currentIndex)
+                        scope.launch {
+                            try {
+                                viewModel.deleteHistoryItem(audio.uri.toString())
+                                val deleted = withContext(Dispatchers.IO) {
+                                    context.contentResolver.delete(audio.uri, null, null)
                                 }
-                            } else {
-                                viewModel.stopIfPlaying(audio.uri)
-                                onBack()
-                            }
                             
-                            viewModel.refreshAudios(context)
-                        } catch (e: SecurityException) {
-                            throw e
+                                val autoPlayNext = viewModel.autoPlayNext.value
+                                val hasNext = controller?.hasNextMediaItem() == true
+                                if (hasNext && autoPlayNext) {
+                                    val currentIndex = controller?.currentMediaItemIndex ?: -1
+                                    if (currentIndex != -1) {
+                                        controller?.removeMediaItem(currentIndex)
+                                    }
+                                } else {
+                                    viewModel.stopIfPlaying(audio.uri)
+                                    onBack()
+                                }
+                            
+                                // Confirmed delete -> drop the row straight from the cache;
+                                // otherwise re-sync so a failed delete does not leave a
+                                // stale entry behind.
+                                if (deleted > 0) viewModel.onAudiosDeleted(listOf(audio.uri))
+                                else viewModel.refreshAudios(context)
+                            } catch (e: SecurityException) {
+                                throw e
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

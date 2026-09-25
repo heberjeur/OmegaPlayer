@@ -5,6 +5,7 @@ import android.os.Build
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.res.Configuration
+import android.util.Log
 import android.util.Rational
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -41,6 +42,7 @@ import com.arslandaim.omegaplayer.viewmodel.ThemeViewModel
 import com.arslandaim.omegaplayer.ui.feature.player.AudioPlayerScreen
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.ui.common.NowPlayingBar
+import com.arslandaim.omegaplayer.util.StartupTrace
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -49,16 +51,25 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     private var isPlayerActive = false
     private var isInPictureInPictureModeState by mutableStateOf(false)
-    private val videoViewModel: VideoViewModel by viewModels()
+    private var videoViewModel: VideoViewModel? = null
 
     @Inject
     lateinit var playbackConnection: PlaybackConnection
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        StartupTrace.mark("Activity.onCreate begin")
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        StartupTrace.mark("edge-to-edge applied")
         setContent {
-            val audioViewModel: AudioViewModel = hiltViewModel()
+            // First composition of the Activity content; remember runs it once.
+            remember { StartupTrace.mark("content first composition"); true }
+            LaunchedEffect(Unit) {
+                // Resumes on the next frame callback: close enough to the first drawn frame.
+                withFrameNanos { }
+                StartupTrace.onFirstFrame()
+            }
+
             val themeViewModel: ThemeViewModel = hiltViewModel()
             val appTheme by themeViewModel.theme.collectAsState()
             val dynamicColor by themeViewModel.dynamicColor.collectAsState()
@@ -109,9 +120,15 @@ class MainActivity : FragmentActivity() {
                                     else -> null
                                 }
 
+                                val activity = androidx.compose.ui.platform.LocalContext.current as MainActivity
+                                val videoVM: VideoViewModel = hiltViewModel(activity)
+                                val audioVM: AudioViewModel = hiltViewModel(activity)
+                                StartupTrace.markOnce("viewModels.created") { "Video/Audio view models created" }
+                                videoViewModel = videoVM
+
                                 MainScreen(
-                                    videoViewModel, 
-                                    audioViewModel,
+                                    videoVM, 
+                                    audioVM,
                                     playbackConnection,
                                     navController,
                                     sharedTransitionScope = this@SharedTransitionLayout,
@@ -162,7 +179,7 @@ class MainActivity : FragmentActivity() {
                                 VideoPlayerScreen(
                                     videoUri = decodedUri, 
                                     from = fromParam,
-                                    viewModel = videoViewModel,
+                                    viewModel = videoViewModel!!,
                                     isDarkTheme = isDarkTheme,
                                     sharedTransitionScope = this@SharedTransitionLayout,
                                     animatedVisibilityScope = this@composable,
@@ -209,7 +226,7 @@ class MainActivity : FragmentActivity() {
                                 AudioPlayerScreen(
                                     audioUri = decodedUri,
                                     from = fromParam,
-                                    viewModel = audioViewModel,
+                                    viewModel = hiltViewModel(androidx.compose.ui.platform.LocalContext.current as MainActivity),
                                     initialPosition = initialPos,
                                     onBack = { 
                                         if (!navController.popBackStack()) {
@@ -259,6 +276,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+        StartupTrace.mark("Activity.onCreate end")
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -269,7 +287,7 @@ class MainActivity : FragmentActivity() {
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
         if (isPlayerActive) {
             if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
-                videoViewModel.dispatchVolumeKeyEvent(keyCode)
+                videoViewModel?.dispatchVolumeKeyEvent(keyCode)
                 return true
             }
         }
@@ -283,7 +301,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        val autoPip = videoViewModel.autoPip.value
+        val autoPip = videoViewModel?.autoPip?.value ?: false
         if (autoPip && isPlayerActive) {
             val player = playbackConnection.mediaController.value
             if (player != null && player.isPlaying) {
@@ -300,7 +318,9 @@ class MainActivity : FragmentActivity() {
                         }
                         try {
                             enterPictureInPictureMode(builder.build())
-                        } catch (_: Exception) {}
+                        } catch (e: IllegalStateException) {
+                            Log.w("MainActivity", "PiP unavailable", e)
+                        }
                     }
                 }
             }
@@ -320,6 +340,7 @@ fun MainScreen(
     isDarkTheme: Boolean,
     initialTab: com.arslandaim.omegaplayer.ui.feature.library.MediaTab? = null
 ) {
+    remember { StartupTrace.mark("MainScreen composition"); true }
     Scaffold(
         bottomBar = {
             Column(

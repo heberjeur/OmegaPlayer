@@ -58,8 +58,12 @@ import com.arslandaim.omegaplayer.ui.common.ModernLoadingDialog
 import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.feature.library.components.*
+import com.arslandaim.omegaplayer.util.StartupTrace
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -79,6 +83,8 @@ fun HomeScreen(
     isFocused: Boolean = true,
     initialTab: MediaTab? = null
 ) {
+    // Recorded once, for the startup report.
+    remember { StartupTrace.mark("HomeScreen first composition"); true }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -86,9 +92,16 @@ fun HomeScreen(
 
     val showRecentHistoryOnHome by viewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
     val showHistoryTab by viewModel.showHistoryTab.collectAsStateWithLifecycle()
-    val fullHistory by viewModel.fullHistory.collectAsStateWithLifecycle()
     var showFilterMenu by remember { mutableStateOf(false) }
     var showFullHistoryScreen by remember { mutableStateOf(false) }
+
+    // Subscribe to history only when it can actually be shown. The query returns every row of
+    // recent_playback (unbounded), so keeping it off the startup path avoids a potentially
+    // large query and list allocation on every cold start.
+    val isHistoryVisible = showHistoryTab || showFullHistoryScreen
+    val fullHistory by remember(isHistoryVisible) {
+        if (isHistoryVisible) viewModel.fullHistory else flowOf(emptyList<RecentPlayback>())
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
 
     val activeTabs = remember(showHistoryTab) {
         if (showHistoryTab) MediaTab.entries else MediaTab.entries.filter { it != MediaTab.HISTORY }
@@ -129,6 +142,13 @@ fun HomeScreen(
     val selectedAudioFolder by audioViewModel.selectedFolder.collectAsStateWithLifecycle()
     val audiosInFolder by audioViewModel.audiosInSelectedFolder.collectAsStateWithLifecycle()
     val playlists by audioViewModel.playlists.collectAsStateWithLifecycle()
+
+    // Hoisted playback state: collected once here instead of once per list/grid item,
+    // so a play/pause change does not recompose every visible item.
+    val activeVideoUri by viewModel.activeVideoUri.collectAsStateWithLifecycle()
+    val isVideoPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val activeAudioUri by audioViewModel.activeAudioUri.collectAsStateWithLifecycle()
+    val isAudioPlaying by audioViewModel.isPlaying.collectAsStateWithLifecycle()
     
     val isLoading = if (selectedTab == MediaTab.VIDEOS) isLoadingVideos else isLoadingAudios
 
@@ -230,11 +250,11 @@ fun HomeScreen(
         )
     }
 
-    val sortedFolders = remember(currentFolders, searchQuery, currentSelectedFolder, currentSortOrder) {
-        if (currentSelectedFolder != null) emptyList()
+    val sortedVideoFolders = remember(videoFolders, searchQuery, selectedVideoFolder, currentSortOrder) {
+        if (selectedVideoFolder != null) emptyList()
         else {
-            val baseList = if (searchQuery.isEmpty()) currentFolders
-            else currentFolders.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            val baseList = if (searchQuery.isEmpty()) videoFolders
+            else videoFolders.filter { it.name.contains(searchQuery, ignoreCase = true) }
             when (currentSortOrder) {
                 MediaSortOrder.NAME_ASC -> baseList.sortedBy { it.name.lowercase() }
                 MediaSortOrder.NAME_DESC -> baseList.sortedByDescending { it.name.lowercase() }
@@ -248,8 +268,26 @@ fun HomeScreen(
         }
     }
 
-    val sortedVideos = remember(videosInFolder, searchQuery, selectedVideoFolder, selectedTab, currentSortOrder) {
-        if (selectedVideoFolder == null || selectedTab != MediaTab.VIDEOS) emptyList()
+    val sortedAudioFolders = remember(audioFolders, searchQuery, selectedAudioFolder, currentSortOrder) {
+        if (selectedAudioFolder != null) emptyList()
+        else {
+            val baseList = if (searchQuery.isEmpty()) audioFolders
+            else audioFolders.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            when (currentSortOrder) {
+                MediaSortOrder.NAME_ASC -> baseList.sortedBy { it.name.lowercase() }
+                MediaSortOrder.NAME_DESC -> baseList.sortedByDescending { it.name.lowercase() }
+                MediaSortOrder.SIZE_DESC -> baseList.sortedByDescending { it.videoCount }
+                MediaSortOrder.SIZE_ASC -> baseList.sortedBy { it.videoCount }
+                MediaSortOrder.DURATION_DESC -> baseList.sortedByDescending { it.videoCount }
+                MediaSortOrder.DURATION_ASC -> baseList.sortedBy { it.videoCount }
+                MediaSortOrder.DATE_DESC -> baseList
+                MediaSortOrder.DATE_ASC -> baseList.reversed()
+            }
+        }
+    }
+
+    val sortedVideos = remember(videosInFolder, searchQuery, selectedVideoFolder, currentSortOrder) {
+        if (selectedVideoFolder == null) emptyList()
         else {
             val list = if (searchQuery.isEmpty()) videosInFolder
             else videosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -266,8 +304,8 @@ fun HomeScreen(
         }
     }
     
-    val sortedAudios = remember(audiosInFolder, searchQuery, selectedAudioFolder, selectedTab, currentSortOrder) {
-        if (selectedAudioFolder == null || selectedTab != MediaTab.AUDIOS) emptyList()
+    val sortedAudios = remember(audiosInFolder, searchQuery, selectedAudioFolder, currentSortOrder) {
+        if (selectedAudioFolder == null) emptyList()
         else {
             val list = if (searchQuery.isEmpty()) audiosInFolder
             else audiosInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -308,17 +346,25 @@ fun HomeScreen(
         }
     }
 
-    val sortedPlaylistItems = remember(playlistItems, searchQuery, currentSortOrder, videos, audios) {
+    // URI -> model maps used to resolve playlist items and playback queues. The ViewModels
+    // build them off the main thread and keep them across navigation: rebuilding them here with
+    // remember(videos) cost 65-200ms of main-thread time per library emission (the startup
+    // report sampled Uri.toString()+HashMap.put over 30k items on the compose thread) and it
+    // happened again on every return to the home destination.
+    val videosByUri by viewModel.videosByUri.collectAsStateWithLifecycle()
+    val audiosByUri by audioViewModel.audiosByUri.collectAsStateWithLifecycle()
+
+    val sortedPlaylistItems = remember(playlistItems, searchQuery, currentSortOrder, videosByUri, audiosByUri) {
         fun getItemName(item: PlaylistItem): String {
             return if (item.mediaType == "video") {
-                videos.find { it.uri.toString() == item.mediaUri }?.name ?: ""
+                videosByUri[item.mediaUri]?.name ?: ""
             } else {
-                audios.find { it.uri.toString() == item.mediaUri }?.name ?: ""
+                audiosByUri[item.mediaUri]?.name ?: ""
             }
         }
         val validItems = playlistItems.filter { item ->
-            if (item.mediaType == "video") videos.any { it.uri.toString() == item.mediaUri }
-            else audios.any { it.uri.toString() == item.mediaUri }
+            if (item.mediaType == "video") videosByUri.containsKey(item.mediaUri)
+            else audiosByUri.containsKey(item.mediaUri)
         }
         val list = if (searchQuery.isEmpty()) validItems
         else validItems.filter { getItemName(it).contains(searchQuery, ignoreCase = true) }
@@ -338,13 +384,18 @@ fun HomeScreen(
         if (result.resultCode == Activity.RESULT_OK) {
             scope.launch {
                 isProcessing = true
-                pendingUrisToDelete.forEach { uri ->
+                val deletedUris = pendingUrisToDelete
+                deletedUris.forEach { uri ->
                     viewModel.deleteHistoryItem(uri.toString())
                 }
-                viewModel.stopIfPlaying(pendingUrisToDelete)
-                audioViewModel.stopIfPlaying(pendingUrisToDelete)
-                viewModel.refreshVideos(context)
-                audioViewModel.refreshAudios(context)
+                viewModel.stopIfPlaying(deletedUris)
+                audioViewModel.stopIfPlaying(deletedUris)
+                // The system dialog already deleted the files: drop the rows straight from the
+                // cache so the UI updates instantly. Each call only touches its own table, so
+                // running both is safe whatever the media type. The previous full refresh
+                // re-scanned all of MediaStore and froze the app for seconds after each delete.
+                viewModel.onVideosDeleted(deletedUris)
+                audioViewModel.onAudiosDeleted(deletedUris)
                 pendingUrisToDelete = emptyList()
                 isProcessing = false
             }
@@ -390,20 +441,29 @@ fun HomeScreen(
                             if (videosToDelete.isNotEmpty()) {
                                 videosToDelete.forEach { viewModel.deleteHistoryItem(it.uri.toString()) }
                                 viewModel.stopIfPlaying(videosToDelete.map { it.uri })
-                                videosToDelete.forEach { context.contentResolver.delete(it.uri, null, null) }
-                                viewModel.refreshVideos(context)
-                                isProcessing = false
-                            } else isProcessing = false
+                                // MediaStore delete is a cross-process call; on big folders the
+                                // per-file loop can take seconds and must stay off the main thread.
+                                val deletedUris = withContext(Dispatchers.IO) {
+                                    videosToDelete.filter { context.contentResolver.delete(it.uri, null, null) > 0 }.map { it.uri }
+                                }
+                                // Drop the deleted rows from the cache (instant UI update);
+                                // re-sync only if part of the folder could not be deleted.
+                                if (deletedUris.isNotEmpty()) viewModel.onVideosDeleted(deletedUris)
+                                if (deletedUris.size != videosToDelete.size) viewModel.refreshVideos(context)
+                            }
                         } else {
                             val audiosToDelete = audioViewModel.getAudiosInFolder(folderName)
                             if (audiosToDelete.isNotEmpty()) {
                                 audiosToDelete.forEach { audioViewModel.deleteHistoryItem(it.uri.toString()) }
                                 audioViewModel.stopIfPlaying(audiosToDelete.map { it.uri })
-                                audiosToDelete.forEach { context.contentResolver.delete(it.uri, null, null) }
-                                audioViewModel.refreshAudios(context)
-                                isProcessing = false
-                            } else isProcessing = false
+                                val deletedUris = withContext(Dispatchers.IO) {
+                                    audiosToDelete.filter { context.contentResolver.delete(it.uri, null, null) > 0 }.map { it.uri }
+                                }
+                                if (deletedUris.isNotEmpty()) audioViewModel.onAudiosDeleted(deletedUris)
+                                if (deletedUris.size != audiosToDelete.size) audioViewModel.refreshAudios(context)
+                            }
                         }
+                        isProcessing = false
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
             },
@@ -425,8 +485,9 @@ fun HomeScreen(
                         isProcessing = true
                         viewModel.deleteHistoryItem(video.uri.toString())
                         viewModel.stopIfPlaying(video.uri)
-                        context.contentResolver.delete(video.uri, null, null)
-                        viewModel.refreshVideos(context)
+                        val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(video.uri, null, null) }
+                        // Confirmed delete -> instant cache removal; otherwise re-sync to be sure.
+                        if (deleted > 0) viewModel.onVideosDeleted(listOf(video.uri)) else viewModel.refreshVideos(context)
                         isProcessing = false
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
@@ -449,8 +510,9 @@ fun HomeScreen(
                         isProcessing = true
                         audioViewModel.deleteHistoryItem(audio.uri.toString())
                         audioViewModel.stopIfPlaying(audio.uri)
-                        context.contentResolver.delete(audio.uri, null, null)
-                        audioViewModel.refreshAudios(context)
+                        val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(audio.uri, null, null) }
+                        // Confirmed delete -> instant cache removal; otherwise re-sync to be sure.
+                        if (deleted > 0) audioViewModel.onAudiosDeleted(listOf(audio.uri)) else audioViewModel.refreshAudios(context)
                         isProcessing = false
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
@@ -473,10 +535,16 @@ fun HomeScreen(
                         isProcessing = true
                         viewModel.deleteHistoryItem(item.uri)
                         val uriToDel = Uri.parse(item.uri)
-                        if (item.mediaType == "video") viewModel.stopIfPlaying(uriToDel) else audioViewModel.stopIfPlaying(uriToDel)
-                        context.contentResolver.delete(uriToDel, null, null)
-                        viewModel.refreshVideos(context)
-                        audioViewModel.refreshAudios(context)
+                        val isVideo = item.mediaType == "video"
+                        if (isVideo) viewModel.stopIfPlaying(uriToDel) else audioViewModel.stopIfPlaying(uriToDel)
+                        val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(uriToDel, null, null) }
+                        if (deleted > 0) {
+                            // Confirmed delete -> drop the row straight from the cache.
+                            if (isVideo) viewModel.onVideosDeleted(listOf(uriToDel)) else audioViewModel.onAudiosDeleted(listOf(uriToDel))
+                        } else {
+                            viewModel.refreshVideos(context)
+                            audioViewModel.refreshAudios(context)
+                        }
                         isProcessing = false
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
@@ -718,15 +786,17 @@ fun HomeScreen(
                 if (sortedHistory.isEmpty()) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
-                    androidx.compose.animation.Crossfade(targetState = pageViewMode, label = "ViewModeAnimationHistory") { mode ->
-                        if (mode == 1 || mode == 2) {
-                            val cols = if (mode == 1) 2 else 1
-                            val ratio = if (mode == 1) 1f else (16f / 9f)
+                    // Plain swap instead of Crossfade: the crossfade composed and drew both view
+                    // modes at once, which the startup report blamed for long main-thread stalls
+                    // and heavy GPU frames when switching list/grid.
+                    if (pageViewMode == 1 || pageViewMode == 2) {
+                            val cols = if (pageViewMode == 1) 2 else 1
+                            val ratio = if (pageViewMode == 1) 1f else (16f / 9f)
                             LazyVerticalGrid(columns = GridCells.Fixed(cols), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(sortedHistory, key = { it.uri }) { item ->
                                     HistoryGridCard(item = item, onClick = {
                                         val index = sortedHistory.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-                                        viewModel.playHistory(sortedHistory, index, videos, audios)
+                                        viewModel.playHistory(sortedHistory, index, videos, audios, audiosByUri = audiosByUri)
                                         val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(item.uri)
                                         if (item.mediaType == "video") onVideoClick(encodedUri, item.position, "history") else onAudioClick(encodedUri, item.position, "history")
                                     }, aspectRatio = ratio)
@@ -737,7 +807,7 @@ fun HomeScreen(
                                 items(sortedHistory, key = { it.uri }) { item ->
                                     HistoryItem(item = item, onClick = {
                                         val index = sortedHistory.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-                                        viewModel.playHistory(sortedHistory, index, videos, audios)
+                                        viewModel.playHistory(sortedHistory, index, videos, audios, audiosByUri = audiosByUri)
                                         val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(item.uri)
                                         if (item.mediaType == "video") onVideoClick(encodedUri, item.position, "history") else onAudioClick(encodedUri, item.position, "history")
                                     }, onDelete = {
@@ -755,12 +825,25 @@ fun HomeScreen(
                                 }
                             }
                         }
-                    }
                 }
             }
         } else {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), beyondViewportPageCount = 1, userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
+        // beyondViewportPageCount stays 0 during startup: an off-screen tab (e.g. Audios, whose
+        // list can hold tens of thousands of items) must not compose while the app launches.
+        // Once media data has arrived (and ~1.2s have settled), the neighbouring page may be
+        // composed a step ahead so the first swipe is instant. A report showed a swipe at
+        // t+10.7s while prefetch only armed at t+12.7s (3.5s settle) — too late.
+        var preloadNeighborPages by remember { mutableStateOf(0) }
+        LaunchedEffect(videos.isNotEmpty(), audios.isNotEmpty()) {
+            if (videos.isEmpty() && audios.isEmpty()) return@LaunchedEffect
+            delay(1200)
+            preloadNeighborPages = 1
+            StartupTrace.markOnce("pager.prefetch") { "pager neighbour prefetch enabled (idle)" }
+        }
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), beyondViewportPageCount = preloadNeighborPages, userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
             val pageTab = activeTabs.getOrNull(page) ?: activeTabs.first()
+            // Recorded once per tab, for the startup report.
+            remember(pageTab) { StartupTrace.markOnce("page.composed.${pageTab.name}") { "page composed: ${pageTab.name}" }; true }
             val pageContextKey = when {
                 pageTab == MediaTab.VIDEOS && selectedVideoFolder != null -> "folder_video_$selectedVideoFolder"
                 pageTab == MediaTab.VIDEOS -> "tab_videos"
@@ -775,16 +858,27 @@ fun HomeScreen(
                 viewModel.getFolderViewMode(pageContextKey)
             }.collectAsStateWithLifecycle(initialValue = viewModel.defaultViewMode.value)
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (isLoading && (if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty())) {
-                    Box(modifier = Modifier.fillMaxSize())
-                } else if (currentSelectedFolder == null && selectedPlaylistForDetails == null && sortedFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY) {
+            val pageSortedFolders = remember(pageTab, sortedVideoFolders, sortedAudioFolders) {
+                if (pageTab == MediaTab.VIDEOS) sortedVideoFolders else if (pageTab == MediaTab.AUDIOS) sortedAudioFolders else emptyList()
+            }
+
+            androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+                isRefreshing = isLoading,
+                onRefresh = {
+                    if (pageTab == MediaTab.VIDEOS) viewModel.manualRefresh()
+                    else audioViewModel.manualRefresh()
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val mediaEmpty = if (pageTab == MediaTab.VIDEOS) videos.isEmpty() else audios.isEmpty()
+                if (currentSelectedFolder == null && selectedPlaylistForDetails == null && pageSortedFolders.isEmpty() && pageTab != MediaTab.PLAYLISTS && pageTab != MediaTab.HISTORY) {
                     EmptyState(searchQuery.isNotEmpty(), true)
                 } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) sortedVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) sortedAudios.isEmpty() else sortedPlaylistItems.isEmpty())) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
-                    androidx.compose.animation.Crossfade(targetState = pageViewMode, label = "ViewModeAnimation") { mode ->
-                        if (mode == 1 || mode == 2) {
+                    // Plain swap instead of Crossfade (see the history screen above): switching
+                    // list/grid no longer composes and draws both view modes simultaneously.
+                    if (pageViewMode == 1 || pageViewMode == 2) {
                         val cols = if (pageViewMode == 1) 2 else 1
                         val ratio = if (pageViewMode == 1) 1f else (16f / 9f)
                         LazyVerticalGrid(columns = GridCells.Fixed(cols), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + bottomPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -794,7 +888,7 @@ fun HomeScreen(
                                         RecentPlaybackSection(
                                             recentPlayback = recentPlayback,
                                             onItemClick = { item, index ->
-                                                viewModel.playHistory(recentPlayback, index, videos, audios)
+                                                viewModel.playHistory(recentPlayback, index, videos, audios, audiosByUri = audiosByUri)
                                                 val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(item.uri)
                                                 if (item.mediaType == "video") onVideoClick(encodedUri, item.position, "history") else onAudioClick(encodedUri, item.position, "history")
                                             },
@@ -811,7 +905,7 @@ fun HomeScreen(
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryGridCard(item = item, onClick = {
                                                 val index = sortedHistory.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-                                                viewModel.playHistory(sortedHistory, index, videos, audios)
+                                                viewModel.playHistory(sortedHistory, index, videos, audios, audiosByUri = audiosByUri)
                                                 val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(item.uri)
                                                 if (item.mediaType == "video") onVideoClick(encodedUri, item.position, "history") else onAudioClick(encodedUri, item.position, "history")
                                             }, aspectRatio = ratio)
@@ -824,7 +918,7 @@ fun HomeScreen(
                                         }
                                     }
                                 } else {
-                                    items(sortedFolders, key = { it.path }) { folderNode ->
+                                    items(pageSortedFolders, key = { it.path }) { folderNode ->
                                         FolderGridItem(
                                             name = folderNode.name,
                                             count = folderNode.videoCount,
@@ -854,15 +948,14 @@ fun HomeScreen(
                                 items(sortedPlaylistItems, key = { it.id }) { item ->
                                     PlaylistGridItem(
                                         item = item,
-                                        videos = videos,
-                                        audios = audios,
-                                        videoViewModel = viewModel,
-                                        audioViewModel = audioViewModel,
+                                        videosByUri = videosByUri,
+                                        audiosByUri = audiosByUri,
+                                        isPlaying = if (item.mediaType == "video") isVideoPlaying && activeVideoUri == item.mediaUri else isAudioPlaying && activeAudioUri == item.mediaUri,
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope,
                                         onPlayItem = { clickedItem ->
                                             val index = sortedPlaylistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
-                                            audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios)
+                                            audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios, videosByUri = videosByUri, audiosByUri = audiosByUri)
                                             val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(clickedItem.mediaUri)
                                             if (clickedItem.mediaType == "video") onVideoClick(encodedUri, -1L, "playlist") else onAudioClick(encodedUri, -1L, "playlist")
                                         },
@@ -871,13 +964,13 @@ fun HomeScreen(
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, viewModel, sharedTransitionScope, animatedVisibilityScope, { uri -> 
+                                items(sortedVideos, key = { it.id }) { video -> VideoGridItem(video, isVideoPlaying && activeVideoUri == video.uri.toString(), sharedTransitionScope, animatedVisibilityScope, { uri -> 
                                     val index = sortedVideos.indexOfFirst { it.id == video.id }.coerceAtLeast(0)
                                     viewModel.playVideos(sortedVideos, index)
                                     onVideoClick(uri, -1L, "folder") 
                                 }, { selectedVideoForDelete = video }, { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }, aspectRatio = ratio) }
                             } else {
-                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, audioViewModel, { uri -> 
+                                items(sortedAudios, key = { it.id }) { audio -> AudioGridItem(audio, isAudioPlaying && activeAudioUri == audio.uri.toString(), { uri -> 
                                     val index = sortedAudios.indexOfFirst { it.id == audio.id }.coerceAtLeast(0)
                                     audioViewModel.playAudios(sortedAudios, index)
                                     onAudioClick(uri, -1L, "folder") 
@@ -891,7 +984,7 @@ fun HomeScreen(
                                     RecentPlaybackSection(
                                         recentPlayback = recentPlayback,
                                         onItemClick = { item, index ->
-                                            viewModel.playHistory(recentPlayback, index, videos, audios)
+                                            viewModel.playHistory(recentPlayback, index, videos, audios, audiosByUri = audiosByUri)
                                             val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(item.uri)
                                             if (item.mediaType == "video") onVideoClick(encodedUri, item.position, "history") else onAudioClick(encodedUri, item.position, "history")
                                         },
@@ -909,7 +1002,7 @@ fun HomeScreen(
                                         items(sortedHistory, key = { it.uri }) { item ->
                                             HistoryItem(item = item, onClick = {
                                                 val index = sortedHistory.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-                                                viewModel.playHistory(sortedHistory, index, videos, audios)
+                                                viewModel.playHistory(sortedHistory, index, videos, audios, audiosByUri = audiosByUri)
                                                 val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(item.uri)
                                                 if (item.mediaType == "video") onVideoClick(encodedUri, item.position, "history") else onAudioClick(encodedUri, item.position, "history")
                                             }, onDelete = {
@@ -930,7 +1023,7 @@ fun HomeScreen(
                                     if (sortedPlaylists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                                     else { items(sortedPlaylists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
-                                    items(sortedFolders, key = { it.path }) { folderNode ->
+                                    items(pageSortedFolders, key = { it.path }) { folderNode ->
                                         FolderListItem(
                                             name = folderNode.name,
                                             count = folderNode.videoCount,
@@ -974,15 +1067,15 @@ fun HomeScreen(
                                 items(sortedPlaylistItems, key = { it.id }) { item ->
                                     MediaListItemInPlaylist(
                                         item = item,
-                                        videos = videos,
-                                        audios = audios,
-                                        videoViewModel = viewModel,
+                                        videosByUri = videosByUri,
+                                        audiosByUri = audiosByUri,
                                         audioViewModel = audioViewModel,
+                                        isPlaying = if (item.mediaType == "video") isVideoPlaying && activeVideoUri == item.mediaUri else isAudioPlaying && activeAudioUri == item.mediaUri,
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope,
                                         onPlayItem = { clickedItem ->
                                             val index = sortedPlaylistItems.indexOfFirst { it.id == clickedItem.id }.coerceAtLeast(0)
-                                            audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios)
+                                            audioViewModel.playPlaylist(sortedPlaylistItems, index, videos, audios, videosByUri = videosByUri, audiosByUri = audiosByUri)
                                             val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(clickedItem.mediaUri)
                                             if (clickedItem.mediaType == "video") onVideoClick(encodedUri, -1L, "playlist") else onAudioClick(encodedUri, -1L, "playlist")
                                         },
@@ -1008,7 +1101,7 @@ fun HomeScreen(
                                     )
                                 }
                             } else if (pageTab == MediaTab.VIDEOS) {
-                                items(sortedVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value, sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { 
+                                items(sortedVideos, key = { it.id }) { video -> VideoListItem(video = video, isPlaying = isVideoPlaying && activeVideoUri == video.uri.toString(), sharedTransitionScope = sharedTransitionScope, animatedVisibilityScope = animatedVisibilityScope, onClick = { 
                                     val index = sortedVideos.indexOfFirst { it.id == video.id }.coerceAtLeast(0)
                                     viewModel.playVideos(sortedVideos, index)
                                     val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(video.uri.toString()); onVideoClick(encodedUri, -1L, "folder") 
@@ -1022,7 +1115,7 @@ fun HomeScreen(
                                     )
                                 }, onPlaylistClick = { mediaPendingPlaylist = video.uri.toString() to "video"; showAddToPlaylistDialog = true }) }
                             } else {
-                                items(sortedAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsStateWithLifecycle().value, onClick = { 
+                                items(sortedAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = isAudioPlaying && activeAudioUri == audio.uri.toString(), onClick = { 
                                     val index = sortedAudios.indexOfFirst { it.id == audio.id }.coerceAtLeast(0)
                                     audioViewModel.playAudios(sortedAudios, index)
                                     val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(audio.uri.toString()); onAudioClick(encodedUri, -1L, "folder") 
@@ -1038,7 +1131,6 @@ fun HomeScreen(
                             }
                         }
                     }
-                }
             }
         }
         }

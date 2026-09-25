@@ -111,9 +111,11 @@ import androidx.media3.ui.PlayerView
 import com.arslandaim.omegaplayer.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
@@ -138,6 +140,7 @@ fun VideoPlayerScreen(
     onAudioTransition: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
     val activity = context as? Activity
@@ -190,7 +193,10 @@ fun VideoPlayerScreen(
                 mediaController?.currentMediaItem?.localConfiguration?.uri?.let { viewModel.stopIfPlaying(it) }
                 onBack()
             }
-            viewModel.refreshVideos(context)
+            // The system dialog already deleted the files: drop the rows straight from the
+            // cache (instant UI update) instead of a full MediaStore re-scan that froze the
+            // app for seconds after each confirmed delete.
+            if (pendingUrisToDelete.isNotEmpty()) viewModel.onVideosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
         } else {
             pendingUrisToDelete = emptyList()
@@ -1667,16 +1673,23 @@ fun VideoPlayerScreen(
                     Button(
                         onClick = {
                             showDeleteDialog = false
-                            try {
-                                viewModel.deleteHistoryItem(targetUri.toString())
-                                viewModel.stopIfPlaying(targetUri)
-                                context.contentResolver.delete(targetUri, null, null)
-                                viewModel.refreshVideos(context)
-                                onBack()
-                            } catch (e: SecurityException) {
-                                // Fallback is no longer needed since this dialog only shows for SDK < 30
-                                // and SDK < 30 doesn't throw RecoverableSecurityException in the same way.
-                                throw e
+                            scope.launch {
+                                try {
+                                    viewModel.deleteHistoryItem(targetUri.toString())
+                                    viewModel.stopIfPlaying(targetUri)
+                                    val deleted = withContext(Dispatchers.IO) {
+                                        context.contentResolver.delete(targetUri, null, null)
+                                    }
+                                    // Confirmed delete -> instant cache removal; if MediaStore
+                                    // did not delete anything, re-sync to stay consistent.
+                                    if (deleted > 0) viewModel.onVideosDeleted(listOf(targetUri))
+                                    else viewModel.refreshVideos(context)
+                                    onBack()
+                                } catch (e: SecurityException) {
+                                    // Fallback is no longer needed since this dialog only shows for SDK < 30
+                                    // and SDK < 30 doesn't throw RecoverableSecurityException in the same way.
+                                    throw e
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

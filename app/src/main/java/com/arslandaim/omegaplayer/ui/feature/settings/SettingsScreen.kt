@@ -1,14 +1,18 @@
 package com.arslandaim.omegaplayer.ui.feature.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.FolderOff
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +42,7 @@ import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
 import com.arslandaim.omegaplayer.viewmodel.ThemeViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
+import com.arslandaim.omegaplayer.util.StartupTrace
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +115,7 @@ fun SettingsScreen(
 
     var showSortOrderDialog by remember { mutableStateOf(false) }
     var showAboutDeveloperDialog by remember { mutableStateOf(false) }
+    var showStartupReportDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -856,6 +864,30 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.startup_report_title), fontWeight = FontWeight.Medium) },
+                    supportingContent = { Text(stringResource(R.string.startup_report_sub)) },
+                    leadingContent = {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.MonitorHeart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    },
+                    modifier = Modifier.clickable { showStartupReportDialog = true },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
             
@@ -873,6 +905,64 @@ fun SettingsScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showAboutDeveloperDialog = false }) {
+                        Text(stringResource(R.string.action_close))
+                    }
+                },
+                shape = RoundedCornerShape(28.dp)
+            )
+        }
+
+        if (showStartupReportDialog) {
+            // The report is rebuilt from the last launch trace; the file on disk holds the same text.
+            val report = remember { StartupTrace.buildReport(context) }
+            val reportPath = remember { StartupTrace.reportFile(context).absolutePath }
+            AlertDialog(
+                onDismissRequest = { showStartupReportDialog = false },
+                title = { Text(stringResource(R.string.startup_report_title), fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.startup_report_file, reportPath),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SelectionContainer {
+                            Column(
+                                modifier = Modifier
+                                    .heightIn(max = 380.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                Text(
+                                    text = report,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Row {
+                        TextButton(onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("OmegaPlayer startup report", report))
+                            Toast.makeText(context, context.getString(R.string.startup_report_copied), Toast.LENGTH_SHORT).show()
+                        }) { Text(stringResource(R.string.action_copy)) }
+                        TextButton(onClick = {
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "OmegaPlayer startup report")
+                                putExtra(Intent.EXTRA_TEXT, report)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, null))
+                        }) { Text(stringResource(R.string.action_share)) }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showStartupReportDialog = false }) {
                         Text(stringResource(R.string.action_close))
                     }
                 },

@@ -41,8 +41,6 @@ import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.data.VideoModel
-import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
-import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -419,7 +417,7 @@ fun PlaylistListItem(
 @Composable
 fun VideoGridItem(
     video: VideoModel,
-    viewModel: VideoViewModel,
+    isPlaying: Boolean = false,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: (String) -> Unit,
@@ -427,7 +425,6 @@ fun VideoGridItem(
     onPlaylist: () -> Unit,
     aspectRatio: Float = 1f
 ) {
-    val isPlaying = viewModel.activeVideoUri.collectAsState().value == video.uri.toString() && viewModel.isPlaying.collectAsState().value
     
     with(sharedTransitionScope) {
         Card(
@@ -526,13 +523,12 @@ fun VideoGridItem(
 @Composable
 fun AudioGridItem(
     audio: AudioModel,
-    viewModel: AudioViewModel,
+    isPlaying: Boolean = false,
     onClick: (String) -> Unit,
     onDelete: () -> Unit,
     onPlaylist: () -> Unit,
     aspectRatio: Float = 1f
 ) {
-    val isPlaying = viewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && viewModel.isPlaying.collectAsState().value
     
     val albumArtUri = remember(audio) {
         ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), audio.albumId)

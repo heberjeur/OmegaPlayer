@@ -2,6 +2,9 @@
 <resources>
 
     <style name="Theme.OmegaPlayer" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowBackground">@color/omega_white</item>
+        <item name="android:statusBarColor">@color/omega_white</item>
+        <item name="android:navigationBarColor">@color/omega_white</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

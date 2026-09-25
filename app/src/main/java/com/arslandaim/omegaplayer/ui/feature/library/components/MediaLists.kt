@@ -26,7 +26,6 @@ import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
-import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -34,10 +33,10 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun MediaListItemInPlaylist(
     item: PlaylistItem,
-    videos: List<VideoModel>,
-    audios: List<AudioModel>,
-    videoViewModel: VideoViewModel,
+    videosByUri: Map<String, VideoModel>,
+    audiosByUri: Map<String, AudioModel>,
     audioViewModel: AudioViewModel,
+    isPlaying: Boolean = false,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onPlayItem: (PlaylistItem) -> Unit,
@@ -46,11 +45,11 @@ fun MediaListItemInPlaylist(
     onAudioDelete: (AudioModel) -> Unit
 ) {
     if (item.mediaType == "video") {
-        val video = videos.find { it.uri.toString() == item.mediaUri }
+        val video = videosByUri[item.mediaUri]
         if (video != null) {
             VideoListItem(
                 video = video,
-                isPlaying = videoViewModel.activeVideoUri.collectAsState().value == video.uri.toString() && videoViewModel.isPlaying.collectAsState().value,
+                isPlaying = isPlaying,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onClick = { onPlayItem(item) },
@@ -60,11 +59,11 @@ fun MediaListItemInPlaylist(
             )
         }
     } else {
-        val audio = audios.find { it.uri.toString() == item.mediaUri }
+        val audio = audiosByUri[item.mediaUri]
         if (audio != null) {
             AudioListItem(
                 audio = audio,
-                isPlaying = audioViewModel.activeAudioUri.collectAsState().value == audio.uri.toString() && audioViewModel.isPlaying.collectAsState().value,
+                isPlaying = isPlaying,
                 onClick = { onPlayItem(item) },
                 onDeleteClick = { onAudioDelete(audio) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
@@ -78,10 +77,9 @@ fun MediaListItemInPlaylist(
 @Composable
 fun PlaylistGridItem(
     item: PlaylistItem,
-    videos: List<VideoModel>,
-    audios: List<AudioModel>,
-    videoViewModel: VideoViewModel,
-    audioViewModel: AudioViewModel,
+    videosByUri: Map<String, VideoModel>,
+    audiosByUri: Map<String, AudioModel>,
+    isPlaying: Boolean = false,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onPlayItem: (PlaylistItem) -> Unit,
@@ -89,14 +87,14 @@ fun PlaylistGridItem(
     aspectRatio: Float = 1f
 ) {
     if (item.mediaType == "video") {
-        val video = videos.find { it.uri.toString() == item.mediaUri }
+        val video = videosByUri[item.mediaUri]
         if (video != null) {
-            VideoGridItem(video, videoViewModel, sharedTransitionScope, animatedVisibilityScope, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
+            VideoGridItem(video, isPlaying, sharedTransitionScope, animatedVisibilityScope, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
         }
     } else {
-        val audio = audios.find { it.uri.toString() == item.mediaUri }
+        val audio = audiosByUri[item.mediaUri]
         if (audio != null) {
-            AudioGridItem(audio, audioViewModel, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
+            AudioGridItem(audio, isPlaying, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
         }
     }
 }
