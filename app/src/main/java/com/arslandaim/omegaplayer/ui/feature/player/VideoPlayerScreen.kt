@@ -551,7 +551,7 @@ fun VideoPlayerScreen(
     var consumedSeekBackwardPulse by remember { mutableIntStateOf(0) }
     var scale by remember { mutableFloatStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
-    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+    val transformState = rememberTransformableState { _, zoomChange, offsetChange, _ ->
         if (!isLocked) {
             scale = (scale * zoomChange).coerceIn(1f, 5f)
             panOffset += offsetChange
@@ -1497,7 +1497,7 @@ fun VideoPlayerScreen(
                     if (!applyTemporarily) {
                         if (speedScope == PlaybackSpeedScope.GLOBAL) {
                             viewModel.setGlobalPlaybackSpeed(speed)
-                        } else if (currentFolder != null) {
+                        } else {
                             viewModel.setFolderPlaybackSpeed(currentFolder, speed)
                         }
                     }
