@@ -2,6 +2,7 @@ package com.arslandaim.omegaplayer.util
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.os.Build
@@ -11,6 +12,8 @@ import androidx.activity.result.IntentSenderRequest
 import android.app.RecoverableSecurityException
 
 object MediaUtils {
+    private const val ALBUM_ART_BASE_URI = "content://media/external/audio/albumart"
+
     private val videoExtensions = listOf(".mp4", ".mkv", ".webm", ".avi", ".mov", ".3gp", ".m4v", ".flv", ".ts")
 
     fun isVideoMediaItem(mediaItem: MediaItem?): Boolean {
@@ -50,6 +53,8 @@ object MediaUtils {
         }
         return raw
     }
+
+    fun albumArtUri(albumId: Long): Uri = ContentUris.withAppendedId(Uri.parse(ALBUM_ART_BASE_URI), albumId)
 
     fun formatDuration(durationMs: Long): String {
         if (durationMs == -9223372036854775807L) return "00:00"

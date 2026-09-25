@@ -178,7 +178,7 @@ fun AudioMiniPlayer(
                     if (isVideo) {
                         val imageRequest = ImageRequest.Builder(LocalContext.current)
                             .data(mediaItem.localConfiguration?.uri ?: Uri.EMPTY)
-                            .videoFrameMillis(1000)
+                            .videoFrameMillis(VIDEO_THUMB_FRAME_MS)
                             .crossfade(true)
                             .build()
                         AsyncImage(
@@ -235,7 +235,7 @@ fun AudioMiniPlayer(
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
-                            contentDescription = "Previous Track",
+                            contentDescription = stringResource(R.string.previous_track),
                             modifier = Modifier.size(20.dp),
                             tint = if (hasPrevious) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         )

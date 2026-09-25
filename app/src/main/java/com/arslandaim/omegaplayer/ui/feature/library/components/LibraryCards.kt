@@ -1,6 +1,5 @@
 package com.arslandaim.omegaplayer.ui.feature.library.components
 
-import android.content.ContentUris
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -33,14 +32,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import coil.request.videoFrameMillis
-import coil.size.Precision
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.data.VideoModel
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
+import com.arslandaim.omegaplayer.ui.common.videoThumbImageRequest
+import com.arslandaim.omegaplayer.util.MediaUtils
 
 @Composable
 fun RecentPlaybackItem(
@@ -60,12 +57,7 @@ fun RecentPlaybackItem(
             if (item.mediaType == "video") {
                 val context = LocalContext.current
                 val imageRequest = remember(item.uri) {
-                    ImageRequest.Builder(context)
-                        .data(Uri.parse(item.uri))
-                        .videoFrameMillis(1000)
-                        .size(400)
-                        .precision(Precision.INEXACT)
-                        .build()
+                    videoThumbImageRequest(context, Uri.parse(item.uri))
                 }
                 AsyncImage(
                     model = imageRequest,
@@ -405,7 +397,7 @@ fun PlaylistListItem(
                 Text(playlist.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
             }
         }
     }
@@ -429,9 +421,8 @@ fun VideoGridItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
-                .clickable { 
-                    val encodedUri = URLEncoder.encode(video.uri.toString(), StandardCharsets.UTF_8.toString())
-                    onClick(encodedUri) 
+                .clickable {
+                    onClick(MediaUtils.safeEncodeUri(video.uri.toString()))
                 },
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -440,14 +431,7 @@ fun VideoGridItem(
             Box(modifier = Modifier.fillMaxSize()) {
                 val context = LocalContext.current
                 val imageRequest = remember(video.id) {
-                    ImageRequest.Builder(context)
-                        .data(video.uri)
-                        .videoFrameMillis(1000)
-                        .size(400)
-                        .precision(Precision.INEXACT)
-                        .diskCacheKey("thumb_${video.id}")
-                        .memoryCacheKey("thumb_${video.id}")
-                        .build()
+                    videoThumbImageRequest(context, video.uri, "thumb_${video.id}")
                 }
                 AsyncImage(
                     model = imageRequest,
@@ -529,16 +513,15 @@ fun AudioGridItem(
 ) {
     
     val albumArtUri = remember(audio) {
-        ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), audio.albumId)
+        MediaUtils.albumArtUri(audio.albumId)
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(aspectRatio)
-            .clickable { 
-                val encodedUri = URLEncoder.encode(audio.uri.toString(), StandardCharsets.UTF_8.toString())
-                onClick(encodedUri) 
+            .clickable {
+                onClick(MediaUtils.safeEncodeUri(audio.uri.toString()))
             },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -713,12 +696,7 @@ fun HistoryGridCard(
             if (item.mediaType == "video") {
                 val context = LocalContext.current
                 val imageRequest = remember(item.uri) {
-                    ImageRequest.Builder(context)
-                        .data(Uri.parse(item.uri))
-                        .videoFrameMillis(1000)
-                        .size(400)
-                        .precision(Precision.INEXACT)
-                        .build()
+                    videoThumbImageRequest(context, Uri.parse(item.uri))
                 }
                 AsyncImage(
                     model = imageRequest,
@@ -861,14 +839,7 @@ fun VideoListItem(
                 ) {
                     val context = LocalContext.current
                     val imageRequest = remember(video.id) {
-                        ImageRequest.Builder(context)
-                            .data(video.uri)
-                            .videoFrameMillis(1000)
-                            .size(400)
-                            .precision(Precision.INEXACT)
-                            .diskCacheKey("thumb_${video.id}")
-                            .memoryCacheKey("thumb_${video.id}")
-                            .build()
+                        videoThumbImageRequest(context, video.uri, "thumb_${video.id}")
                     }
                     AsyncImage(
                         model = imageRequest,
@@ -943,7 +914,7 @@ fun VideoListItem(
                         IconButton(onClick = { showMenu = true }) {
                             Icon(
                                 Icons.Default.MoreVert,
-                                contentDescription = "More",
+                                contentDescription = stringResource(R.string.action_more),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(22.dp)
                             )
@@ -991,7 +962,7 @@ fun AudioListItem(
     isInPlaylistView: Boolean = false
 ) {
     val albumArtUri = remember(audio) {
-        ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), audio.albumId)
+        MediaUtils.albumArtUri(audio.albumId)
     }
 
     Card(
@@ -1108,7 +1079,7 @@ fun AudioListItem(
                     IconButton(onClick = { showMenu = true }) {
                         Icon(
                             Icons.Default.MoreVert,
-                            contentDescription = "More",
+                            contentDescription = stringResource(R.string.action_more),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(22.dp)
                         )
@@ -1216,12 +1187,7 @@ fun HistoryItem(
                 if (item.mediaType == "video") {
                     val context = LocalContext.current
                     val imageRequest = remember(item.uri) {
-                        ImageRequest.Builder(context)
-                            .data(Uri.parse(item.uri))
-                            .videoFrameMillis(1000)
-                            .size(400)
-                            .precision(Precision.INEXACT)
-                            .build()
+                        videoThumbImageRequest(context, Uri.parse(item.uri))
                     }
                     AsyncImage(
                         model = imageRequest,
@@ -1302,7 +1268,7 @@ fun HistoryItem(
                     IconButton(onClick = { showMenu = true }) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More",
+                            contentDescription = stringResource(R.string.action_more),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(22.dp)
                         )

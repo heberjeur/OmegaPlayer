@@ -383,7 +383,7 @@ fun HomeScreen(
         } else {
             pendingUrisToDelete = emptyList()
             isProcessing = false
-            Toast.makeText(context, "Delete cancelled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.delete_cancelled), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -409,8 +409,8 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { folderToDelete = null },
             icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = if (selectedTab == MediaTab.VIDEOS) "Delete Video Folder" else "Delete Audio Folder", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = "Are you sure you want to delete folder '${folderToDelete}' and all its items?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+            title = { Text(text = if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.delete_video_folder_title) else stringResource(R.string.delete_audio_folder_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
+            text = { Text(text = stringResource(R.string.delete_folder_confirm, folderToDelete!!), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
                     val folderName = folderToDelete!!
@@ -442,9 +442,9 @@ fun HomeScreen(
                         }
                         isProcessing = false
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { folderToDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { folderToDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -452,8 +452,8 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { selectedVideoForDelete = null },
             icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = "Delete Video", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = "Are you sure you want to delete '${selectedVideoForDelete?.name}'?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+            title = { Text(text = stringResource(R.string.delete_video_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
+            text = { Text(text = stringResource(R.string.delete_media_confirm, selectedVideoForDelete!!.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
                     val video = selectedVideoForDelete!!
@@ -466,9 +466,9 @@ fun HomeScreen(
                         if (deleted > 0) viewModel.onVideosDeleted(listOf(video.uri)) else viewModel.refreshVideos(context)
                         isProcessing = false
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { selectedVideoForDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { selectedVideoForDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -476,8 +476,8 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { selectedAudioForDelete = null },
             icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = "Delete Audio", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = "Are you sure you want to delete '${selectedAudioForDelete?.name}'?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+            title = { Text(text = stringResource(R.string.delete_audio_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
+            text = { Text(text = stringResource(R.string.delete_media_confirm, selectedAudioForDelete!!.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
                     val audio = selectedAudioForDelete!!
@@ -490,9 +490,9 @@ fun HomeScreen(
                         if (deleted > 0) audioViewModel.onAudiosDeleted(listOf(audio.uri)) else audioViewModel.refreshAudios(context)
                         isProcessing = false
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { selectedAudioForDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { selectedAudioForDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -500,8 +500,8 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { selectedHistoryForDelete = null },
             icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = "Delete Media", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = "Are you sure you want to delete '${selectedHistoryForDelete?.name}' from your device?", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+            title = { Text(text = stringResource(R.string.delete_media_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
+            text = { Text(text = stringResource(R.string.delete_media_from_device_confirm, selectedHistoryForDelete!!.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(onClick = {
                     val item = selectedHistoryForDelete!!
@@ -521,9 +521,9 @@ fun HomeScreen(
                         }
                         isProcessing = false
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { selectedHistoryForDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { selectedHistoryForDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -537,7 +537,7 @@ fun HomeScreen(
                 onPlaylistSelected = { playlistId ->
                     mediaPendingPlaylist?.let { (uri, type) ->
                         audioViewModel.addToPlaylist(playlistId, uri, type)
-                        Toast.makeText(context, "Added to playlist", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.added_to_playlist), Toast.LENGTH_SHORT).show()
                     }
                     showAddToPlaylistDialog = false
                     mediaPendingPlaylist = null
@@ -563,7 +563,7 @@ fun HomeScreen(
                                     audioViewModel.addToPlaylist(playlistId, it.uri.toString(), "audio")
                                 }
                             }
-                            Toast.makeText(context, "Added folder to playlist", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.added_folder_to_playlist), Toast.LENGTH_SHORT).show()
                             isProcessing = false
                         }
                     }
@@ -747,7 +747,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             if (!hasPermission) {
-                ExtendedFloatingActionButton(modifier = Modifier.padding(bottom = 80.dp), text = { Text("Grant Access") }, icon = { Icon(Icons.Default.AddCircle, null) }, onClick = { launcher.launch(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO) else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)) }, containerColor = Color.White, contentColor = Color(0xFF1A1A1A), shape = RoundedCornerShape(16.dp))
+                ExtendedFloatingActionButton(modifier = Modifier.padding(bottom = 80.dp), text = { Text(stringResource(R.string.grant_access)) }, icon = { Icon(Icons.Default.AddCircle, null) }, onClick = { launcher.launch(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO) else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)) }, containerColor = Color.White, contentColor = Color(0xFF1A1A1A), shape = RoundedCornerShape(16.dp))
             }
         }
     ) { padding ->
@@ -983,7 +983,7 @@ fun HomeScreen(
                                         }
                                     }
                                 } else if (pageTab == MediaTab.PLAYLISTS) {
-                                    if (sortedPlaylists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+                                    if (sortedPlaylists.isEmpty()) { item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text(stringResource(R.string.no_playlists_yet), color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                                     else { items(sortedPlaylists, key = { it.id }) { playlist -> PlaylistListItem(playlist = playlist, onClick = { selectedPlaylistForDetails = playlist }, onDelete = { audioViewModel.deletePlaylist(playlist) }) } }
                                 } else {
                                     items(pageSortedFolders, key = { it.path }) { folderNode ->

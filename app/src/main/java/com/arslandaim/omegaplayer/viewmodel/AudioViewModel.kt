@@ -7,7 +7,6 @@
 package com.arslandaim.omegaplayer.viewmodel
 
 import android.app.Application
-import android.content.ContentUris
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,6 +26,8 @@ import com.arslandaim.omegaplayer.domain.usecase.playback.GetRecentPlaybackUseCa
 import com.arslandaim.omegaplayer.domain.usecase.playback.PlaylistUseCases
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.media.PlaybackQueueItem
+import com.arslandaim.omegaplayer.media.SleepTimerController
+import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.Resource
 import com.arslandaim.omegaplayer.util.StartupTrace
 import android.content.Context
@@ -34,7 +35,6 @@ import com.arslandaim.omegaplayer.data.MediaSortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -181,37 +181,16 @@ class AudioViewModel @Inject constructor(
         initialValue = 5
     )
 
-    private val _sleepTimerActive = MutableStateFlow(false)
-    val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
-
-    private val _sleepTimerTimeLeft = MutableStateFlow(0L)
-    val sleepTimerTimeLeft: StateFlow<Long> = _sleepTimerTimeLeft.asStateFlow()
+    private val sleepTimer = SleepTimerController(viewModelScope) { playbackConnection.pause() }
+    val sleepTimerActive: StateFlow<Boolean> = sleepTimer.active
+    val sleepTimerTimeLeft: StateFlow<Long> = sleepTimer.timeLeftMillis
 
     private val _stopAfterCurrent = MutableStateFlow(false)
     val stopAfterCurrent: StateFlow<Boolean> = _stopAfterCurrent.asStateFlow()
 
-    private var sleepTimerJob: kotlinx.coroutines.Job? = null
-
     fun setSleepTimer(minutes: Int) {
-        sleepTimerJob?.cancel()
         _stopAfterCurrent.value = false
-        if (minutes <= 0) {
-            _sleepTimerActive.value = false
-            _sleepTimerTimeLeft.value = 0
-            return
-        }
-
-        _sleepTimerActive.value = true
-        _sleepTimerTimeLeft.value = minutes * 60 * 1000L
-        
-        sleepTimerJob = viewModelScope.launch {
-            while (_sleepTimerTimeLeft.value > 0) {
-                delay(1000)
-                _sleepTimerTimeLeft.value -= 1000
-            }
-            playbackConnection.pause()
-            _sleepTimerActive.value = false
-        }
+        sleepTimer.start(minutes)
     }
 
     fun deleteHistoryItem(uri: String) {
@@ -223,23 +202,21 @@ class AudioViewModel @Inject constructor(
     fun setStopAfterCurrent(enabled: Boolean) {
         _stopAfterCurrent.value = enabled
         if (enabled) {
-            _sleepTimerActive.value = true
-            _sleepTimerTimeLeft.value = 0
-            sleepTimerJob?.cancel()
-            
+            sleepTimer.activateWithoutCountdown()
+
             val controller = playbackConnection.mediaController.value ?: return
             controller.addListener(object : androidx.media3.common.Player.Listener {
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     if (reason == androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && _stopAfterCurrent.value) {
                         controller.pause()
                         _stopAfterCurrent.value = false
-                        _sleepTimerActive.value = false
+                        sleepTimer.deactivate()
                         controller.removeListener(this)
                     }
                 }
             })
         } else {
-            _sleepTimerActive.value = false
+            sleepTimer.deactivate()
         }
     }
 
@@ -293,10 +270,7 @@ class AudioViewModel @Inject constructor(
         } else {
             val folderAudios = audiosInSelectedFolder.value
             val mediaItems = folderAudios.map { audioItem ->
-                val albumArtUri = ContentUris.withAppendedId(
-                    Uri.parse("content://media/external/audio/albumart"),
-                    audioItem.albumId
-                )
+                val albumArtUri = MediaUtils.albumArtUri(audioItem.albumId)
                 MediaItem.Builder()
                     .setUri(audioItem.uri)
                     .setMediaId(audioItem.id.toString())

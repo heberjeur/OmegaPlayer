@@ -24,8 +24,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.arslandaim.omegaplayer.R
 import com.arslandaim.omegaplayer.media.PlaybackQueueItem
+import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
-import android.content.ContentUris
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,9 +78,7 @@ fun PlaybackQueueSheet(
                                     error = rememberVectorPainter(Icons.Default.Movie)
                                 )
                             } else {
-                                val albumArtUri = item.albumId?.let { id: Long ->
-                                    ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), id)
-                                }
+                                val albumArtUri = item.albumId?.let { MediaUtils.albumArtUri(it) }
                                 AsyncImage(
                                     model = albumArtUri,
                                     contentDescription = null,

@@ -15,15 +15,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
-import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import androidx.core.content.ContextCompat
-import android.os.Handler
-import android.os.Looper
 import android.provider.MediaStore
-import android.provider.Settings
 import android.util.Log
 import android.util.Rational
 import android.view.LayoutInflater
@@ -94,6 +90,12 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.arslandaim.omegaplayer.R
+import com.arslandaim.omegaplayer.ui.common.SystemVolumeSyncEffect
+import com.arslandaim.omegaplayer.ui.common.applySystemMusicVolume
+import com.arslandaim.omegaplayer.ui.common.rememberInitialSystemBrightness
+import com.arslandaim.omegaplayer.ui.common.rememberInitialSystemVolume
+import com.arslandaim.omegaplayer.ui.common.rememberSystemAudioManager
+import com.arslandaim.omegaplayer.ui.common.rememberSystemMaxVolume
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -284,8 +286,8 @@ fun VideoPlayerScreen(
     val hudShowVolume by viewModel.showPlayerVolume.collectAsStateWithLifecycle(initialValue = false)
     val hudShowBrightness by viewModel.showPlayerBrightness.collectAsStateWithLifecycle(initialValue = false)
 
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
-    val maxVolume = remember(audioManager) { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15 }
+    val audioManager = rememberSystemAudioManager()
+    val maxVolume = rememberSystemMaxVolume(audioManager)
 
     var currentTimeString by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
@@ -341,95 +343,18 @@ fun VideoPlayerScreen(
         }
     }
 
-    val initialVolume = remember(audioManager, maxVolume) {
-        val current = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: (maxVolume / 2)
-        if (maxVolume > 0) (current.toFloat() / maxVolume).coerceIn(0f, 1f) else 0.5f
-    }
+    val initialVolume = rememberInitialSystemVolume(audioManager, maxVolume)
     var volume by remember { mutableFloatStateOf(initialVolume) }
 
-    val initialBrightness = remember(context, activity) {
-        val winBrightness = activity?.window?.attributes?.screenBrightness ?: -1f
-        if (winBrightness >= 0.01f) {
-            winBrightness.coerceIn(0.01f, 1f)
-        } else {
-            try {
-                val sysBrightness = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-                (sysBrightness / 255f).coerceIn(0.01f, 1f)
-            } catch (_: Settings.SettingNotFoundException) {
-                0.5f
-            }
-        }
-    }
+    val initialBrightness = rememberInitialSystemBrightness()
     var brightness by remember { mutableFloatStateOf(initialBrightness) }
 
-    val updateVolumeFromSystem: () -> Unit = {
-        audioManager?.let { am ->
-            val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            if (max > 0) {
-                val expectedSysVol = kotlin.math.round(volume.coerceAtMost(1f) * max).toInt()
-                if (cur != expectedSysVol) {
-                    val newVol = (cur.toFloat() / max).coerceIn(0f, 1f)
-                    if (volume > 1f && newVol < 1f) {
-                        viewModel.eqManager.setVolumeBoostScale(1.0f)
-                        volume = newVol
-                    } else if (volume <= 1f) {
-                        volume = newVol
-                    }
-                }
-            }
-        }
-    }
-
-    DisposableEffect(context, audioManager) {
-        updateVolumeFromSystem()
-        val contentObserver = object : android.database.ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                super.onChange(selfChange)
-                updateVolumeFromSystem()
-            }
-        }
-        try {
-            context.contentResolver.registerContentObserver(
-                Settings.System.CONTENT_URI,
-                true,
-                contentObserver
-            )
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Failed to register volume observer", e)
-        }
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                updateVolumeFromSystem()
-            }
-        }
-        val filter = IntentFilter().apply {
-            addAction("android.media.VOLUME_CHANGED_ACTION")
-            addAction("android.media.STREAM_MUTE_CHANGED_ACTION")
-        }
-        try {
-            ContextCompat.registerReceiver(
-                context,
-                receiver,
-                filter,
-                ContextCompat.RECEIVER_NOT_EXPORTED
-            )
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Failed to register volume receiver", e)
-        }
-        onDispose {
-            try {
-                context.contentResolver.unregisterContentObserver(contentObserver)
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "Failed to unregister volume observer", e)
-            }
-            try {
-                context.unregisterReceiver(receiver)
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "Failed to unregister volume receiver", e)
-            }
-        }
-    }
+    SystemVolumeSyncEffect(
+        audioManager = audioManager,
+        volumeProvider = { volume },
+        onVolumeChange = { volume = it },
+        onVolumeBoostReset = { viewModel.eqManager.setVolumeBoostScale(1.0f) }
+    )
     var isControlsVisible by remember { mutableStateOf(false) }
     var isDraggingSlider by remember { mutableStateOf(false) }
     var pendingSeekPosition by remember { mutableLongStateOf(-1L) }
@@ -467,7 +392,7 @@ fun VideoPlayerScreen(
 
     BackHandler(enabled = true) {
         if (isLocked) {
-            Toast.makeText(context, "Unlock the player to exit", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.unlock_player_prompt), Toast.LENGTH_SHORT).show()
         } else if (isLandscape) {
             isLandscape = false
             activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -523,10 +448,10 @@ fun VideoPlayerScreen(
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 val errorType = when (error.errorCode) {
-                    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "File not found"
-                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Network error"
-                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "Decoder error"
-                    else -> "Unexpected error"
+                    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> context.getString(R.string.error_file_not_found)
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> context.getString(R.string.error_network)
+                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> context.getString(R.string.error_decoder)
+                    else -> context.getString(R.string.error_unexpected)
                 }
                 playbackError = "$errorType: ${error.message}"
 
@@ -654,10 +579,7 @@ fun VideoPlayerScreen(
                 volume = (volume - step).coerceIn(0f, maxVolMultiplier)
             }
             if (abs(volume - oldVolume) > 0.01f) {
-                audioManager?.let { am ->
-                    val targetVol = kotlin.math.round(volume.coerceAtMost(1f) * maxVolume).toInt()
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                }
+                applySystemMusicVolume(audioManager, volume, maxVolume)
                 if (volumeBoostEnabled) {
                     viewModel.eqManager.setVolumeBoostScale(if (volume > 1f) volume else 1.0f)
                 }
@@ -688,7 +610,7 @@ fun VideoPlayerScreen(
                 if (dur > 0) duration = dur
                 if (!isDraggingSlider) {
                     if (pendingSeekPosition >= 0) {
-                        if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < 2000L) {
+                        if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < SEEK_TOLERANCE_MS) {
                             pendingSeekPosition = -1L
                             currentPosition = pos
                         }
@@ -948,10 +870,7 @@ fun VideoPlayerScreen(
                                                     if (abs(volume - oldVolume) > 0.05f) {
                                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                     }
-                                                    audioManager?.let { am ->
-                                                        val targetVol = kotlin.math.round(volume.coerceAtMost(1f) * maxVolume).toInt()
-                                                        am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                                                    }
+                                                    applySystemMusicVolume(audioManager, volume, maxVolume)
                                                     if (volumeBoostEnabled) {
                                                         viewModel.eqManager.setVolumeBoostScale(if (volume > 1f) volume else 1.0f)
                                                     }
@@ -1003,7 +922,7 @@ fun VideoPlayerScreen(
                         ) {
                             SeekControlButton(
                                 icon = Icons.Default.FastRewind,
-                                contentDescription = "Rewind",
+                                contentDescription = stringResource(R.string.action_rewind),
                                 onClick = { mediaController?.seekBack() },
                                 trigger = seekBackwardPulse,
                                 consumedTrigger = consumedSeekBackwardPulse,
@@ -1017,7 +936,7 @@ fun VideoPlayerScreen(
                             )
                             SeekControlButton(
                                 icon = Icons.Default.FastForward,
-                                contentDescription = "Forward",
+                                contentDescription = stringResource(R.string.action_forward),
                                 onClick = { mediaController?.seekForward() },
                                 trigger = seekForwardPulse,
                                 consumedTrigger = consumedSeekForwardPulse,
@@ -1053,7 +972,7 @@ fun VideoPlayerScreen(
                             onValueChangeFinished = {
                                 isDraggingSlider = false
                                 val target = pendingSeekPosition.coerceAtLeast(0L)
-                                seekGracePeriod = System.currentTimeMillis() + 2000L
+                                seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
                                 mediaController?.seekTo(target)
                             },
                             textsBelow = true
@@ -1081,13 +1000,13 @@ fun VideoPlayerScreen(
                                     Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
                                     else -> Icons.Default.Repeat
                                 },
-                                contentDescription = "Repeat",
+                                contentDescription = stringResource(R.string.action_repeat),
                                 tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                             )
                         }
 
                         IconButton(onClick = { mediaController?.seekToPrevious() }, enabled = hasPrevious) {
-                            Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
+                            Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.action_previous), modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
                         }
 
                         FilledIconButton(
@@ -1103,13 +1022,13 @@ fun VideoPlayerScreen(
                         ) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                contentDescription = if (isPlaying) stringResource(R.string.action_pause) else stringResource(R.string.action_play),
                                 modifier = Modifier.size(40.dp)
                             )
                         }
 
                         IconButton(onClick = { mediaController?.seekToNext() }, enabled = hasNext) {
-                            Icon(Icons.Default.SkipNext, contentDescription = "Next", modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
+                            Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.action_next), modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
                         }
 
                         IconButton(onClick = {
@@ -1119,7 +1038,7 @@ fun VideoPlayerScreen(
                         }) {
                             Icon(
                                 Icons.Default.Shuffle,
-                                contentDescription = "Shuffle",
+                                contentDescription = stringResource(R.string.action_shuffle),
                                 tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                             )
                         }
@@ -1132,9 +1051,9 @@ fun VideoPlayerScreen(
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (playerOrientation == 2) { IconButton(onClick = { isLandscape = true; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }) { Icon(Icons.Default.Fullscreen, contentDescription = "Fullscreen", tint = Color.White) } }
+                        if (playerOrientation == 2) { IconButton(onClick = { isLandscape = true; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }) { Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.action_fullscreen), tint = Color.White) } }
                         IconButton(onClick = { aspectRatio = (aspectRatio + 1) % 3 }) {
-                            Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = "Aspect Ratio", tint = Color.White)
+                            Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = stringResource(R.string.action_aspect_ratio), tint = Color.White)
                         }
 
                         IconButton(onClick = {
@@ -1148,7 +1067,7 @@ fun VideoPlayerScreen(
                         IconButton(onClick = { isLocked = !isLocked }) {
                             Icon(
                                 if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                                contentDescription = "Lock",
+                                contentDescription = stringResource(R.string.action_lock),
                                 tint = if (isLocked) Color.Red else Color.White
                             )
                         }
@@ -1294,10 +1213,7 @@ fun VideoPlayerScreen(
                                             if (abs(volume - oldVolume) > 0.05f) {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
-                                            audioManager?.let { am ->
-                                                val targetVol = kotlin.math.round(volume.coerceAtMost(1f) * maxVolume).toInt()
-                                                am.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                                            }
+                                            applySystemMusicVolume(audioManager, volume, maxVolume)
                                             if (volumeBoostEnabled) {
                                                 viewModel.eqManager.setVolumeBoostScale(if (volume > 1f) volume else 1.0f)
                                             }
@@ -1318,7 +1234,7 @@ fun VideoPlayerScreen(
                         .padding(24.dp)
                         .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
-                    Icon(Icons.Default.Lock, contentDescription = "Unlock", tint = Color.Red)
+                    Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.action_unlock), tint = Color.Red)
                 }
             }
 
@@ -1367,7 +1283,7 @@ fun VideoPlayerScreen(
                     ) {
                         SeekControlButton(
                             icon = Icons.Default.FastRewind,
-                            contentDescription = "Rewind",
+                            contentDescription = stringResource(R.string.action_rewind),
                             onClick = { mediaController?.seekBack() },
                             trigger = seekBackwardPulse,
                             consumedTrigger = consumedSeekBackwardPulse,
@@ -1381,7 +1297,7 @@ fun VideoPlayerScreen(
                         )
                         SeekControlButton(
                             icon = Icons.Default.FastForward,
-                            contentDescription = "Forward",
+                            contentDescription = stringResource(R.string.action_forward),
                             onClick = { mediaController?.seekForward() },
                             trigger = seekForwardPulse,
                             consumedTrigger = consumedSeekForwardPulse,
@@ -1483,7 +1399,7 @@ fun VideoPlayerScreen(
                             onValueChangeFinished = {
                                 isDraggingSlider = false
                                 val target = pendingSeekPosition.coerceAtLeast(0L)
-                                seekGracePeriod = System.currentTimeMillis() + 2000L
+                                seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
                                 mediaController?.seekTo(target)
                             }
                         )
@@ -1508,7 +1424,7 @@ fun VideoPlayerScreen(
                                             Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
                                             else -> Icons.Default.Repeat
                                         },
-                                        contentDescription = "Repeat",
+                                        contentDescription = stringResource(R.string.action_repeat),
                                         tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                                     )
                                 }
@@ -1519,7 +1435,7 @@ fun VideoPlayerScreen(
                                 }) {
                                     Icon(
                                         Icons.Default.Shuffle,
-                                        contentDescription = "Shuffle",
+                                        contentDescription = stringResource(R.string.action_shuffle),
                                         tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                                     )
                                 }
@@ -1531,7 +1447,7 @@ fun VideoPlayerScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = { mediaController?.seekToPrevious() }, enabled = hasPrevious) {
-                                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
+                                    Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.action_previous), modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
                                 }
                                 FilledIconButton(
                                     onClick = {
@@ -1546,12 +1462,12 @@ fun VideoPlayerScreen(
                                 ) {
                                     Icon(
                                         if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                        contentDescription = if (isPlaying) stringResource(R.string.action_pause) else stringResource(R.string.action_play),
                                         modifier = Modifier.size(36.dp)
                                     )
                                 }
                                 IconButton(onClick = { mediaController?.seekToNext() }, enabled = hasNext) {
-                                    Icon(Icons.Default.SkipNext, contentDescription = "Next", modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
+                                    Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.action_next), modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
                                 }
                             }
 
@@ -1563,12 +1479,12 @@ fun VideoPlayerScreen(
                                     Icon(Icons.Default.PictureInPictureAlt, contentDescription = stringResource(R.string.action_pip), tint = Color.White)
                                 }
                                 IconButton(onClick = { aspectRatio = (aspectRatio + 1) % 3 }) {
-                                    Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = "Aspect Ratio", tint = Color.White)
+                                    Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = stringResource(R.string.action_aspect_ratio), tint = Color.White)
                                 }
                                 IconButton(onClick = { isLocked = true; isControlsVisible = false }) {
-                                    Icon(Icons.Default.LockOpen, contentDescription = "Lock", tint = Color.White)
+                                    Icon(Icons.Default.LockOpen, contentDescription = stringResource(R.string.action_lock), tint = Color.White)
                                 }
-                                if (playerOrientation == 2) { IconButton(onClick = { isLandscape = false; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }) { Icon(Icons.Default.FullscreenExit, contentDescription = "Exit Fullscreen", tint = Color.White) } }
+                                if (playerOrientation == 2) { IconButton(onClick = { isLandscape = false; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }) { Icon(Icons.Default.FullscreenExit, contentDescription = stringResource(R.string.action_exit_fullscreen), tint = Color.White) } }
                             }
                         }
                     }
@@ -1615,10 +1531,10 @@ fun VideoPlayerScreen(
             val displayName = resolvedVideo?.name ?: videoName
             val displayPath = resolvedVideo?.path ?: Uri.parse(playingUri).path ?: playingUri
             val displaySize = if (resolvedVideo != null && resolvedVideo.size > 0L) {
-                "${resolvedVideo.size / (1024 * 1024)} MB"
+                stringResource(R.string.file_size_mb_format, resolvedVideo.size / (1024 * 1024))
             } else {
                 val file = java.io.File(displayPath)
-                if (file.exists()) "${file.length() / (1024 * 1024)} MB" else "Unknown"
+                if (file.exists()) stringResource(R.string.file_size_mb_format, file.length() / (1024 * 1024)) else stringResource(R.string.unknown)
             }
             val displayDuration = if (resolvedVideo != null && resolvedVideo.duration > 0L) {
                 formatDuration(resolvedVideo.duration)
@@ -1719,7 +1635,7 @@ fun VideoPlayerScreen(
                 listOf(
                     com.arslandaim.omegaplayer.media.PlaybackQueueItem(
                         uri = videoUri,
-                        title = "Unknown",
+                        title = stringResource(R.string.unknown_title),
                         duration = 0L,
                         isVideo = true
                     )
@@ -2089,7 +2005,7 @@ fun SubtitleDialog(
                         onClick = { onSubtitleDelayChange(-0.5f) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text("-0.5s")
+                        Text(stringResource(R.string.subtitle_delay_decrease))
                     }
                     Text(
                         stringResource(R.string.delay_format, subtitleDelay),
@@ -2102,7 +2018,7 @@ fun SubtitleDialog(
                         onClick = { onSubtitleDelayChange(0.5f) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text("+0.5s")
+                        Text(stringResource(R.string.subtitle_delay_increase))
                     }
                 }
             }
@@ -2410,7 +2326,7 @@ fun CenterPlayPauseButton(
     ) {
         Icon(
             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-            contentDescription = if (isPlaying) "Pause" else "Play",
+            contentDescription = if (isPlaying) stringResource(R.string.action_pause) else stringResource(R.string.action_play),
             modifier = Modifier.size(36.dp)
         )
     }

@@ -234,7 +234,7 @@ fun VideoMiniPlayer(
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
-                            contentDescription = "Previous Track",
+                            contentDescription = stringResource(R.string.previous_track),
                             modifier = Modifier.size(20.dp),
                             tint = if (hasPrevious) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         )

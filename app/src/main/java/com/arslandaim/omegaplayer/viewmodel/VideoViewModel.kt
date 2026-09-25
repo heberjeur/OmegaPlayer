@@ -30,13 +30,13 @@ import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.media.PlaybackQueueItem
+import com.arslandaim.omegaplayer.media.SleepTimerController
 import com.arslandaim.omegaplayer.service.PlaybackService
 import com.arslandaim.omegaplayer.util.Resource
 import com.arslandaim.omegaplayer.util.StartupTrace
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -210,33 +210,12 @@ class VideoViewModel @Inject constructor(
         }
     }
 
-    private val _sleepTimerActive = MutableStateFlow(false)
-    val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
-
-    private val _sleepTimerTimeLeft = MutableStateFlow(0L)
-    val sleepTimerTimeLeft: StateFlow<Long> = _sleepTimerTimeLeft.asStateFlow()
-
-    private var sleepTimerJob: kotlinx.coroutines.Job? = null
+    private val sleepTimer = SleepTimerController(viewModelScope) { playbackConnection.mediaController.value?.pause() }
+    val sleepTimerActive: StateFlow<Boolean> = sleepTimer.active
+    val sleepTimerTimeLeft: StateFlow<Long> = sleepTimer.timeLeftMillis
 
     fun setSleepTimer(minutes: Int) {
-        sleepTimerJob?.cancel()
-        if (minutes <= 0) {
-            _sleepTimerActive.value = false
-            _sleepTimerTimeLeft.value = 0
-            return
-        }
-
-        _sleepTimerActive.value = true
-        _sleepTimerTimeLeft.value = minutes * 60 * 1000L
-        
-        sleepTimerJob = viewModelScope.launch {
-            while (_sleepTimerTimeLeft.value > 0) {
-                delay(1000)
-                _sleepTimerTimeLeft.value -= 1000
-            }
-            playbackConnection.mediaController.value?.pause()
-            _sleepTimerActive.value = false
-        }
+        sleepTimer.start(minutes)
     }
 
     private val _searchQuery = MutableStateFlow("")

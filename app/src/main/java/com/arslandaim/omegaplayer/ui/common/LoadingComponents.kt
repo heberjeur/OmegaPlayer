@@ -22,15 +22,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.arslandaim.omegaplayer.R
 
 @Composable
 fun ModernLoadingDialog(
-    title: String = "Processing...",
+    title: String = stringResource(R.string.processing),
     onDismissRequest: () -> Unit = {}
 ) {
     Dialog(
@@ -71,7 +73,7 @@ fun ModernLoadingDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Please wait a moment",
+                    text = stringResource(R.string.please_wait),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

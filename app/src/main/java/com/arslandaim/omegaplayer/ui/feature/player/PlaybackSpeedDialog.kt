@@ -51,14 +51,14 @@ fun PlaybackSpeedDialog(
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = String.format(java.util.Locale.US, "%.2fx", speed),
+                    text = stringResource(R.string.speed_multiplier_format, String.format(java.util.Locale.US, "%.2f", speed)),
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Slider(
                     value = speed,
                     onValueChange = { speed = it },
-                    valueRange = 0.25f..2.0f,
+                    valueRange = MIN_PLAYBACK_SPEED..MAX_PLAYBACK_SPEED,
                     thumb = {
                         Box(
                             modifier = Modifier
@@ -81,8 +81,8 @@ fun PlaybackSpeedDialog(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
                 ) {
-                    Text("0.25x", color = Color.Gray)
-                    Text("2.0x", color = Color.Gray)
+                    Text(stringResource(R.string.speed_multiplier_format, MIN_PLAYBACK_SPEED.toString()), color = Color.Gray)
+                    Text(stringResource(R.string.speed_multiplier_format, MAX_PLAYBACK_SPEED.toString()), color = Color.Gray)
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(

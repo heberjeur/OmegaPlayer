@@ -38,13 +38,18 @@ import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
 import coil.compose.AsyncImage
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
+import com.arslandaim.omegaplayer.ui.common.SystemVolumeSyncEffect
 import com.arslandaim.omegaplayer.ui.common.WaveformVisualizer
+import com.arslandaim.omegaplayer.ui.common.applySystemMusicVolume
+import com.arslandaim.omegaplayer.ui.common.rememberInitialSystemBrightness
+import com.arslandaim.omegaplayer.ui.common.rememberInitialSystemVolume
+import com.arslandaim.omegaplayer.ui.common.rememberSystemAudioManager
+import com.arslandaim.omegaplayer.ui.common.rememberSystemMaxVolume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.content.ContentUris
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 
@@ -60,7 +65,6 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import android.content.Context
 import android.util.Log
 import androidx.compose.ui.graphics.graphicsLayer
 
@@ -343,75 +347,20 @@ fun AudioPlayerScreen(
 
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val volumeBoostEnabled by viewModel.volumeBoostEnabled.collectAsStateWithLifecycle(initialValue = false)
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager }
-    val maxVolume = remember(audioManager) { audioManager?.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC) ?: 15 }
-    val initialVolume = remember(audioManager, maxVolume) {
-        val current = audioManager?.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) ?: (maxVolume / 2)
-        (current.toFloat() / maxVolume).coerceIn(0f, 1f)
-    }
+    val audioManager = rememberSystemAudioManager()
+    val maxVolume = rememberSystemMaxVolume(audioManager)
+    val initialVolume = rememberInitialSystemVolume(audioManager, maxVolume)
     var volume by remember { mutableFloatStateOf(initialVolume) }
 
-    val initialBrightness = remember {
-        val activity = context as? android.app.Activity
-        val currentAttr = activity?.window?.attributes?.screenBrightness
-        if (currentAttr != null && currentAttr >= 0) {
-            currentAttr
-        } else {
-            try {
-                val sysBrightness = android.provider.Settings.System.getInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS)
-                (sysBrightness / 255f).coerceIn(0.01f, 1f)
-            } catch (_: android.provider.Settings.SettingNotFoundException) {
-                0.5f
-            }
-        }
-    }
+    val initialBrightness = rememberInitialSystemBrightness()
     var brightness by remember { mutableFloatStateOf(initialBrightness) }
 
-    val updateVolumeFromSystem: () -> Unit = {
-        audioManager?.let { am ->
-            val cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-            val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-            if (max > 0) {
-                val expectedSysVol = kotlin.math.round(volume.coerceAtMost(1f) * max).toInt()
-                if (cur != expectedSysVol) {
-                    val newVol = (cur.toFloat() / max).coerceIn(0f, 1f)
-                    if (volume > 1f && newVol < 1f) {
-                        viewModel.eqManager.setVolumeBoostScale(1.0f)
-                        volume = newVol
-                    } else if (volume <= 1f) {
-                        volume = newVol
-                    }
-                }
-            }
-        }
-    }
-
-    DisposableEffect(context, audioManager) {
-        updateVolumeFromSystem()
-        val contentObserver = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                super.onChange(selfChange)
-                updateVolumeFromSystem()
-            }
-        }
-        try {
-            context.contentResolver.registerContentObserver(
-                android.provider.Settings.System.CONTENT_URI,
-                true,
-                contentObserver
-            )
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Failed to register volume observer", e)
-        }
-        
-        onDispose {
-            try {
-                context.contentResolver.unregisterContentObserver(contentObserver)
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "Failed to unregister volume observer", e)
-            }
-        }
-    }
+    SystemVolumeSyncEffect(
+        audioManager = audioManager,
+        volumeProvider = { volume },
+        onVolumeChange = { volume = it },
+        onVolumeBoostReset = { viewModel.eqManager.setVolumeBoostScale(1.0f) }
+    )
     
     var isVolumeVisible by remember { mutableStateOf(false) }
     var isBrightnessVisible by remember { mutableStateOf(false) }
@@ -525,12 +474,7 @@ fun AudioPlayerScreen(
     )
 
     val albumArtUri = remember(currentAudio) {
-        currentAudio?.let {
-            ContentUris.withAppendedId(
-                Uri.parse("content://media/external/audio/albumart"),
-                it.albumId
-            )
-        }
+        currentAudio?.let { MediaUtils.albumArtUri(it.albumId) }
     }
 
     var hasSeekedInitialPosition by remember(currentUriState, initialPosition) { mutableStateOf(false) }
@@ -629,7 +573,7 @@ fun AudioPlayerScreen(
                     if (dur > 0) duration = dur
                     if (!isDraggingSlider) {
                         if (pendingSeekPosition >= 0) {
-                            if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < 2000L) {
+                            if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < SEEK_TOLERANCE_MS) {
                                 pendingSeekPosition = -1L
                                 currentPosition = pos
                             }
@@ -694,7 +638,7 @@ fun AudioPlayerScreen(
                 val audio = currentAudio
                 if (audio != null) {
                     viewModel.addToPlaylist(playlistId, audio.uri.toString(), "audio")
-                    Toast.makeText(context, "Added to playlist", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.added_to_playlist), Toast.LENGTH_SHORT).show()
                 }
                 showPlaylistDialog = false
             },
@@ -734,10 +678,7 @@ fun AudioPlayerScreen(
                         if (kotlin.math.abs(volume - oldVolume) > 0.05f) {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
                         }
-                        audioManager?.let { am ->
-                            val targetVol = kotlin.math.round(volume.coerceAtMost(1f) * maxVolume).toInt()
-                            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetVol, 0)
-                        }
+                        applySystemMusicVolume(audioManager, volume, maxVolume)
                         if (volumeBoostEnabled) {
                             viewModel.eqManager.setVolumeBoostScale(if (volume > 1f) volume else 1.0f)
                         }
@@ -890,7 +831,7 @@ fun AudioPlayerScreen(
                             onValueChangeFinished = {
                                 isDraggingSlider = false
                                 val target = pendingSeekPosition.coerceAtLeast(0L)
-                                seekGracePeriod = System.currentTimeMillis() + 2000L
+                                seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
                                 player.seekTo(target)
                             },
                             valueRange = 0f..1f,
@@ -951,7 +892,7 @@ fun AudioPlayerScreen(
                                     Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
                                     else -> Icons.Default.Repeat
                                 },
-                                contentDescription = "Repeat",
+                                contentDescription = stringResource(R.string.action_repeat),
                                 tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                             )
                         }
@@ -959,7 +900,7 @@ fun AudioPlayerScreen(
                         IconButton(onClick = { player.seekToPrevious() }, enabled = hasPrevious) {
                             Icon(
                                 Icons.Default.SkipPrevious,
-                                contentDescription = "Previous",
+                                contentDescription = stringResource(R.string.action_previous),
                                 modifier = Modifier.size(36.dp),
                                 tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f)
                             )
@@ -976,7 +917,7 @@ fun AudioPlayerScreen(
                         ) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = "Play/Pause",
+                                contentDescription = stringResource(R.string.action_play_pause),
                                 modifier = Modifier.size(44.dp)
                             )
                         }
@@ -984,7 +925,7 @@ fun AudioPlayerScreen(
                         IconButton(onClick = { player.seekToNext() }, enabled = hasNext) {
                             Icon(
                                 Icons.Default.SkipNext,
-                                contentDescription = "Next",
+                                contentDescription = stringResource(R.string.action_next),
                                 modifier = Modifier.size(36.dp),
                                 tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f)
                             )
@@ -996,7 +937,7 @@ fun AudioPlayerScreen(
                         }) {
                             Icon(
                                 Icons.Default.Shuffle,
-                                contentDescription = "Shuffle",
+                                contentDescription = stringResource(R.string.action_shuffle),
                                 tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                             )
                         }
@@ -1040,7 +981,7 @@ fun AudioPlayerScreen(
                         ) {
                             AsyncImage(
                                 model = albumArtUri,
-                                contentDescription = "Album Art",
+                                contentDescription = stringResource(R.string.album_art),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
                                 error = rememberVectorPainter(Icons.Default.MusicNote),
@@ -1093,7 +1034,7 @@ fun AudioPlayerScreen(
             listOf(
                 com.arslandaim.omegaplayer.media.PlaybackQueueItem(
                     uri = audioUri,
-                    title = "Unknown",
+                    title = stringResource(R.string.unknown_title),
                     duration = 0L,
                     isVideo = false
                 )

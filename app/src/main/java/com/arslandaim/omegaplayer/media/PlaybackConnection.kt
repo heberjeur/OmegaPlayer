@@ -7,6 +7,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.arslandaim.omegaplayer.service.PlaybackService
+import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.StartupTrace
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
@@ -155,9 +156,7 @@ class PlaybackConnection @Inject constructor(
             } else {
                 val audio = audioIndex[item.mediaUri]
                 val title = audio?.name ?: item.mediaUri.substringAfterLast("/")
-                val albumArtUri = audio?.let {
-                    android.content.ContentUris.withAppendedId(android.net.Uri.parse("content://media/external/audio/albumart"), it.albumId)
-                }
+                val albumArtUri = audio?.let { MediaUtils.albumArtUri(it.albumId) }
                 MediaItem.Builder()
                     .setUri(item.mediaUri)
                     .setMediaId(item.mediaUri)
@@ -242,9 +241,7 @@ class PlaybackConnection @Inject constructor(
                     .build()
             } else {
                 val audio = audioIndex[item.uri]
-                val albumArtUri = audio?.let {
-                    android.content.ContentUris.withAppendedId(android.net.Uri.parse("content://media/external/audio/albumart"), it.albumId)
-                }
+                val albumArtUri = audio?.let { MediaUtils.albumArtUri(it.albumId) }
                 MediaItem.Builder()
                     .setUri(item.uri)
                     .setMediaId(item.uri)
@@ -360,7 +357,7 @@ class PlaybackConnection @Inject constructor(
         setQueue(queueItems)
 
         val mediaItems = audios.map { audio ->
-            val albumArtUri = android.content.ContentUris.withAppendedId(android.net.Uri.parse("content://media/external/audio/albumart"), audio.albumId)
+            val albumArtUri = MediaUtils.albumArtUri(audio.albumId)
             MediaItem.Builder()
                 .setUri(audio.uri)
                 .setMediaId(audio.uri.toString())
