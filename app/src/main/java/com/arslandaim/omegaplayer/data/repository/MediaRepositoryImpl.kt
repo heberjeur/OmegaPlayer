@@ -8,79 +8,144 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import androidx.room.withTransaction
+import com.arslandaim.omegaplayer.data.AppDatabase
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.util.Resource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MediaRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val appDao: com.arslandaim.omegaplayer.data.AppDao,
+    private val database: AppDatabase
 ) : MediaRepository {
 
-    @OptIn(FlowPreview::class)
-    override fun getAudios(): Flow<Resource<List<AudioModel>>> = flow {
-        emit(Resource.Loading)
-        emitAll(
-            callbackFlow<Unit> {
-                val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-                    override fun onChange(selfChange: Boolean) {
-                        trySend(Unit)
-                    }
-                }
-                context.contentResolver.registerContentObserver(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    true,
-                    observer
-                )
-                trySend(Unit)
-                awaitClose {
-                    context.contentResolver.unregisterContentObserver(observer)
-                }
-            }
-            .debounce(300)
-            .map { fetchAudios() }
-        )
-    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+    override fun getAudios(): Flow<Resource<List<AudioModel>>> {
+        return appDao.getAllAudios().map { Resource.Success(it) }
+    }
 
-    @OptIn(FlowPreview::class)
-    override fun getVideos(): Flow<Resource<List<VideoModel>>> = flow {
-        emit(Resource.Loading)
-        emitAll(
-            callbackFlow<Unit> {
-                val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-                    override fun onChange(selfChange: Boolean) {
-                        trySend(Unit)
+    override fun getVideos(): Flow<Resource<List<VideoModel>>> {
+        return appDao.getAllVideos().map { Resource.Success(it) }
+    }
+
+    override fun getCachedTree(id: String): Flow<String?> {
+        return appDao.getCachedTree(id)
+    }
+
+    override suspend fun saveCachedTree(id: String, treeJson: String) {
+        appDao.insertCachedTree(com.arslandaim.omegaplayer.data.CachedTree(id, treeJson))
+    }
+
+    override suspend fun deleteCachedTree(id: String) {
+        appDao.deleteCachedTree(id)
+    }
+
+    private fun hasPermission(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_MEDIA_VIDEO) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_MEDIA_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    // Serializes overlapping syncs: pull-to-refresh and a delete-triggered refresh can run
+    // concurrently, and deleting from history even requests both view models to refresh.
+    private val syncMutex = Mutex()
+
+    override suspend fun syncMediaWithSystem() {
+        if (!hasPermission()) return
+
+        syncMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val audioResource = fetchAudios()
+                val videoResource = fetchVideos()
+
+                // Replace only what actually changed, inside one transaction per table. The old
+                // deleteAll + insertAll strategy rewrote all 30k rows on every refresh and made
+                // Room invalidate each table several times per sync (delete <> insert), so the
+                // UI received transient empty lists and rebuilt folder trees, URI maps and
+                // lists over and over - the app froze for seconds on each refresh or deletion.
+                database.withTransaction {
+                    if (audioResource is Resource.Success) {
+                        audioResource.data?.let { applyAudiosDelta(it) }
                     }
-                }
-                context.contentResolver.registerContentObserver(
-                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                    true,
-                    observer
-                )
-                trySend(Unit)
-                awaitClose {
-                    context.contentResolver.unregisterContentObserver(observer)
+                    if (videoResource is Resource.Success) {
+                        videoResource.data?.let { applyVideosDelta(it) }
+                    }
+                    // Cached trees are no longer read (the tree is rebuilt from the list),
+                    // but they must not survive a sync as stale data.
+                    appDao.deleteCachedTree("audio")
+                    appDao.deleteCachedTree("video")
                 }
             }
-            .debounce(300)
-            .map { fetchVideos() }
-        )
-    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+        }
+    }
+
+    override suspend fun removeAudiosFromCache(uris: List<String>) {
+        if (uris.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            appDao.deleteAudiosByUri(uris)
+        }
+    }
+
+    override suspend fun removeVideosFromCache(uris: List<String>) {
+        if (uris.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            appDao.deleteVideosByUri(uris)
+        }
+    }
+
+    /**
+     * Writes [newList] into the audios table with minimal statements: missing rows are deleted,
+     * new rows inserted, changed rows updated. When nothing changed nothing is written, so Room
+     * emits no invalidation at all and a no-op refresh costs the UI nothing.
+     */
+    private suspend fun applyAudiosDelta(newList: List<AudioModel>) {
+        val currentById = appDao.getAudiosOnce().associateBy { it.id }
+        val newById = newList.associateBy { it.id }
+        if (currentById == newById) return
+        val removed = currentById.values.filter { newById[it.id] == null }
+        if (removed.isNotEmpty()) appDao.deleteAudios(removed)
+        val added = newById.values.filter { currentById[it.id] == null }
+        if (added.isNotEmpty()) appDao.insertAudios(added)
+        val updated = newById.values.filter { model ->
+            val old = currentById[model.id]
+            old != null && old != model
+        }
+        if (updated.isNotEmpty()) appDao.updateAudios(updated)
+    }
+
+    /** Video counterpart of [applyAudiosDelta]. */
+    private suspend fun applyVideosDelta(newList: List<VideoModel>) {
+        val currentById = appDao.getVideosOnce().associateBy { it.id }
+        val newById = newList.associateBy { it.id }
+        if (currentById == newById) return
+        val removed = currentById.values.filter { newById[it.id] == null }
+        if (removed.isNotEmpty()) appDao.deleteVideos(removed)
+        val added = newById.values.filter { currentById[it.id] == null }
+        if (added.isNotEmpty()) appDao.insertVideos(added)
+        val updated = newById.values.filter { model ->
+            val old = currentById[model.id]
+            old != null && old != model
+        }
+        if (updated.isNotEmpty()) appDao.updateVideos(updated)
+    }
 
     private fun fetchAudios(): Resource<List<AudioModel>> {
         val list = mutableListOf<AudioModel>()
