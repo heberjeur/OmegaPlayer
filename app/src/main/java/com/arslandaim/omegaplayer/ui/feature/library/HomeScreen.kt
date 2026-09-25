@@ -83,7 +83,6 @@ fun HomeScreen(
     isFocused: Boolean = true,
     initialTab: MediaTab? = null
 ) {
-    // Recorded once, for the startup report.
     remember { StartupTrace.mark("HomeScreen first composition"); true }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -95,9 +94,6 @@ fun HomeScreen(
     var showFilterMenu by remember { mutableStateOf(false) }
     var showFullHistoryScreen by remember { mutableStateOf(false) }
 
-    // Subscribe to history only when it can actually be shown. The query returns every row of
-    // recent_playback (unbounded), so keeping it off the startup path avoids a potentially
-    // large query and list allocation on every cold start.
     val isHistoryVisible = showHistoryTab || showFullHistoryScreen
     val fullHistory by remember(isHistoryVisible) {
         if (isHistoryVisible) viewModel.fullHistory else flowOf(emptyList<RecentPlayback>())
@@ -143,8 +139,6 @@ fun HomeScreen(
     val audiosInFolder by audioViewModel.audiosInSelectedFolder.collectAsStateWithLifecycle()
     val playlists by audioViewModel.playlists.collectAsStateWithLifecycle()
 
-    // Hoisted playback state: collected once here instead of once per list/grid item,
-    // so a play/pause change does not recompose every visible item.
     val activeVideoUri by viewModel.activeVideoUri.collectAsStateWithLifecycle()
     val isVideoPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val activeAudioUri by audioViewModel.activeAudioUri.collectAsStateWithLifecycle()
@@ -346,11 +340,6 @@ fun HomeScreen(
         }
     }
 
-    // URI -> model maps used to resolve playlist items and playback queues. The ViewModels
-    // build them off the main thread and keep them across navigation: rebuilding them here with
-    // remember(videos) cost 65-200ms of main-thread time per library emission (the startup
-    // report sampled Uri.toString()+HashMap.put over 30k items on the compose thread) and it
-    // happened again on every return to the home destination.
     val videosByUri by viewModel.videosByUri.collectAsStateWithLifecycle()
     val audiosByUri by audioViewModel.audiosByUri.collectAsStateWithLifecycle()
 
@@ -390,10 +379,6 @@ fun HomeScreen(
                 }
                 viewModel.stopIfPlaying(deletedUris)
                 audioViewModel.stopIfPlaying(deletedUris)
-                // The system dialog already deleted the files: drop the rows straight from the
-                // cache so the UI updates instantly. Each call only touches its own table, so
-                // running both is safe whatever the media type. The previous full refresh
-                // re-scanned all of MediaStore and froze the app for seconds after each delete.
                 viewModel.onVideosDeleted(deletedUris)
                 audioViewModel.onAudiosDeleted(deletedUris)
                 pendingUrisToDelete = emptyList()
@@ -441,13 +426,9 @@ fun HomeScreen(
                             if (videosToDelete.isNotEmpty()) {
                                 videosToDelete.forEach { viewModel.deleteHistoryItem(it.uri.toString()) }
                                 viewModel.stopIfPlaying(videosToDelete.map { it.uri })
-                                // MediaStore delete is a cross-process call; on big folders the
-                                // per-file loop can take seconds and must stay off the main thread.
                                 val deletedUris = withContext(Dispatchers.IO) {
                                     videosToDelete.filter { context.contentResolver.delete(it.uri, null, null) > 0 }.map { it.uri }
                                 }
-                                // Drop the deleted rows from the cache (instant UI update);
-                                // re-sync only if part of the folder could not be deleted.
                                 if (deletedUris.isNotEmpty()) viewModel.onVideosDeleted(deletedUris)
                                 if (deletedUris.size != videosToDelete.size) viewModel.refreshVideos(context)
                             }
@@ -486,7 +467,6 @@ fun HomeScreen(
                         viewModel.deleteHistoryItem(video.uri.toString())
                         viewModel.stopIfPlaying(video.uri)
                         val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(video.uri, null, null) }
-                        // Confirmed delete -> instant cache removal; otherwise re-sync to be sure.
                         if (deleted > 0) viewModel.onVideosDeleted(listOf(video.uri)) else viewModel.refreshVideos(context)
                         isProcessing = false
                     }
@@ -511,7 +491,6 @@ fun HomeScreen(
                         audioViewModel.deleteHistoryItem(audio.uri.toString())
                         audioViewModel.stopIfPlaying(audio.uri)
                         val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(audio.uri, null, null) }
-                        // Confirmed delete -> instant cache removal; otherwise re-sync to be sure.
                         if (deleted > 0) audioViewModel.onAudiosDeleted(listOf(audio.uri)) else audioViewModel.refreshAudios(context)
                         isProcessing = false
                     }
@@ -539,7 +518,6 @@ fun HomeScreen(
                         if (isVideo) viewModel.stopIfPlaying(uriToDel) else audioViewModel.stopIfPlaying(uriToDel)
                         val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(uriToDel, null, null) }
                         if (deleted > 0) {
-                            // Confirmed delete -> drop the row straight from the cache.
                             if (isVideo) viewModel.onVideosDeleted(listOf(uriToDel)) else audioViewModel.onAudiosDeleted(listOf(uriToDel))
                         } else {
                             viewModel.refreshVideos(context)
@@ -786,9 +764,6 @@ fun HomeScreen(
                 if (sortedHistory.isEmpty()) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
-                    // Plain swap instead of Crossfade: the crossfade composed and drew both view
-                    // modes at once, which the startup report blamed for long main-thread stalls
-                    // and heavy GPU frames when switching list/grid.
                     if (pageViewMode == 1 || pageViewMode == 2) {
                             val cols = if (pageViewMode == 1) 2 else 1
                             val ratio = if (pageViewMode == 1) 1f else (16f / 9f)
@@ -828,11 +803,6 @@ fun HomeScreen(
                 }
             }
         } else {
-        // beyondViewportPageCount stays 0 during startup: an off-screen tab (e.g. Audios, whose
-        // list can hold tens of thousands of items) must not compose while the app launches.
-        // Once media data has arrived (and ~1.2s have settled), the neighbouring page may be
-        // composed a step ahead so the first swipe is instant. A report showed a swipe at
-        // t+10.7s while prefetch only armed at t+12.7s (3.5s settle) — too late.
         var preloadNeighborPages by remember { mutableStateOf(0) }
         LaunchedEffect(videos.isNotEmpty(), audios.isNotEmpty()) {
             if (videos.isEmpty() && audios.isEmpty()) return@LaunchedEffect
@@ -842,7 +812,6 @@ fun HomeScreen(
         }
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize().padding(padding), beyondViewportPageCount = preloadNeighborPages, userScrollEnabled = currentSelectedFolder == null && selectedPlaylistForDetails == null) { page ->
             val pageTab = activeTabs.getOrNull(page) ?: activeTabs.first()
-            // Recorded once per tab, for the startup report.
             remember(pageTab) { StartupTrace.markOnce("page.composed.${pageTab.name}") { "page composed: ${pageTab.name}" }; true }
             val pageContextKey = when {
                 pageTab == MediaTab.VIDEOS && selectedVideoFolder != null -> "folder_video_$selectedVideoFolder"
@@ -876,8 +845,6 @@ fun HomeScreen(
                 } else if ((currentSelectedFolder != null || selectedPlaylistForDetails != null) && (if (pageTab == MediaTab.VIDEOS) sortedVideos.isEmpty() else if (pageTab == MediaTab.AUDIOS) sortedAudios.isEmpty() else sortedPlaylistItems.isEmpty())) {
                     EmptyState(searchQuery.isNotEmpty(), false)
                 } else {
-                    // Plain swap instead of Crossfade (see the history screen above): switching
-                    // list/grid no longer composes and draws both view modes simultaneously.
                     if (pageViewMode == 1 || pageViewMode == 2) {
                         val cols = if (pageViewMode == 1) 2 else 1
                         val ratio = if (pageViewMode == 1) 1f else (16f / 9f)

@@ -56,7 +56,6 @@ fun HomeDashboard(
                 val tabWidth = maxWidth / availableTabs.size
                 val tabWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { tabWidth.toPx() }
                 
-                // Sliding indicator synchronized with Pager
                 Box(
                     modifier = Modifier
                         .width(tabWidth)
@@ -88,7 +87,7 @@ fun HomeDashboard(
                                 .fillMaxHeight()
                                 .clickable(
                                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                    indication = null, // Remove ripple to make it feel like a pure tab switch
+                                    indication = null,
                                     onClick = { onTabSelected(tab) }
                                 ),
                             contentAlignment = Alignment.Center

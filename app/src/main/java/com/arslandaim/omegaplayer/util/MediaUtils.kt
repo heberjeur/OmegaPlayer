@@ -85,7 +85,6 @@ object MediaUtils {
                 }
             }
         } else {
-            // API 28 and below
             onRequireInternalPopup()
         }
     }

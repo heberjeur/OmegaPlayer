@@ -193,9 +193,6 @@ fun VideoPlayerScreen(
                 mediaController?.currentMediaItem?.localConfiguration?.uri?.let { viewModel.stopIfPlaying(it) }
                 onBack()
             }
-            // The system dialog already deleted the files: drop the rows straight from the
-            // cache (instant UI update) instead of a full MediaStore re-scan that froze the
-            // app for seconds after each confirmed delete.
             if (pendingUrisToDelete.isNotEmpty()) viewModel.onVideosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
         } else {
@@ -215,7 +212,6 @@ fun VideoPlayerScreen(
             val builder = PictureInPictureParams.Builder()
                 .setAspectRatio(rational)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // If background play is enabled, avoid auto PiP so it can play audio in background.
                 builder.setAutoEnterEnabled(!isBackgroundPlayEnabled)
             }
             try {
@@ -284,8 +280,6 @@ fun VideoPlayerScreen(
     }
     val activeQueue by viewModel.activeQueue.collectAsStateWithLifecycle()
     val playerOrientation by viewModel.playerOrientation.collectAsStateWithLifecycle(initialValue = 0)
-
-
 
     val speedScope by viewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
     val globalSpeed by viewModel.globalPlaybackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
@@ -442,7 +436,6 @@ fun VideoPlayerScreen(
     var isLocked by remember { mutableStateOf(false) }
     var playbackError by remember { mutableStateOf<String?>(null) }
 
-
     LaunchedEffect(isControlsVisible, controlsLastInteraction, isDraggingSlider, isPlaying, controlsTimeout) {
         if (isControlsVisible && !isDraggingSlider && isPlaying && controlsTimeout > 0) {
             delay(controlsTimeout * 1000L)
@@ -453,7 +446,6 @@ fun VideoPlayerScreen(
     var playbackSpeed by remember { mutableFloatStateOf(effectiveSpeed) }
     var isLandscape by rememberSaveable { mutableStateOf(false) }
     var aspectRatio by remember { mutableIntStateOf(0) }
-
 
     var repeatMode by remember { mutableIntStateOf(mediaController?.repeatMode ?: Player.REPEAT_MODE_OFF) }
     var isShuffle by remember { mutableStateOf(mediaController?.shuffleModeEnabled ?: false) }
@@ -495,7 +487,6 @@ fun VideoPlayerScreen(
             }
         }
     }
-
 
     LaunchedEffect(videoUri, mediaController, initialPosition, effectiveSpeed) {
         val player = mediaController ?: return@LaunchedEffect
@@ -632,7 +623,6 @@ fun VideoPlayerScreen(
         }
     }
     
-    // UI HUD States
     var seekForwardPulse by remember { mutableIntStateOf(0) }
     var seekBackwardPulse by remember { mutableIntStateOf(0) }
     var consumedSeekForwardPulse by remember { mutableIntStateOf(0) }
@@ -654,7 +644,7 @@ fun VideoPlayerScreen(
     LaunchedEffect(Unit) {
         viewModel.volumeKeyEvents.collect { keyCode ->
             val maxVolMultiplier = if (volumeBoostEnabled) 2f else 1f
-            val step = 0.066f // Roughly 1/15th to match system volume steps
+            val step = 0.066f
             val oldVolume = volume
             if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {
                 volume = (volume + step).coerceIn(0f, maxVolMultiplier)
@@ -685,7 +675,7 @@ fun VideoPlayerScreen(
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     
-    var showPlayPausePulse by remember { mutableStateOf<Boolean?>(null) } // null: none, true: play, false: pause
+    var showPlayPausePulse by remember { mutableStateOf<Boolean?>(null) }
     var pulseTrigger by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(mediaController) {
@@ -996,8 +986,6 @@ fun VideoPlayerScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.CenterStart)
                     )
-
-
 
                     androidx.compose.animation.AnimatedVisibility(
                         visible = isControlsVisible && !isLocked,
@@ -1331,10 +1319,6 @@ fun VideoPlayerScreen(
                 }
             }
 
-
-
-
-
             VerticalIndicator(
                 value = volume / if (volumeBoostEnabled) 2f else 1f,
                 icon = Icons.AutoMirrored.Filled.VolumeUp,
@@ -1352,8 +1336,6 @@ fun VideoPlayerScreen(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.align(Alignment.CenterStart)
             )
-
-
 
             AnimatedVisibility(
                 visible = isControlsVisible && !isLocked,
@@ -1625,8 +1607,6 @@ fun VideoPlayerScreen(
             )
         }
 
-
-
         if (showInfoDialog) {
             val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
             val displayName = resolvedVideo?.name ?: videoName
@@ -1680,14 +1660,10 @@ fun VideoPlayerScreen(
                                     val deleted = withContext(Dispatchers.IO) {
                                         context.contentResolver.delete(targetUri, null, null)
                                     }
-                                    // Confirmed delete -> instant cache removal; if MediaStore
-                                    // did not delete anything, re-sync to stay consistent.
                                     if (deleted > 0) viewModel.onVideosDeleted(listOf(targetUri))
                                     else viewModel.refreshVideos(context)
                                     onBack()
                                 } catch (e: SecurityException) {
-                                    // Fallback is no longer needed since this dialog only shows for SDK < 30
-                                    // and SDK < 30 doesn't throw RecoverableSecurityException in the same way.
                                     throw e
                                 }
                             }
@@ -2192,8 +2168,6 @@ fun InfoRow(label: String, value: String) {
     }
 }
 
-
-
 @Composable
 fun PlayerTopHUD(
     showClock: Boolean,
@@ -2359,10 +2333,6 @@ fun PlayerDropdownMenu(
     }
 }
 
-
-
-
-
 @Composable
 fun VerticalIndicator(
     value: Float, 
@@ -2414,10 +2384,6 @@ fun VerticalIndicator(
         }
     }
 }
-
-
-
-
 
 fun setBrightness(context: Context, brightness: Float) {
     val activity = context as? Activity ?: return

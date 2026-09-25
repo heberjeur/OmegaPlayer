@@ -15,9 +15,7 @@ interface MediaRepository {
     
     suspend fun syncMediaWithSystem()
 
-    /** Drops the given audio URIs from the cache right after MediaStore confirmed the delete. */
     suspend fun removeAudiosFromCache(uris: List<String>)
 
-    /** Drops the given video URIs from the cache right after MediaStore confirmed the delete. */
     suspend fun removeVideosFromCache(uris: List<String>)
 }

@@ -110,11 +110,6 @@ class PlaybackConnection @Inject constructor(
         val controller = _mediaController.value ?: return
         if (playlistItems.isEmpty()) return
 
-        // Maps are provided by the callers (ViewModel-cached, built off the main thread); the
-        // fallback keeps this correct for any caller that cannot. The previous per-item
-        // videos.find()/audios.find() made this O(items x library): a 100-item playlist against
-        // 30k audios ran millions of uri.toString() comparisons on the main thread and froze
-        // the UI on each play tap.
         val videoIndex = videosByUri ?: videos.associateBy { it.uri.toString() }
         val audioIndex = audiosByUri ?: audios.associateBy { it.uri.toString() }
 
@@ -214,7 +209,6 @@ class PlaybackConnection @Inject constructor(
         val controller = _mediaController.value ?: return
         if (historyItems.isEmpty()) return
 
-        // Same as playPlaylist: one map lookup instead of a library find() per history item.
         val audioIndex = audiosByUri ?: audios.associateBy { it.uri.toString() }
 
         val queueItems = historyItems.map { item ->

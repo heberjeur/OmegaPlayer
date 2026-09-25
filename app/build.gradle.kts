@@ -32,11 +32,6 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
-        // Release-identical (R8 + resource shrinking) but signed with the debug key and
-        // profileable, so it can be built, installed and measured locally with one command:
-        //   .\gradlew.bat installFastDebug
-        // A plain `debug` build is not representative for speed: it skips R8, runs with
-        // debugging enabled and includes Compose tooling.
         create("fastDebug") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
@@ -56,8 +51,6 @@ android {
 }
 
 baselineProfile {
-    // Persist the generated baseline profile in the repository so every build
-    // (including CI) ships it and users' cold starts are pre-compiled.
     saveInSrc = true
 }
 
@@ -84,12 +77,10 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     
-    // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Paging
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
 
@@ -108,6 +99,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // Baseline profile generator, run with: .\gradlew.bat :app:generateBaselineProfile
     baselineProfile(project(":baselineprofile"))
 }

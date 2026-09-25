@@ -288,9 +288,6 @@ class PlaybackService : MediaSessionService() {
             .setCustomLayout(listOf(speedButton, closeButton))
             .build()
             
-        // One combined collector instead of 9 separate ones: the notification is
-        // rebuilt once per change instead of once per preference, which removes
-        // nine duplicate rebuilds on service startup.
         serviceScope.launch {
             combine(
                 themePreferences.notifShowPrevious,
@@ -318,7 +315,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun updateNotification() {
-        mediaSession?.setCustomLayout(ImmutableList.of()) // Trigger a notification refresh
+        mediaSession?.setCustomLayout(ImmutableList.of())
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

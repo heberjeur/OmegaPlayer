@@ -48,7 +48,6 @@ fun WaveformVisualizer(
 
         for (i in 0 until barCount) {
             val x = i * barWidth + barWidth / 2
-            // Calculate a wave-like height
             val variation = sin(phase + i * 0.5f) * 0.4f + 0.6f
             val barHeight = (height * 0.8f * variation * amplitudeMultiplier).coerceAtLeast(4.dp.toPx())
             

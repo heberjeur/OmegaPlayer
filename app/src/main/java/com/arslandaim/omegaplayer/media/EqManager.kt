@@ -68,8 +68,6 @@ class EqManager @Inject constructor() {
 
     private fun calculateGainMb(scale: Float): Int {
         return if (scale > 1.0f) {
-            // Un gain de 10dB (1000mB) correspond à un volume perçu comme doublé
-            // 200% = scale 2.0 = 1000mB
             ((scale - 1.0f) * 1000f).toInt()
         } else {
             0

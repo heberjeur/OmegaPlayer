@@ -99,7 +99,6 @@ fun ModernProgressIndicator(modifier: Modifier = Modifier) {
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Background ring
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -116,7 +115,6 @@ fun ModernProgressIndicator(modifier: Modifier = Modifier) {
                 .rotate(angle)
         )
         
-        // Rotating gradient border
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -126,8 +124,8 @@ fun ModernProgressIndicator(modifier: Modifier = Modifier) {
                     brush = Brush.sweepGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color(0xFF87CEEB), // Light Blue
-                            Color(0xFFFF6600), // Orange
+                            Color(0xFF87CEEB),
+                            Color(0xFFFF6600),
                             Color.Transparent
                         )
                     ),
@@ -135,7 +133,6 @@ fun ModernProgressIndicator(modifier: Modifier = Modifier) {
                 )
         )
         
-        // Inner circle
         Surface(
             modifier = Modifier
                 .size(60.dp)

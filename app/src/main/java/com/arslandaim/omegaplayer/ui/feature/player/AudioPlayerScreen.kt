@@ -106,7 +106,7 @@ fun SleepTimerDialog(
                         value = minutes.toFloat(),
                         onValueChange = { minutes = it.toInt() },
                         valueRange = 0f..120f,
-                        steps = 23, // 5 min increments if 0-120
+                        steps = 23,
                         thumb = {
                             Box(
                                 modifier = Modifier
@@ -471,9 +471,6 @@ fun AudioPlayerScreen(
                 currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
                 onBack()
             }
-            // The system dialog already deleted the files: drop the rows straight from the
-            // cache (instant UI update) instead of a full MediaStore re-scan that froze the
-            // app for seconds after each confirmed delete.
             if (pendingUrisToDelete.isNotEmpty()) viewModel.onAudiosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
         } else {
@@ -498,8 +495,6 @@ fun AudioPlayerScreen(
         else globalAudios
     }
     val activeQueue by viewModel.activeQueue.collectAsStateWithLifecycle()
-
-
 
     LaunchedEffect(globalAudios, audioUri) {
         if (selectedFolder == null && globalAudios.isNotEmpty()) {
@@ -609,8 +604,6 @@ fun AudioPlayerScreen(
             player.removeListener(listener)
         }
     }
-
-
 
     LaunchedEffect(controller, currentUriState, initialPosition) {
         val player = controller ?: return@LaunchedEffect
@@ -1195,9 +1188,6 @@ fun AudioPlayerScreen(
                                     onBack()
                                 }
                             
-                                // Confirmed delete -> drop the row straight from the cache;
-                                // otherwise re-sync so a failed delete does not leave a
-                                // stale entry behind.
                                 if (deleted > 0) viewModel.onAudiosDeleted(listOf(audio.uri))
                                 else viewModel.refreshAudios(context)
                             } catch (e: SecurityException) {

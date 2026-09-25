@@ -87,11 +87,9 @@ interface AppDao {
     @Query("DELETE FROM recent_playback")
     suspend fun clearAllRecentPlayback()
 
-    // Videos
     @Query("SELECT * FROM videos")
     fun getAllVideos(): Flow<List<VideoModel>>
 
-    // One-shot read used by the delta sync to compute what actually changed.
     @Query("SELECT * FROM videos")
     suspend fun getVideosOnce(): List<VideoModel>
 
@@ -104,20 +102,15 @@ interface AppDao {
     @Delete
     suspend fun deleteVideos(videos: List<VideoModel>)
 
-    // Targeted removal after a successful MediaStore delete. Updating the cached row directly
-    // lets the UI reflect the deletion immediately instead of waiting for a full MediaStore
-    // re-sync, which takes seconds on a large library.
     @Query("DELETE FROM videos WHERE uri IN (:uris)")
     suspend fun deleteVideosByUri(uris: List<String>)
 
     @Query("DELETE FROM videos")
     suspend fun deleteAllVideos()
 
-    // Audios
     @Query("SELECT * FROM audios")
     fun getAllAudios(): Flow<List<AudioModel>>
 
-    // One-shot read used by the delta sync to compute what actually changed.
     @Query("SELECT * FROM audios")
     suspend fun getAudiosOnce(): List<AudioModel>
 
@@ -130,7 +123,6 @@ interface AppDao {
     @Delete
     suspend fun deleteAudios(audios: List<AudioModel>)
 
-    // Targeted removal after a successful MediaStore delete (see deleteVideosByUri).
     @Query("DELETE FROM audios WHERE uri IN (:uris)")
     suspend fun deleteAudiosByUri(uris: List<String>)
 

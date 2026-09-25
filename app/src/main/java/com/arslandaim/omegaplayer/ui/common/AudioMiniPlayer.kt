@@ -145,7 +145,6 @@ fun AudioMiniPlayer(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Top Accent Progress Bar
             if (duration > 0) {
                 LinearProgressIndicator(
                     progress = { (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) },
@@ -165,7 +164,6 @@ fun AudioMiniPlayer(
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Album Artwork
                 Box(
                     modifier = Modifier
                         .size(46.dp)

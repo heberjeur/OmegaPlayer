@@ -62,10 +62,8 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         StartupTrace.mark("edge-to-edge applied")
         setContent {
-            // First composition of the Activity content; remember runs it once.
             remember { StartupTrace.mark("content first composition"); true }
             LaunchedEffect(Unit) {
-                // Resumes on the next frame callback: close enough to the first drawn frame.
                 withFrameNanos { }
                 StartupTrace.onFirstFrame()
             }

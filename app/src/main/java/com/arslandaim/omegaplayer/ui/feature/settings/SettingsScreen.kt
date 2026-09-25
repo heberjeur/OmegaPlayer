@@ -913,7 +913,6 @@ fun SettingsScreen(
         }
 
         if (showStartupReportDialog) {
-            // The report is rebuilt from the last launch trace; the file on disk holds the same text.
             val report = remember { StartupTrace.buildReport(context) }
             val reportPath = remember { StartupTrace.reportFile(context).absolutePath }
             AlertDialog(

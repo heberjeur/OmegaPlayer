@@ -72,7 +72,6 @@ class VideoViewModel @Inject constructor(
     val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-
     fun addToPlaylist(playlistId: Int, videoUri: String) {
         viewModelScope.launch {
             playlistUseCases.addToPlaylist(playlistId, videoUri, "video")
@@ -192,10 +191,6 @@ class VideoViewModel @Inject constructor(
     }.onEach { list -> StartupTrace.markOnce("videos.firstEmission") { "videos flow first emission (${list.size} items)" } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // URI -> model lookup used to resolve playlist items and playback queues. It is built here,
-    // once per library change on a background thread, instead of inside HomeScreen composition:
-    // rebuilding it there cost main-thread time per emission (Uri.toString() + HashMap.put)
-    // and again on every return to the home destination. See AudioViewModel.audiosByUri.
     val videosByUri: StateFlow<Map<String, VideoModel>> = videos
         .map { list -> list.associateBy { it.uri.toString() } }
         .flowOn(Dispatchers.Default)
@@ -388,8 +383,6 @@ class VideoViewModel @Inject constructor(
         }
     }
 
-
-
     fun getVideosInFolder(folderPath: String): List<VideoModel> {
         return videos.value.filter { File(it.path).parentFile?.absolutePath == folderPath }
     }
@@ -415,10 +408,6 @@ class VideoViewModel @Inject constructor(
         manualRefresh()
     }
 
-    // Removes the given URIs straight from the cached list after MediaStore confirmed a
-    // delete. The success path must NOT go through manualRefresh(): that re-scans all of
-    // MediaStore (seconds on a large library) before the UI reflects the change, which is
-    // exactly the freeze that was reported after each deletion.
     fun onVideosDeleted(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
@@ -573,9 +562,6 @@ class VideoViewModel @Inject constructor(
         playbackConnection.playHistory(historyItems, startIndex, videos, audios, audiosByUri = audiosByUri)
     }
 
-
-
-
     fun setFolderQueue(folderVideos: List<VideoModel>) {
         val queueItems = folderVideos.map { video ->
             PlaybackQueueItem(
@@ -611,7 +597,6 @@ class VideoViewModel @Inject constructor(
         _stopAfterCurrent.value = stop
     }
 
-
     fun toggleSystemStatusBar(show: Boolean) = viewModelScope.launch { themePreferences.saveShowSystemStatusBar(show) }
     fun setNotifShowPrevious(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowPrevious(show) }
     fun setNotifShowRewind(show: Boolean) = viewModelScope.launch { themePreferences.saveNotifShowRewind(show) }
@@ -629,10 +614,6 @@ class VideoViewModel @Inject constructor(
     private val _currentNavPath = MutableStateFlow<String?>(null)
     val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
 
-    // The tree is rebuilt directly from the Room-backed list (a single O(n) pass) instead of
-    // being read back and Gson-parsed from the cached_trees table: JSON parsing with
-    // reflection was slower than rebuilding on large libraries, and the cached JSON also went
-    // stale after deletions.
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(videos, folderFlattenThreshold) { videoList, threshold ->
         StartupTrace.trace("folder tree rebuilt (${videoList.size} items)") { buildVideoTree(videoList, threshold) }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

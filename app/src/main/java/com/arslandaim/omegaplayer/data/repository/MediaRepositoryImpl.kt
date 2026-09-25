@@ -64,8 +64,6 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
-    // Serializes overlapping syncs: pull-to-refresh and a delete-triggered refresh can run
-    // concurrently, and deleting from history even requests both view models to refresh.
     private val syncMutex = Mutex()
 
     override suspend fun syncMediaWithSystem() {
@@ -76,11 +74,6 @@ class MediaRepositoryImpl @Inject constructor(
                 val audioResource = fetchAudios()
                 val videoResource = fetchVideos()
 
-                // Replace only what actually changed, inside one transaction per table. The old
-                // deleteAll + insertAll strategy rewrote all 30k rows on every refresh and made
-                // Room invalidate each table several times per sync (delete <> insert), so the
-                // UI received transient empty lists and rebuilt folder trees, URI maps and
-                // lists over and over - the app froze for seconds on each refresh or deletion.
                 database.withTransaction {
                     if (audioResource is Resource.Success) {
                         audioResource.data?.let { applyAudiosDelta(it) }
@@ -88,8 +81,6 @@ class MediaRepositoryImpl @Inject constructor(
                     if (videoResource is Resource.Success) {
                         videoResource.data?.let { applyVideosDelta(it) }
                     }
-                    // Cached trees are no longer read (the tree is rebuilt from the list),
-                    // but they must not survive a sync as stale data.
                     appDao.deleteCachedTree("audio")
                     appDao.deleteCachedTree("video")
                 }
@@ -111,11 +102,6 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * Writes [newList] into the audios table with minimal statements: missing rows are deleted,
-     * new rows inserted, changed rows updated. When nothing changed nothing is written, so Room
-     * emits no invalidation at all and a no-op refresh costs the UI nothing.
-     */
     private suspend fun applyAudiosDelta(newList: List<AudioModel>) {
         val currentById = appDao.getAudiosOnce().associateBy { it.id }
         val newById = newList.associateBy { it.id }
@@ -131,7 +117,6 @@ class MediaRepositoryImpl @Inject constructor(
         if (updated.isNotEmpty()) appDao.updateAudios(updated)
     }
 
-    /** Video counterpart of [applyAudiosDelta]. */
     private suspend fun applyVideosDelta(newList: List<VideoModel>) {
         val currentById = appDao.getVideosOnce().associateBy { it.id }
         val newById = newList.associateBy { it.id }

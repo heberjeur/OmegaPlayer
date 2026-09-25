@@ -115,11 +115,6 @@ class AudioViewModel @Inject constructor(
     }.onEach { list -> StartupTrace.markOnce("audios.firstEmission") { "audios flow first emission (${list.size} items)" } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // URI -> model lookup used to resolve playlist items and playback queues. It is built here,
-    // once per library change on a background thread, instead of inside HomeScreen composition:
-    // rebuilding it there cost 65-200ms of main-thread time per emission (Uri.toString() +
-    // HashMap.put over 30k items, sampled by the startup report) and again on every return to
-    // the home destination.
     val audiosByUri: StateFlow<Map<String, AudioModel>> = audios
         .map { list -> list.associateBy { it.uri.toString() } }
         .flowOn(Dispatchers.Default)
@@ -233,7 +228,6 @@ class AudioViewModel @Inject constructor(
             _sleepTimerTimeLeft.value = 0
             sleepTimerJob?.cancel()
             
-            // Wire up listener to stop when media item changes
             val controller = playbackConnection.mediaController.value ?: return
             controller.addListener(object : androidx.media3.common.Player.Listener {
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -327,9 +321,6 @@ class AudioViewModel @Inject constructor(
             }
         }
     }
-
-
-
 
     fun setSelectedFolder(folderName: String?) {
         _selectedFolder.value = folderName
@@ -447,10 +438,6 @@ class AudioViewModel @Inject constructor(
         manualRefresh()
     }
 
-    // Removes the given URIs straight from the cached list after MediaStore confirmed a
-    // delete. The success path must NOT go through manualRefresh(): that re-scans all of
-    // MediaStore (seconds on a large library) before the UI reflects the change, which is
-    // exactly the freeze that was reported after each deletion.
     fun onAudiosDeleted(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
@@ -568,10 +555,6 @@ class AudioViewModel @Inject constructor(
 
     fun setUpNextFullyExpanded(expanded: Boolean) = viewModelScope.launch { themePreferences.saveUpNextFullyExpanded(expanded) }
 
-    // The tree is rebuilt directly from the Room-backed list (a single O(n) pass) instead of
-    // being read back and Gson-parsed from the cached_trees table: JSON parsing with
-    // reflection was slower than rebuilding on large libraries, and the cached JSON also went
-    // stale after deletions.
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(audios, folderFlattenThreshold) { audioList, threshold ->
         StartupTrace.trace("folder tree rebuilt (${audioList.size} items)") { buildAudioTree(audioList, threshold) }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

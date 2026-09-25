@@ -19,8 +19,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // The module being profiled: the generator drives :app on the device and the
-    // profile is then wired into :app's release (and fastDebug) build.
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
 
@@ -34,7 +32,6 @@ android {
 }
 
 baselineProfile {
-    // Use a connected device/emulator on API 33+ (no root needed) to generate.
     useConnectedDevices = true
 }
 

@@ -29,14 +29,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * In-app startup profiler. Records timestamped marks since process start, durations of
- * measured blocks, cumulative counters (e.g. thumbnail loading) and blocking events
- * (main-thread stalls detected by a watchdog, StrictMode disk/network violations on the
- * main thread). A readable report is written to the app's external files root a few
- * seconds after the first frame is drawn, and can also be generated on demand from the
- * Settings screen.
- */
 object StartupTrace {
 
     const val REPORT_FILE_NAME = "startup-report.txt"
@@ -89,10 +81,8 @@ object StartupTrace {
 
     private val _latestReport = MutableStateFlow<String?>(null)
 
-    /** Latest generated report text, exposed for the in-app viewer. */
     val latestReport: StateFlow<String?> = _latestReport.asStateFlow()
 
-    /** Must be the first call in Application.onCreate to anchor all timestamps. */
     fun start(application: Application) {
         synchronized(lock) {
             if (started) return
@@ -103,23 +93,18 @@ object StartupTrace {
         mark("Application.onCreate begin")
     }
 
-    // ---- Recording API -----------------------------------------------------------
-
-    /** Records a point in time, on whichever thread calls it. */
     fun mark(label: String) {
         if (!started) return
         val entry = Mark(label, nowMs(), isMainThread(), Thread.currentThread().name, null)
         synchronized(lock) { addMarkLocked(entry) }
     }
 
-    /** Records [label] only the first time [key] is seen (e.g. first data emission). */
     fun markOnce(key: String, label: () -> String) {
         if (!started) return
         synchronized(lock) { if (!onceKeys.add(key)) return }
         mark(label())
     }
 
-    /** Runs [block], measures it and records the label together with its duration. */
     fun <T> trace(label: String, block: () -> T): T {
         val startedAt = SystemClock.uptimeMillis()
         try {
@@ -133,7 +118,6 @@ object StartupTrace {
         }
     }
 
-    /** Accumulates a named counter: calls, total time and time of the first call. */
     fun count(counter: String, durationMs: Long = 0L) {
         if (!started) return
         synchronized(lock) {
@@ -147,13 +131,6 @@ object StartupTrace {
         }
     }
 
-    // ---- Detectors ----------------------------------------------------------------
-
-    /**
-     * Samples main-thread responsiveness during the startup window. When the main thread stays
-     * stuck longer than [STALL_THRESHOLD_MS], this background thread captures the main thread's
-     * current stack (BlockCanary-style), so each stall in the report names the blocking code.
-     */
     fun startWatchdog() {
         if (!started) return
         synchronized(lock) {
@@ -169,7 +146,6 @@ object StartupTrace {
             while (SystemClock.uptimeMillis() < deadline) {
                 val since = pendingSince.get()
                 if (since == 0L) {
-                    // No pending ping: the main thread answered the previous one, episode over.
                     episodeIndex = -1
                     pendingSince.set(SystemClock.uptimeMillis())
                     mainHandler.post { pendingSince.set(0L) }
@@ -195,17 +171,12 @@ object StartupTrace {
         watchdog.start()
     }
 
-    /** Surfaces disk reads/writes and network calls happening on the main thread. */
     fun installStrictMode() {
         try {
             val builder = StrictMode.ThreadPolicy.Builder()
                 .detectDiskReads()
                 .detectDiskWrites()
                 .detectNetwork()
-            // penaltyListener exists since API 28, but its callback signature changed on
-            // API 36 (android.os.strictmode.Violation). This build only compiles against the
-            // new signature, so in-app capture is enabled on 36+ and older versions fall back
-            // to logcat-only penalties.
             if (Build.VERSION.SDK_INT >= 36) {
                 builder.penaltyListener(Executors.newSingleThreadExecutor()) { violation ->
                     recordStrictModeViolation(violation)
@@ -219,9 +190,6 @@ object StartupTrace {
         }
     }
 
-    // ---- Report -------------------------------------------------------------------
-
-    /** Called once the first frame has been drawn; schedules the file report. */
     fun onFirstFrame() {
         if (!started || firstFrameAtMs != null) return
         firstFrameAtMs = nowMs()
@@ -246,13 +214,11 @@ object StartupTrace {
         }
     }
 
-    /** File the report is written to: the app's external files root when available. */
     fun reportFile(context: Context): File {
         val base = context.getExternalFilesDir(null) ?: context.filesDir
         return File(base, REPORT_FILE_NAME)
     }
 
-    /** Builds the full text report from everything recorded so far. */
     fun buildReport(context: Context): String {
         val marksCopy: List<Mark>
         val blockersCopy: List<Blocker>
@@ -387,8 +353,6 @@ object StartupTrace {
         return sb.toString()
     }
 
-    // ---- Internals -----------------------------------------------------------------
-
     private fun addMarkLocked(mark: Mark) {
         if (marks.size >= MAX_MARKS) {
             marksOverflow = true
@@ -397,11 +361,6 @@ object StartupTrace {
         marks.add(mark)
     }
 
-    /**
-     * Creates or updates the blocker entry of the current stall episode. [previousIndex] is the
-     * entry created earlier in the same episode (-1 when a new episode starts): its busy time
-     * grows as the episode lasts, while the stack captured at onset pinpoints the blocking code.
-     */
     private fun recordStallSample(previousIndex: Int, busyMs: Long, stack: Array<StackTraceElement>): Int {
         synchronized(lock) {
             if (previousIndex in blockers.indices) {
@@ -440,8 +399,6 @@ object StartupTrace {
         }
     }
 
-    // Takes a plain Throwable so the method signature never references the API 36+
-    // android.os.strictmode.* types (Violation extends Throwable).
     private fun recordStrictModeViolation(violation: Throwable) {
         synchronized(lock) {
             if (strictModeEvents >= MAX_STRICTMODE_EVENTS) {

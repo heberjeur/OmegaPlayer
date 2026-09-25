@@ -37,9 +37,6 @@ class SmartVideoThumbFetcher(
             val targetWidth = options.size.width.pxOrElse { MAX_DECODE_WIDTH }
                 .coerceIn(64, MAX_DECODE_WIDTH)
 
-            // Fast path: reuse the thumbnail MediaStore has already generated and cached on
-            // disk. This avoids spinning up MediaMetadataRetriever (codec init) for most items,
-            // which is the main cost of loading a grid of video thumbnails right after startup.
             val fastPathStarted = SystemClock.uptimeMillis()
             systemThumbnail(context, model.uri, targetWidth)?.let { bitmap ->
                 StartupTrace.count("thumbnails.fastPath (MediaStore)", SystemClock.uptimeMillis() - fastPathStarted)
@@ -50,7 +47,6 @@ class SmartVideoThumbFetcher(
                 )
             }
 
-            // Slow path: decode a frame ourselves with MediaMetadataRetriever.
             val slowPathStarted = SystemClock.uptimeMillis()
             val retriever = MediaMetadataRetriever()
             try {
@@ -60,7 +56,6 @@ class SmartVideoThumbFetcher(
                 val videoWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
                 val videoHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
                 
-                // We try 1s, then 10%, 20%, 30% of the video if it's long enough
                 val timestampsToTry = mutableListOf(1000_000L) 
                 if (durationMs > 10000) {
                     timestampsToTry.add((durationMs * 0.1 * 1000).toLong())
@@ -74,7 +69,7 @@ class SmartVideoThumbFetcher(
                     if (bestBitmap != null && bestBitmap !== bitmap) bestBitmap.recycle()
                     bestBitmap = bitmap
                     if (!isMostlySolidColor(bitmap)) {
-                        break // We found a good frame
+                        break
                     }
                 }
                 
@@ -96,12 +91,6 @@ class SmartVideoThumbFetcher(
         }
     }
 
-    /**
-     * Returns the system-managed thumbnail for [uri], scaled down when larger than
-     * [targetWidth]. MediaStore keeps these thumbnails on disk, so reading one is far
-     * cheaper than decoding a video frame. Returns null when unavailable (caller falls
-     * back to frame extraction).
-     */
     private fun systemThumbnail(context: Context, uri: Uri, targetWidth: Int): Bitmap? {
         val original = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -154,7 +143,6 @@ class SmartVideoThumbFetcher(
         } else {
             targetWidth
         }
-        // API 27+ can decode the frame already scaled to the target size.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             retriever.getScaledFrameAtTime(
                 timeUs,
@@ -163,7 +151,6 @@ class SmartVideoThumbFetcher(
                 targetHeight
             )?.let { return it }
         }
-        // Fallback: decode the full frame, scale it down, then recycle the original.
         val frame = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: return null
         return try {
             val scaled = Bitmap.createScaledBitmap(frame, targetWidth, targetHeight, true)
@@ -176,7 +163,6 @@ class SmartVideoThumbFetcher(
 
     private fun isMostlySolidColor(bitmap: Bitmap): Boolean {
         try {
-            // Scale down drastically to compute standard deviation of colors
             val small = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
             var rSum = 0L
             var gSum = 0L
@@ -204,12 +190,9 @@ class SmartVideoThumbFetcher(
             }
             val stdDev = sqrt((variance / count).toDouble())
             
-            // A pure solid color has stdDev = 0.
-            // Almost solid black/white frames usually have stdDev < 15.
-            // Real scenes usually have stdDev > 40.
             return stdDev < 15.0
         } catch (e: Exception) {
-            return false // If something fails, assume it's not solid to prevent dropping a valid frame
+            return false
         }
     }
 
@@ -220,10 +203,6 @@ class SmartVideoThumbFetcher(
     }
 
     companion object {
-        /**
-         * Upper bound for decoded frame width. Thumbnails are shown at most a few
-         * hundred pixels wide, so decoding larger frames only wastes memory and CPU.
-         */
         private const val MAX_DECODE_WIDTH = 512
     }
 }
