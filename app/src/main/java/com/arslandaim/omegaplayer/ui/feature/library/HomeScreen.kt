@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.*
@@ -40,7 +41,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.arslandaim.omegaplayer.R
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,11 +57,9 @@ import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.feature.library.components.*
 import com.arslandaim.omegaplayer.util.StartupTrace
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 enum class MediaTab { VIDEOS, AUDIOS, PLAYLISTS, HISTORY }
 
@@ -405,125 +403,50 @@ fun HomeScreen(
     var selectedHistoryForDelete by remember { mutableStateOf<RecentPlayback?>(null) }
     var folderToDelete by remember { mutableStateOf<String?>(null) }
 
-    if (folderToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { folderToDelete = null },
-            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.delete_video_folder_title) else stringResource(R.string.delete_audio_folder_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = stringResource(R.string.delete_folder_confirm, folderToDelete!!), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-            confirmButton = {
-                Button(onClick = {
-                    val folderName = folderToDelete!!
-                    folderToDelete = null
-                    scope.launch {
-                        isProcessing = true
-                        if (selectedTab == MediaTab.VIDEOS) {
-                            val videosToDelete = viewModel.getVideosInFolder(folderName)
-                            if (videosToDelete.isNotEmpty()) {
-                                videosToDelete.forEach { viewModel.deleteHistoryItem(it.uri.toString()) }
-                                viewModel.stopIfPlaying(videosToDelete.map { it.uri })
-                                val deletedUris = withContext(Dispatchers.IO) {
-                                    videosToDelete.filter { context.contentResolver.delete(it.uri, null, null) > 0 }.map { it.uri }
-                                }
-                                if (deletedUris.isNotEmpty()) viewModel.onVideosDeleted(deletedUris)
-                                if (deletedUris.size != videosToDelete.size) viewModel.refreshVideos(context)
-                            }
-                        } else {
-                            val audiosToDelete = audioViewModel.getAudiosInFolder(folderName)
-                            if (audiosToDelete.isNotEmpty()) {
-                                audiosToDelete.forEach { audioViewModel.deleteHistoryItem(it.uri.toString()) }
-                                audioViewModel.stopIfPlaying(audiosToDelete.map { it.uri })
-                                val deletedUris = withContext(Dispatchers.IO) {
-                                    audiosToDelete.filter { context.contentResolver.delete(it.uri, null, null) > 0 }.map { it.uri }
-                                }
-                                if (deletedUris.isNotEmpty()) audioViewModel.onAudiosDeleted(deletedUris)
-                                if (deletedUris.size != audiosToDelete.size) audioViewModel.refreshAudios(context)
-                            }
-                        }
-                        isProcessing = false
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { folderToDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
+    folderToDelete?.let { folderName ->
+        DeleteFolderDialog(
+            folderName = folderName,
+            isVideoTab = selectedTab == MediaTab.VIDEOS,
+            viewModel = viewModel,
+            audioViewModel = audioViewModel,
+            context = context,
+            scope = scope,
+            onProcessingChange = { isProcessing = it },
+            onDismiss = { folderToDelete = null }
         )
     }
 
-    if (selectedVideoForDelete != null) {
-        AlertDialog(
-            onDismissRequest = { selectedVideoForDelete = null },
-            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = stringResource(R.string.delete_video_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = stringResource(R.string.delete_media_confirm, selectedVideoForDelete!!.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-            confirmButton = {
-                Button(onClick = {
-                    val video = selectedVideoForDelete!!
-                    selectedVideoForDelete = null
-                    scope.launch {
-                        isProcessing = true
-                        viewModel.deleteHistoryItem(video.uri.toString())
-                        viewModel.stopIfPlaying(video.uri)
-                        val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(video.uri, null, null) }
-                        if (deleted > 0) viewModel.onVideosDeleted(listOf(video.uri)) else viewModel.refreshVideos(context)
-                        isProcessing = false
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { selectedVideoForDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
+    selectedVideoForDelete?.let { video ->
+        DeleteVideoDialog(
+            video = video,
+            viewModel = viewModel,
+            context = context,
+            scope = scope,
+            onProcessingChange = { isProcessing = it },
+            onDismiss = { selectedVideoForDelete = null }
         )
     }
 
-    if (selectedAudioForDelete != null) {
-        AlertDialog(
-            onDismissRequest = { selectedAudioForDelete = null },
-            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = stringResource(R.string.delete_audio_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = stringResource(R.string.delete_media_confirm, selectedAudioForDelete!!.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-            confirmButton = {
-                Button(onClick = {
-                    val audio = selectedAudioForDelete!!
-                    selectedAudioForDelete = null
-                    scope.launch {
-                        isProcessing = true
-                        audioViewModel.deleteHistoryItem(audio.uri.toString())
-                        audioViewModel.stopIfPlaying(audio.uri)
-                        val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(audio.uri, null, null) }
-                        if (deleted > 0) audioViewModel.onAudiosDeleted(listOf(audio.uri)) else audioViewModel.refreshAudios(context)
-                        isProcessing = false
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { selectedAudioForDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
+    selectedAudioForDelete?.let { audio ->
+        DeleteAudioDialog(
+            audio = audio,
+            audioViewModel = audioViewModel,
+            context = context,
+            scope = scope,
+            onProcessingChange = { isProcessing = it },
+            onDismiss = { selectedAudioForDelete = null }
         )
     }
 
-    if (selectedHistoryForDelete != null) {
-        AlertDialog(
-            onDismissRequest = { selectedHistoryForDelete = null },
-            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(text = stringResource(R.string.delete_media_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-            text = { Text(text = stringResource(R.string.delete_media_from_device_confirm, selectedHistoryForDelete!!.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-            confirmButton = {
-                Button(onClick = {
-                    val item = selectedHistoryForDelete!!
-                    selectedHistoryForDelete = null
-                    scope.launch {
-                        isProcessing = true
-                        viewModel.deleteHistoryItem(item.uri)
-                        val uriToDel = Uri.parse(item.uri)
-                        val isVideo = item.mediaType == "video"
-                        if (isVideo) viewModel.stopIfPlaying(uriToDel) else audioViewModel.stopIfPlaying(uriToDel)
-                        val deleted = withContext(Dispatchers.IO) { context.contentResolver.delete(uriToDel, null, null) }
-                        if (deleted > 0) {
-                            if (isVideo) viewModel.onVideosDeleted(listOf(uriToDel)) else audioViewModel.onAudiosDeleted(listOf(uriToDel))
-                        } else {
-                            viewModel.refreshVideos(context)
-                            audioViewModel.refreshAudios(context)
-                        }
-                        isProcessing = false
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { selectedHistoryForDelete = null }) { Text(stringResource(R.string.action_cancel)) } }
+    selectedHistoryForDelete?.let { item ->
+        DeleteHistoryItemDialog(
+            item = item,
+            viewModel = viewModel,
+            audioViewModel = audioViewModel,
+            context = context,
+            scope = scope,
+            onProcessingChange = { isProcessing = it },
+            onDismiss = { selectedHistoryForDelete = null }
         )
     }
 
@@ -686,7 +609,7 @@ fun HomeScreen(
                             imageVector = when (currentTabViewMode) {
                                 1 -> Icons.Default.GridView
                                 2 -> Icons.Default.ViewAgenda
-                                else -> Icons.Default.ViewList
+                                else -> Icons.AutoMirrored.Filled.ViewList
                             },
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
