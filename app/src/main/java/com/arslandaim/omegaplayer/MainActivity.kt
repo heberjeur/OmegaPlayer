@@ -31,9 +31,6 @@ import com.arslandaim.omegaplayer.ui.navigation.Screen
 import com.arslandaim.omegaplayer.ui.feature.player.VideoPlayerScreen
 import com.arslandaim.omegaplayer.ui.feature.settings.SettingsScreen
 import com.arslandaim.omegaplayer.ui.theme.OmegaPlayerTheme
-import java.net.URLDecoder
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel

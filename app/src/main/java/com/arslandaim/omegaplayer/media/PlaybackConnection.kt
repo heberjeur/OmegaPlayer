@@ -2,7 +2,6 @@ package com.arslandaim.omegaplayer.media
 
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -15,7 +14,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 

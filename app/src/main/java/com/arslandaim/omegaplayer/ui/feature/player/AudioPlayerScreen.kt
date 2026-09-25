@@ -6,11 +6,9 @@
 
 package com.arslandaim.omegaplayer.ui.feature.player
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,12 +20,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
@@ -36,19 +31,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.arslandaim.omegaplayer.R
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
-import androidx.palette.graphics.Palette
 import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
 import coil.compose.AsyncImage
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.SuccessResult
-import coil.request.videoFrameMillis
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.ui.common.WaveformVisualizer
 import kotlinx.coroutines.Dispatchers
@@ -57,31 +45,22 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.content.ContentUris
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 
-import android.media.audiofx.Equalizer
 import androidx.compose.foundation.clickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.IntentSenderRequest
-import android.provider.MediaStore
-import android.content.Intent
 import android.widget.Toast
 import com.arslandaim.omegaplayer.data.Playlist
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Switch
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import com.arslandaim.omegaplayer.data.AudioModel
 import android.content.Context
-import android.app.ActivityManager
-import android.os.Build
 import android.util.Log
 import androidx.compose.ui.graphics.graphicsLayer
 

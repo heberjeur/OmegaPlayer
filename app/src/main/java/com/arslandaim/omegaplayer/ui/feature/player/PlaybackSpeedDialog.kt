@@ -30,7 +30,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.arslandaim.omegaplayer.R
-import kotlin.math.roundToInt
 
 import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.mutableStateOf

@@ -1,7 +1,6 @@
 package com.arslandaim.omegaplayer.ui.feature.library.components
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,8 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,8 +23,6 @@ import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable

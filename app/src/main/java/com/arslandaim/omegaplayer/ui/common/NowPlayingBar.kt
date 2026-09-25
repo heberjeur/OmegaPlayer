@@ -10,7 +10,6 @@ import androidx.compose.animation.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.MediaItem
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.util.MediaUtils
 

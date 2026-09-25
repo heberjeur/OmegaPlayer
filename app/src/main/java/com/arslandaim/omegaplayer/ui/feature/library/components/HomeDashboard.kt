@@ -24,8 +24,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.feature.library.MediaTab
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable

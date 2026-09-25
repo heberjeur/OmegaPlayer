@@ -2,12 +2,7 @@ package com.arslandaim.omegaplayer.data.repository
 
 import android.content.ContentUris
 import android.content.Context
-import android.database.ContentObserver
-import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.provider.MediaStore
-import android.util.Log
 import androidx.room.withTransaction
 import com.arslandaim.omegaplayer.data.AppDatabase
 import com.arslandaim.omegaplayer.data.AudioModel
@@ -15,15 +10,10 @@ import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.util.Resource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.conflate
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton

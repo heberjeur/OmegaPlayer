@@ -5,11 +5,9 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -64,8 +62,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 enum class MediaTab { VIDEOS, AUDIOS, PLAYLISTS, HISTORY }
 

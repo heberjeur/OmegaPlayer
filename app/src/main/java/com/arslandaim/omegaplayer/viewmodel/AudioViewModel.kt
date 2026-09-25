@@ -22,7 +22,6 @@ import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.data.repository.PlaybackRepository
 import com.arslandaim.omegaplayer.data.ThemePreferences
-import com.arslandaim.omegaplayer.domain.usecase.media.GetVideosUseCase
 import com.arslandaim.omegaplayer.domain.usecase.media.SyncMediaUseCase
 import com.arslandaim.omegaplayer.domain.usecase.playback.GetRecentPlaybackUseCase
 import com.arslandaim.omegaplayer.domain.usecase.playback.PlaylistUseCases
