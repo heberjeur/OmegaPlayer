@@ -79,6 +79,13 @@ fun applySystemMusicVolume(audioManager: AudioManager?, volume: Float, maxVolume
 private fun systemVolumeFor(volume: Float, maxVolume: Int): Int =
     round(volume.coerceAtMost(1f) * maxVolume).toInt()
 
+fun setBrightness(context: Context, brightness: Float) {
+    val activity = context as? Activity ?: return
+    val layoutParams = activity.window.attributes
+    layoutParams.screenBrightness = brightness
+    activity.window.attributes = layoutParams
+}
+
 @Composable
 fun SystemVolumeSyncEffect(
     audioManager: AudioManager?,

@@ -45,6 +45,7 @@ import com.arslandaim.omegaplayer.ui.common.rememberInitialSystemBrightness
 import com.arslandaim.omegaplayer.ui.common.rememberInitialSystemVolume
 import com.arslandaim.omegaplayer.ui.common.rememberSystemAudioManager
 import com.arslandaim.omegaplayer.ui.common.rememberSystemMaxVolume
+import com.arslandaim.omegaplayer.ui.common.setBrightness
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
