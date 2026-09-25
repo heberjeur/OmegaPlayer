@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.draw.clip
@@ -194,7 +195,7 @@ fun PlayerDropdownMenu(
                 onDismiss()
                 onPlaylistClick()
             },
-            leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null) }
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
         )
         DropdownMenuItem(
             text = {

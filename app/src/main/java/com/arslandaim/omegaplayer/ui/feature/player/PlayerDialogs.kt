@@ -166,7 +166,7 @@ fun AddToPlaylistDialog(
                         items(playlists) { playlist ->
                             ListItem(
                                 headlineContent = { Text(playlist.name) },
-                                leadingContent = { Icon(Icons.Default.PlaylistPlay, contentDescription = null) },
+                                leadingContent = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null) },
                                 modifier = Modifier.clickable { onPlaylistSelected(playlist.id) }
                             )
                         }
