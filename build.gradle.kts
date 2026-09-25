@@ -20,7 +20,7 @@ buildscript {
             force("org.bitbucket.b_c:jose4j:0.9.6")
             force("org.jdom:jdom2:2.0.6.1")
             force("org.apache.commons:commons-lang3:3.18.0")
-            force("org.apache.httpcomponents:httpclient:4.5.13")
+            force("org.apache.httpcomponents:httpclient:4.5.14")
         }
     }
 }
@@ -33,7 +33,7 @@ allprojects {
             force("org.bitbucket.b_c:jose4j:0.9.6")
             force("org.jdom:jdom2:2.0.6.1")
             force("org.apache.commons:commons-lang3:3.18.0")
-            force("org.apache.httpcomponents:httpclient:4.5.13")
+            force("org.apache.httpcomponents:httpclient:4.5.14")
         }
     }
 }
