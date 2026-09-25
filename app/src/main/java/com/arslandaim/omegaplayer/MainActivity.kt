@@ -32,7 +32,7 @@ import com.arslandaim.omegaplayer.ui.feature.player.VideoPlayerScreen
 import com.arslandaim.omegaplayer.ui.feature.settings.SettingsScreen
 import com.arslandaim.omegaplayer.ui.theme.OmegaPlayerTheme
 
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.viewmodel.ThemeViewModel
