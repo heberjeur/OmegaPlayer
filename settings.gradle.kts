@@ -30,4 +30,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "OmegaPlayer"
 include(":app")
+include(":baselineprofile")
  

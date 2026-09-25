@@ -10,6 +10,9 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
+    // Required on the root classpath so :baselineprofile can resolve com.android.test
+    // alongside the com.android.application plugin already used by :app.
+    alias(libs.plugins.android.test) apply false
 }
 
 buildscript {

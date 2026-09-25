@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -31,6 +32,16 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // Release-identical (R8 + resource shrinking) but signed with the debug key and
+        // profileable, so it can be built, installed and measured locally with one command:
+        //   .\gradlew.bat installFastDebug
+        // A plain `debug` build is not representative for speed: it skips R8, runs with
+        // debugging enabled and includes Compose tooling.
+        create("fastDebug") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            isProfileable = true
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -44,6 +55,12 @@ android {
     }
 }
 
+baselineProfile {
+    // Persist the generated baseline profile in the repository so every build
+    // (including CI) ships it and users' cold starts are pre-compiled.
+    saveInSrc = true
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -55,6 +72,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
+    implementation("com.google.code.gson:gson:2.10.1")
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.media3.exoplayer)
@@ -89,4 +107,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // Baseline profile generator, run with: .\gradlew.bat :app:generateBaselineProfile
+    baselineProfile(project(":baselineprofile"))
 }
