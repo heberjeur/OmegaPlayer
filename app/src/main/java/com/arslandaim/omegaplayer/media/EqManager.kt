@@ -5,11 +5,8 @@ import android.media.audiofx.LoudnessEnhancer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import android.util.Log
 import javax.inject.Inject
 import javax.inject.Singleton
-
-private const val TAG = "EqManager"
 
 @Singleton
 class EqManager @Inject constructor() {
@@ -28,34 +25,23 @@ class EqManager @Inject constructor() {
 
     fun setupEqualizer(audioSessionId: Int) {
         if (audioSessionId == 0) return
-        try {
-            val previousBands = _bands.value
-            equalizer?.release()
-            equalizer = Equalizer(0, audioSessionId).apply {
-                enabled = _enabled.value
+        val previousBands = _bands.value
+        equalizer?.release()
+        equalizer = Equalizer(0, audioSessionId).apply {
+            enabled = _enabled.value
+        }
+        if (previousBands.isNotEmpty()) {
+            previousBands.forEach { band ->
+                equalizer?.setBandLevel(band.id, band.level)
             }
-            if (previousBands.isNotEmpty()) {
-                previousBands.forEach { band ->
-                    try {
-                        equalizer?.setBandLevel(band.id, band.level)
-                    } catch (e: RuntimeException) {
-                        equalizer = null
-                        Log.w(TAG, "Failed to restore equalizer band ${band.id}", e)
-                    }
-                }
-            }
-            loadBands()
-            loadPresets()
-            
-            loudnessEnhancer?.release()
-            loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
-                setTargetGain(calculateGainMb(currentBoostScale))
-                enabled = true
-            }
-        } catch (e: RuntimeException) {
-            equalizer = null
-            loudnessEnhancer = null
-            Log.w(TAG, "Failed to set up equalizer for audio session $audioSessionId", e)
+        }
+        loadBands()
+        loadPresets()
+
+        loudnessEnhancer?.release()
+        loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+            setTargetGain(calculateGainMb(currentBoostScale))
+            enabled = true
         }
     }
 
@@ -69,12 +55,7 @@ class EqManager @Inject constructor() {
 
     fun setVolumeBoostScale(scale: Float) {
         currentBoostScale = scale.coerceIn(1.0f, 2.0f)
-        try {
-            loudnessEnhancer?.setTargetGain(calculateGainMb(currentBoostScale))
-        } catch (e: RuntimeException) {
-            loudnessEnhancer = null
-            Log.w(TAG, "Failed to update volume boost gain", e)
-        }
+        loudnessEnhancer?.setTargetGain(calculateGainMb(currentBoostScale))
     }
 
     fun release() {

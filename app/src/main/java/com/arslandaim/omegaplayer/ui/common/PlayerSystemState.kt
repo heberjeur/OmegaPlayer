@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.ui.common
 
 import android.app.Activity
@@ -16,15 +10,12 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import kotlin.math.round
-
-private const val TAG = "PlayerSystemState"
 
 private const val DEFAULT_MAX_VOLUME = 15
 private const val DEFAULT_VOLUME = 0.5f
@@ -60,10 +51,10 @@ fun rememberInitialSystemBrightness(): Float {
         if (windowBrightness >= MIN_BRIGHTNESS) {
             windowBrightness.coerceIn(MIN_BRIGHTNESS, 1f)
         } else {
-            try {
-                val systemBrightness = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            val systemBrightness = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, -1)
+            if (systemBrightness >= 0) {
                 (systemBrightness / 255f).coerceIn(MIN_BRIGHTNESS, 1f)
-            } catch (_: Settings.SettingNotFoundException) {
+            } else {
                 DEFAULT_BRIGHTNESS
             }
         }
@@ -122,15 +113,11 @@ fun SystemVolumeSyncEffect(
                 syncFromSystem()
             }
         }
-        try {
-            context.contentResolver.registerContentObserver(
-                Settings.System.CONTENT_URI,
-                true,
-                contentObserver
-            )
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Failed to register volume observer", e)
-        }
+        context.contentResolver.registerContentObserver(
+            Settings.System.CONTENT_URI,
+            true,
+            contentObserver
+        )
 
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
@@ -141,28 +128,16 @@ fun SystemVolumeSyncEffect(
             addAction(VOLUME_CHANGED_ACTION)
             addAction(STREAM_MUTE_CHANGED_ACTION)
         }
-        try {
-            ContextCompat.registerReceiver(
-                context,
-                receiver,
-                filter,
-                ContextCompat.RECEIVER_NOT_EXPORTED
-            )
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Failed to register volume receiver", e)
-        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         onDispose {
-            try {
-                context.contentResolver.unregisterContentObserver(contentObserver)
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "Failed to unregister volume observer", e)
-            }
-            try {
-                context.unregisterReceiver(receiver)
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "Failed to unregister volume receiver", e)
-            }
+            context.contentResolver.unregisterContentObserver(contentObserver)
+            context.unregisterReceiver(receiver)
         }
     }
 }

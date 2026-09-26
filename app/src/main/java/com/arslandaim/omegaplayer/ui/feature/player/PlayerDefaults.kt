@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.ui.feature.player
 
 internal const val SEEK_TOLERANCE_MS = 2000L

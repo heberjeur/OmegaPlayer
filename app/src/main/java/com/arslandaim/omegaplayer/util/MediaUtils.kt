@@ -32,26 +32,30 @@ object MediaUtils {
 
     fun safeEncodeUri(uri: String): String {
         var raw = uri
-        while (raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) {
-            try {
-                raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
-            } catch (_: IllegalArgumentException) {
-                break
-            }
+        while ((raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) && hasOnlyValidEscapes(raw)) {
+            raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
         }
         return java.net.URLEncoder.encode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
     }
 
     fun safeDecodeUri(uri: String): String {
         var raw = uri
-        while (raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) {
-            try {
-                raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
-            } catch (_: IllegalArgumentException) {
-                break
-            }
+        while ((raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) && hasOnlyValidEscapes(raw)) {
+            raw = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8.toString())
         }
         return raw
+    }
+
+    private fun hasOnlyValidEscapes(value: String): Boolean {
+        var index = 0
+        while (index < value.length) {
+            if (value[index] == '%') {
+                if (index + 2 >= value.length || value[index + 1].digitToIntOrNull(16) == null || value[index + 2].digitToIntOrNull(16) == null) return false
+                index += 2
+            }
+            index++
+        }
+        return true
     }
 
     fun albumArtUri(albumId: Long): Uri = ContentUris.withAppendedId(Uri.parse(ALBUM_ART_BASE_URI), albumId)

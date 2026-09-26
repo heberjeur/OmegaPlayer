@@ -164,11 +164,7 @@ fun HomeScreen(
     }.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
 
     val currentSortOrder = remember(currentSortOrderName) {
-        try {
-            MediaSortOrder.valueOf(currentSortOrderName)
-        } catch (_: IllegalArgumentException) {
-            MediaSortOrder.DATE_DESC
-        }
+        MediaSortOrder.values().firstOrNull { it.name == currentSortOrderName } ?: MediaSortOrder.DATE_DESC
     }
 
     val isCurrentFolderOpen = remember(selectedTab, selectedVideoFolder, selectedAudioFolder, selectedPlaylistForDetails) {

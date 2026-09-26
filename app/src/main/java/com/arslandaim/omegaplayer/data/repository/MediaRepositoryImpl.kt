@@ -135,41 +135,37 @@ class MediaRepositoryImpl @Inject constructor(
             MediaStore.Audio.Media.DATA
         )
 
-        try {
-            val cursor = context.contentResolver.query(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                projection,
-                null,
-                null,
-                "${MediaStore.Audio.Media.DATE_ADDED} DESC"
-            )
+        val cursor = context.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            null,
+            null,
+            "${MediaStore.Audio.Media.DATE_ADDED} DESC"
+        )
 
-            cursor?.use {
-                val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                val albumIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-                val artistColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-                val albumColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-                val durationColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-                val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-                val dataColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+        cursor?.use {
+            val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val albumIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val nameColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val artistColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val durationColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+            val dataColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
 
-                while (it.moveToNext()) {
-                    val id = it.getLong(idColumn)
-                    val albumId = it.getLong(albumIdColumn)
-                    val name = it.getString(nameColumn) ?: "Unknown"
-                    val artist = it.getString(artistColumn) ?: "Unknown Artist"
-                    val album = it.getString(albumColumn) ?: "Unknown Album"
-                    val duration = it.getLong(durationColumn)
-                    val size = it.getLong(sizeColumn)
-                    val path = it.getString(dataColumn) ?: ""
-                    val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+            while (it.moveToNext()) {
+                val id = it.getLong(idColumn)
+                val albumId = it.getLong(albumIdColumn)
+                val name = it.getString(nameColumn) ?: "Unknown"
+                val artist = it.getString(artistColumn) ?: "Unknown Artist"
+                val album = it.getString(albumColumn) ?: "Unknown Album"
+                val duration = it.getLong(durationColumn)
+                val size = it.getLong(sizeColumn)
+                val path = it.getString(dataColumn) ?: ""
+                val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
-                    list.add(AudioModel(id, albumId, contentUri, name, artist, album, duration, size, path))
-                }
+                list.add(AudioModel(id, albumId, contentUri, name, artist, album, duration, size, path))
             }
-        } catch (e: Exception) {
-            return Resource.Error("Failed to fetch audios", e)
         }
         return Resource.Success(list)
     }
@@ -184,35 +180,31 @@ class MediaRepositoryImpl @Inject constructor(
             MediaStore.Video.Media.DATA
         )
 
-        try {
-            val cursor = context.contentResolver.query(
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                projection,
-                null,
-                null,
-                "${MediaStore.Video.Media.DATE_ADDED} DESC"
-            )
+        val cursor = context.contentResolver.query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            null,
+            null,
+            "${MediaStore.Video.Media.DATE_ADDED} DESC"
+        )
 
-            cursor?.use {
-                val idColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-                val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-                val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-                val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+        cursor?.use {
+            val idColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+            val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+            val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
 
-                while (it.moveToNext()) {
-                    val id = it.getLong(idColumn)
-                    val name = it.getString(nameColumn) ?: "Unknown"
-                    val duration = it.getLong(durationColumn)
-                    val size = it.getLong(sizeColumn)
-                    val path = it.getString(dataColumn) ?: ""
-                    val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+            while (it.moveToNext()) {
+                val id = it.getLong(idColumn)
+                val name = it.getString(nameColumn) ?: "Unknown"
+                val duration = it.getLong(durationColumn)
+                val size = it.getLong(sizeColumn)
+                val path = it.getString(dataColumn) ?: ""
+                val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
 
-                    list.add(VideoModel(id, contentUri, name, duration, size, path))
-                }
+                list.add(VideoModel(id, contentUri, name, duration, size, path))
             }
-        } catch (e: Exception) {
-            return Resource.Error("Failed to fetch videos", e)
         }
         return Resource.Success(list)
     }

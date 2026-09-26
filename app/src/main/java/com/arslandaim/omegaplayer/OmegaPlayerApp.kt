@@ -1,13 +1,6 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer
 
 import android.app.Application
-import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
@@ -17,8 +10,6 @@ import coil.memory.MemoryCache
 import com.arslandaim.omegaplayer.util.SmartVideoThumbFetcher
 import com.arslandaim.omegaplayer.util.StartupTrace
 import dagger.hilt.android.HiltAndroidApp
-
-private const val TAG = "OmegaPlayerApp"
 
 @HiltAndroidApp
 class OmegaPlayerApp : Application(), ImageLoaderFactory {
@@ -34,25 +25,17 @@ class OmegaPlayerApp : Application(), ImageLoaderFactory {
 
     private fun warmApplicationInfoCache() {
         Thread({
-            try {
-                applicationInfo
-                packageManager.getApplicationInfo(packageName, 0)
-                android.provider.Settings.Global.getInt(
-                    contentResolver, "animator_duration_scale", 1
-                )
-            } catch (e: Exception) {
-                Log.w(TAG, "Application info warmup failed", e)
-            }
+            applicationInfo
+            packageManager.getApplicationInfo(packageName, 0)
+            android.provider.Settings.Global.getInt(
+                contentResolver, "animator_duration_scale", 1
+            )
         }, "app-info-warmup").apply { isDaemon = true }.start()
     }
 
     private fun warmImageLoader() {
         Thread({
-            try {
-                imageLoader
-            } catch (e: Exception) {
-                Log.w(TAG, "ImageLoader warmup failed", e)
-            }
+            imageLoader
         }, "coil-warmup").apply { isDaemon = true }.start()
     }
 

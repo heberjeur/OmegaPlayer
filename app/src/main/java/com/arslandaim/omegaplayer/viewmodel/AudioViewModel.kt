@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.viewmodel
 
 import android.app.Application
@@ -393,13 +387,8 @@ class AudioViewModel @Inject constructor(
     fun manualRefresh() {
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            try {
-                syncMediaUseCase()
-            } catch (e: Exception) {
-                _audioError.value = e.message
-            } finally {
-                _isLoading.value = false
-            }
+            syncMediaUseCase()
+            _isLoading.value = false
         }
     }
 

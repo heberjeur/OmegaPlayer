@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.data
 
 import android.content.Context
@@ -71,11 +65,7 @@ class ThemePreferences(private val context: Context) {
 
     val theme: Flow<AppTheme> = context.dataStore.data.map { preferences ->
         val themeName = preferences[THEME_KEY] ?: AppTheme.SYSTEM.name
-        try {
-            AppTheme.valueOf(themeName)
-        } catch (_: IllegalArgumentException) {
-            AppTheme.SYSTEM
-        }
+        AppTheme.values().firstOrNull { it.name == themeName } ?: AppTheme.SYSTEM
     }
 
     val dynamicColor: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -104,11 +94,7 @@ class ThemePreferences(private val context: Context) {
 
     val speedScope: Flow<PlaybackSpeedScope> = context.dataStore.data.map { preferences ->
         val scopeName = preferences[SPEED_SCOPE_KEY] ?: PlaybackSpeedScope.GLOBAL.name
-        try {
-            PlaybackSpeedScope.valueOf(scopeName)
-        } catch (_: IllegalArgumentException) {
-            PlaybackSpeedScope.GLOBAL
-        }
+        PlaybackSpeedScope.values().firstOrNull { it.name == scopeName } ?: PlaybackSpeedScope.GLOBAL
     }
 
     val globalPlaybackSpeed: Flow<Float> = context.dataStore.data.map { preferences ->

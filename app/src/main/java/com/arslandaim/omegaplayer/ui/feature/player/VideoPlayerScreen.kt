@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.ui.feature.player
 
 import android.app.Activity
@@ -19,7 +13,6 @@ import android.os.BatteryManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import android.provider.MediaStore
-import android.util.Log
 import android.util.Rational
 import android.view.LayoutInflater
 import android.widget.Toast
@@ -104,8 +97,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
-
-private const val TAG = "VideoPlayerScreen"
 
 @AndroidOptIn(UnstableApi::class)
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
@@ -197,11 +188,7 @@ fun VideoPlayerScreen(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 builder.setAutoEnterEnabled(!isBackgroundPlayEnabled)
             }
-            try {
-                activity?.enterPictureInPictureMode(builder.build())
-            } catch (e: IllegalStateException) {
-                Log.w(TAG, "Failed to enter picture-in-picture", e)
-            }
+            activity?.enterPictureInPictureMode(builder.build())
         }
     }
 
@@ -209,14 +196,7 @@ fun VideoPlayerScreen(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: SecurityException) {
-                Log.w(TAG, "Failed to persist subtitle URI permission", e)
-            }
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
             val player = mediaController ?: return@rememberLauncherForActivityResult
             val currentItem = player.currentMediaItem ?: return@rememberLauncherForActivityResult
@@ -307,22 +287,9 @@ fun VideoPlayerScreen(
             }
         }
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        try {
-            ContextCompat.registerReceiver(
-                context,
-                receiver,
-                filter,
-                ContextCompat.RECEIVER_EXPORTED
-            )
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Failed to register battery receiver", e)
-        }
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
         onDispose {
-            try {
-                context.unregisterReceiver(receiver)
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "Failed to unregister battery receiver", e)
-            }
+            context.unregisterReceiver(receiver)
         }
     }
 
@@ -624,21 +591,16 @@ fun VideoPlayerScreen(
             foundName
         } else {
             var queriedName: String? = null
-            try {
-                val parsedUri = Uri.parse(videoUri)
-                if (parsedUri.scheme == "content") {
-                    context.contentResolver.query(parsedUri, arrayOf(MediaStore.Video.Media.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val col = cursor.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
-                            if (col != -1) {
-                                queriedName = cursor.getString(col)
-                            }
+            val parsedUri = Uri.parse(videoUri)
+            if (parsedUri.scheme == "content") {
+                context.contentResolver.query(parsedUri, arrayOf(MediaStore.Video.Media.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val col = cursor.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                        if (col != -1) {
+                            queriedName = cursor.getString(col)
                         }
                     }
                 }
-            } catch (e: RuntimeException) {
-                queriedName = null
-                Log.w(TAG, "Failed to query video display name", e)
             }
             queriedName ?: videoUri.substringAfterLast("/").substringBeforeLast(".")
         }

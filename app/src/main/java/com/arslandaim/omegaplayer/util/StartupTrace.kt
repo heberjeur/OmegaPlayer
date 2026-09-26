@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.util
 
 import android.app.Application
@@ -15,7 +9,6 @@ import android.os.Looper
 import android.os.Process
 import android.os.StrictMode
 import android.os.SystemClock
-import android.util.Log
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -32,8 +25,6 @@ import kotlinx.coroutines.launch
 object StartupTrace {
 
     const val REPORT_FILE_NAME = "startup-report.txt"
-    private const val TAG = "StartupTrace"
-
     private const val SAMPLE_INTERVAL_MS = 32L
     private const val STALL_THRESHOLD_MS = 64L
     private const val WATCHDOG_WINDOW_MS = 60_000L
@@ -107,15 +98,13 @@ object StartupTrace {
 
     fun <T> trace(label: String, block: () -> T): T {
         val startedAt = SystemClock.uptimeMillis()
-        try {
-            return block()
-        } finally {
-            if (started) {
-                val duration = SystemClock.uptimeMillis() - startedAt
-                val entry = Mark(label, nowMs() - duration, isMainThread(), Thread.currentThread().name, duration)
-                synchronized(lock) { addMarkLocked(entry) }
-            }
+        val result = block()
+        if (started) {
+            val duration = SystemClock.uptimeMillis() - startedAt
+            val entry = Mark(label, nowMs() - duration, isMainThread(), Thread.currentThread().name, duration)
+            synchronized(lock) { addMarkLocked(entry) }
         }
+        return result
     }
 
     fun count(counter: String, durationMs: Long = 0L) {
@@ -152,19 +141,11 @@ object StartupTrace {
                 } else {
                     val busyFor = SystemClock.uptimeMillis() - since
                     if (busyFor >= STALL_THRESHOLD_MS) {
-                        val stack = try {
-                            mainThread.stackTrace
-                        } catch (_: Exception) {
-                            emptyArray()
-                        }
+                        val stack = mainThread.stackTrace
                         episodeIndex = recordStallSample(episodeIndex, busyFor, stack)
                     }
                 }
-                try {
-                    Thread.sleep(SAMPLE_INTERVAL_MS)
-                } catch (_: InterruptedException) {
-                    break
-                }
+                Thread.sleep(SAMPLE_INTERVAL_MS)
             }
         }, "StartupWatchdog")
         watchdog.isDaemon = true
@@ -172,22 +153,18 @@ object StartupTrace {
     }
 
     fun installStrictMode() {
-        try {
-            val builder = StrictMode.ThreadPolicy.Builder()
-                .detectDiskReads()
-                .detectDiskWrites()
-                .detectNetwork()
-            if (Build.VERSION.SDK_INT >= 36) {
-                builder.penaltyListener(Executors.newSingleThreadExecutor()) { violation ->
-                    recordStrictModeViolation(violation)
-                }
-            } else {
-                builder.penaltyLog()
+        val builder = StrictMode.ThreadPolicy.Builder()
+            .detectDiskReads()
+            .detectDiskWrites()
+            .detectNetwork()
+        if (Build.VERSION.SDK_INT >= 36) {
+            builder.penaltyListener(Executors.newSingleThreadExecutor()) { violation ->
+                recordStrictModeViolation(violation)
             }
-            StrictMode.setThreadPolicy(builder.build())
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not install StrictMode policy", e)
+        } else {
+            builder.penaltyLog()
         }
+        StrictMode.setThreadPolicy(builder.build())
     }
 
     fun onFirstFrame() {
@@ -201,16 +178,11 @@ object StartupTrace {
         val context = appContext ?: return
         reportScope.launch {
             delay(REPORT_DELAY_AFTER_FIRST_FRAME_MS)
-            try {
-                val text = buildReport(context)
-                val file = reportFile(context)
-                file.parentFile?.mkdirs()
-                file.writeText(text)
-                _latestReport.value = text
-                Log.i(TAG, "Startup report written to ${file.absolutePath}")
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not write startup report", e)
-            }
+            val text = buildReport(context)
+            val file = reportFile(context)
+            file.parentFile?.mkdirs()
+            file.writeText(text)
+            _latestReport.value = text
         }
     }
 
@@ -237,11 +209,7 @@ object StartupTrace {
             firstFrame = firstFrameAtMs
         }
 
-        val versionName = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        } catch (_: Exception) {
-            "?"
-        }
+        val versionName = context.packageManager.getPackageInfo(context.packageName, 0).versionName
         val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         val maxHeapMb = Runtime.getRuntime().maxMemory() / (1024 * 1024)
         val usedHeapMb = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024)
@@ -417,7 +385,6 @@ object StartupTrace {
             headline = "$kindName on main thread at $location",
             detail = stack
         )
-        Log.w(TAG, "$kindName on main thread at $location")
     }
 
     private fun nowMs(): Long {

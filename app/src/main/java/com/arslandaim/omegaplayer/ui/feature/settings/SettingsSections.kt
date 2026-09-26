@@ -413,11 +413,7 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             Spacer(modifier = Modifier.height(8.dp))
 
-            val currentSortLabel = try {
-                MediaSortOrder.valueOf(defaultSortOrder).label
-            } catch (_: IllegalArgumentException) {
-                defaultSortOrder
-            }
+            val currentSortLabel = MediaSortOrder.values().firstOrNull { it.name == defaultSortOrder }?.label ?: defaultSortOrder
 
             ListItem(
                 headlineContent = { Text(stringResource(R.string.setting_default_sort_order), fontWeight = FontWeight.Medium) },

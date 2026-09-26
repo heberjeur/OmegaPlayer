@@ -1,9 +1,3 @@
-/*
- * OmegaPlayer Project Original (2026)
- * arslandaim-hub (GitHub.com/arslandaim-hub)
- * Licenced Under GPL-3.0+
-*/
-
 package com.arslandaim.omegaplayer.ui.feature.player
 
 import androidx.compose.animation.core.*
@@ -48,9 +42,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import android.util.Log
-
-private const val TAG = "AudioPlayerScreen"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -303,27 +294,23 @@ fun AudioPlayerScreen(
 
     LaunchedEffect(controller) {
         val player = controller ?: return@LaunchedEffect
-        try {
-            while (true) {
-                if (player.playbackState != Player.STATE_IDLE && player.playbackState != Player.STATE_ENDED) {
-                    val pos = player.currentPosition
-                    val dur = player.duration.coerceAtLeast(0L)
-                    if (dur > 0) duration = dur
-                    if (!isDraggingSlider) {
-                        if (pendingSeekPosition >= 0) {
-                            if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < SEEK_TOLERANCE_MS) {
-                                pendingSeekPosition = -1L
-                                currentPosition = pos
-                            }
-                        } else {
+        while (true) {
+            if (player.playbackState != Player.STATE_IDLE && player.playbackState != Player.STATE_ENDED) {
+                val pos = player.currentPosition
+                val dur = player.duration.coerceAtLeast(0L)
+                if (dur > 0) duration = dur
+                if (!isDraggingSlider) {
+                    if (pendingSeekPosition >= 0) {
+                        if (System.currentTimeMillis() > seekGracePeriod || kotlin.math.abs(pos - pendingSeekPosition) < SEEK_TOLERANCE_MS) {
+                            pendingSeekPosition = -1L
                             currentPosition = pos
                         }
+                    } else {
+                        currentPosition = pos
                     }
                 }
-                delay(200)
             }
-        } catch (e: IllegalStateException) {
-            Log.w(TAG, "Playback position polling stopped", e)
+            delay(200)
         }
     }
 

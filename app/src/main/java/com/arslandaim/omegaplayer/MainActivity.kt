@@ -5,7 +5,6 @@ import android.os.Build
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.res.Configuration
-import android.util.Log
 import android.util.Rational
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -311,11 +310,7 @@ class MainActivity : FragmentActivity() {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                             builder.setAutoEnterEnabled(true)
                         }
-                        try {
-                            enterPictureInPictureMode(builder.build())
-                        } catch (e: IllegalStateException) {
-                            Log.w("MainActivity", "PiP unavailable", e)
-                        }
+                        enterPictureInPictureMode(builder.build())
                     }
                 }
             }
