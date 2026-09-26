@@ -164,6 +164,10 @@
     <string name="restore_all_folders">Restore All</string>
     <string name="restore_folder">Restore</string>
     <string name="resume_history">Resume History</string>
+    <string name="error_rename_failed">Rename failed</string>
+    <string name="error_rename_scoped_storage">Folder rename not available in scoped storage</string>
+    <string name="error_needs_scoped_storage">Needs Scoped Storage Permission</string>
+    <string name="error_folder_share">Folder share requires selecting multiple items</string>
     <string name="search_placeholder">Search media...</string>
     <string name="section_about">About</string>
     <string name="section_appearance">Appearance</string>

@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 @Composable
 fun FolderListItem(
     name: String,
+    path: String,
     count: Int,
     onClick: () -> Unit,
     onDelete: () -> Unit,
@@ -32,6 +33,51 @@ fun FolderListItem(
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(name) }
+
+    if (showInfo) {
+        FolderInfoDialog(name = name, path = path, count = count, onDismiss = { showInfo = false })
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text(stringResource(R.string.action_rename)) },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.info_name)) },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showRenameDialog = false
+                    try {
+                        val oldFile = java.io.File(path)
+                        val newFile = java.io.File(oldFile.parent, newName)
+                        if (oldFile.renameTo(newFile)) {
+                            android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
+                        } else {
+                            android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: SecurityException) {
+                        android.util.Log.e("FolderCards", "SecurityException during folder rename", e)
+                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (e: IllegalArgumentException) {
+                        android.util.Log.e("FolderCards", "IllegalArgumentException during folder rename", e)
+                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
 
     Card(
         modifier = Modifier
@@ -90,22 +136,6 @@ fun FolderListItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_rename)) },
-                        onClick = {
-                            showMenu = false
-                            android.widget.Toast.makeText(context, "Folder rename not available in scoped storage", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_share)) },
-                        onClick = {
-                            showMenu = false
-                            android.widget.Toast.makeText(context, "Folder share requires selecting multiple items", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
-                    )
-                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_add_to_playlist)) },
                         onClick = {
                             showMenu = false
@@ -114,12 +144,28 @@ fun FolderListItem(
                         leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
                     )
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.menu_exclude_folder)) },
+                        text = { Text(stringResource(R.string.action_rename)) },
                         onClick = {
                             showMenu = false
-                            onExclude()
+                            showRenameDialog = true
                         },
-                        leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) }
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_share)) },
+                        onClick = {
+                            showMenu = false
+                            android.widget.Toast.makeText(context, context.getString(R.string.error_folder_share), android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_information)) },
+                        onClick = {
+                            showMenu = false
+                            showInfo = true
+                        },
+                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_delete_folder), color = MaterialTheme.colorScheme.error) },
@@ -138,6 +184,7 @@ fun FolderListItem(
 @Composable
 fun FolderGridItem(
     name: String,
+    path: String,
     count: Int,
     onClick: () -> Unit,
     onExclude: (() -> Unit)? = null,
@@ -147,6 +194,52 @@ fun FolderGridItem(
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(name) }
+
+    if (showInfo) {
+        FolderInfoDialog(name = name, path = path, count = count, onDismiss = { showInfo = false })
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text(stringResource(R.string.action_rename)) },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.info_name)) },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showRenameDialog = false
+                    try {
+                        val oldFile = java.io.File(path)
+                        val newFile = java.io.File(oldFile.parent, newName)
+                        if (oldFile.renameTo(newFile)) {
+                            android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
+                        } else {
+                            android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: SecurityException) {
+                        android.util.Log.e("FolderCards", "SecurityException during folder rename", e)
+                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (e: IllegalArgumentException) {
+                        android.util.Log.e("FolderCards", "IllegalArgumentException during folder rename", e)
+                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -171,22 +264,6 @@ fun FolderGridItem(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_rename)) },
-                            onClick = {
-                                showMenu = false
-                                android.widget.Toast.makeText(context, "Folder rename not available in scoped storage", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_share)) },
-                            onClick = {
-                                showMenu = false
-                                android.widget.Toast.makeText(context, "Folder share requires selecting multiple items", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
-                        )
                         if (onAddToPlaylist != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.menu_add_to_playlist)) },
@@ -198,12 +275,28 @@ fun FolderGridItem(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_exclude_folder)) },
+                            text = { Text(stringResource(R.string.action_rename)) },
                             onClick = {
                                 showMenu = false
-                                onExclude()
+                                showRenameDialog = true
                             },
-                            leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_share)) },
+                            onClick = {
+                                showMenu = false
+                                android.widget.Toast.makeText(context, context.getString(R.string.error_folder_share), android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_information)) },
+                            onClick = {
+                                showMenu = false
+                                showInfo = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                         )
                         if (onDelete != null) {
                             DropdownMenuItem(
@@ -252,4 +345,24 @@ fun FolderGridItem(
             }
         }
     }
+}
+
+@Composable
+fun FolderInfoDialog(name: String, path: String, count: Int, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.menu_information), fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.info_name) + ": " + name)
+                Text(stringResource(R.string.info_path) + ": " + path)
+                Text(stringResource(R.string.items_count, count))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_close))
+            }
+        }
+    )
 }

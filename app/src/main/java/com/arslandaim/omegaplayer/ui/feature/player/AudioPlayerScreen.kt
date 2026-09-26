@@ -557,29 +557,43 @@ fun AudioPlayerScreen(
                         onAudioTransition(item.uri)
                     }
                 }
+            },
+            onItemRemove = { index ->
+                if (index >= 0 && index < (controller?.mediaItemCount ?: 0)) {
+                    controller?.removeMediaItem(index)
+                }
+            },
+            onItemMove = { from, to ->
+                if (from >= 0 && to >= 0) {
+                    controller?.moveMediaItem(from, to)
+                }
             }
         )
     }
 
-    if (showInfoDialog && currentAudio != null) {
-        AlertDialog(
-            onDismissRequest = { showInfoDialog = false },
-            title = { Text(stringResource(R.string.menu_information)) },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    InfoRow(stringResource(R.string.info_name), currentAudio!!.name)
-                    InfoRow(stringResource(R.string.info_artist), currentAudio!!.artist)
-                    InfoRow(stringResource(R.string.info_path), currentAudio!!.path)
-                    InfoRow(stringResource(R.string.info_duration), formatDuration(currentAudio!!.duration))
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.action_close)) }
-            },
-            shape = RoundedCornerShape(28.dp)
+    var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
+    
+    LaunchedEffect(showInfoDialog, currentAudio) {
+        if (showInfoDialog && currentAudio != null) {
+            val audio = currentAudio!!
+            val displaySize = java.io.File(audio.path).let { if (it.exists()) it.length() else 0L }
+            detailedInfo = com.arslandaim.omegaplayer.util.extractDetailedMediaInfo(
+                context = context,
+                uri = audio.uri,
+                fileName = audio.name,
+                path = audio.path,
+                sizeBytes = displaySize,
+                durationMs = audio.duration
+            )
+        } else {
+            detailedInfo = null
+        }
+    }
+
+    if (showInfoDialog && detailedInfo != null) {
+        com.arslandaim.omegaplayer.ui.feature.library.components.MediaInfoDialog(
+            info = detailedInfo!!,
+            onDismiss = { showInfoDialog = false }
         )
     }
 

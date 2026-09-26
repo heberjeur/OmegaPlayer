@@ -12,6 +12,8 @@ import androidx.activity.result.IntentSenderRequest
 import android.app.RecoverableSecurityException
 
 object MediaUtils {
+
+
     private const val ALBUM_ART_BASE_URI = "content://media/external/audio/albumart"
 
     fun isVideoMediaItem(mediaItem: MediaItem?): Boolean {

@@ -167,6 +167,7 @@ fun HomeTabPager(
                                 items(pageSortedFolders, key = { it.path }) { folderNode ->
                                     FolderGridItem(
                                         name = folderNode.name,
+                                        path = folderNode.path,
                                         count = folderNode.videoCount,
                                         onClick = {
                                             if (folderNode.subFolders.isNotEmpty() && !folderNode.isFlattened) {
@@ -257,6 +258,7 @@ fun HomeTabPager(
                                 items(pageSortedFolders, key = { it.path }) { folderNode ->
                                     FolderListItem(
                                         name = folderNode.name,
+                                        path = folderNode.path,
                                         count = folderNode.videoCount,
                                         onClick = {
                                             if (folderNode.subFolders.isNotEmpty() && !folderNode.isFlattened) {

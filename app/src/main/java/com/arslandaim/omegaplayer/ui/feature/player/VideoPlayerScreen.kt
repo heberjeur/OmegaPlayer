@@ -1483,36 +1483,34 @@ fun VideoPlayerScreen(
             )
         }
 
-        if (showInfoDialog) {
-            val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
-            val displayName = resolvedVideo?.name ?: videoName
-            val displayPath = resolvedVideo?.path ?: Uri.parse(playingUri).path ?: playingUri
-            val displaySize = if (resolvedVideo != null && resolvedVideo.size > 0L) {
-                stringResource(R.string.file_size_mb_format, resolvedVideo.size / (1024 * 1024))
+        var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
+        
+        LaunchedEffect(showInfoDialog) {
+            if (showInfoDialog) {
+                val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
+                val displayName = resolvedVideo?.name ?: videoName
+                val displayPath = resolvedVideo?.path ?: Uri.parse(playingUri).path ?: playingUri
+                val displaySize = resolvedVideo?.size ?: java.io.File(displayPath).let { if (it.exists()) it.length() else 0L }
+                val displayDuration = if (resolvedVideo != null && resolvedVideo.duration > 0L) resolvedVideo.duration else duration
+                val targetUri = resolvedVideo?.uri ?: Uri.parse(playingUri)
+                
+                detailedInfo = com.arslandaim.omegaplayer.util.extractDetailedMediaInfo(
+                    context = context,
+                    uri = targetUri,
+                    fileName = displayName,
+                    path = displayPath,
+                    sizeBytes = displaySize,
+                    durationMs = displayDuration
+                )
             } else {
-                val file = java.io.File(displayPath)
-                if (file.exists()) stringResource(R.string.file_size_mb_format, file.length() / (1024 * 1024)) else stringResource(R.string.unknown)
+                detailedInfo = null
             }
-            val displayDuration = if (resolvedVideo != null && resolvedVideo.duration > 0L) {
-                formatDuration(resolvedVideo.duration)
-            } else {
-                formatDuration(duration)
-            }
-            AlertDialog(
-                onDismissRequest = { showInfoDialog = false },
-                title = { Text(stringResource(R.string.video_info), fontWeight = FontWeight.Bold) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoRow(stringResource(R.string.info_name), displayName)
-                        InfoRow(stringResource(R.string.info_size), displaySize)
-                        InfoRow(stringResource(R.string.info_path), displayPath)
-                        InfoRow(stringResource(R.string.info_duration), displayDuration)
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.action_close)) }
-                },
-                shape = RoundedCornerShape(28.dp)
+        }
+
+        if (showInfoDialog && detailedInfo != null) {
+            com.arslandaim.omegaplayer.ui.feature.library.components.MediaInfoDialog(
+                info = detailedInfo!!,
+                onDismiss = { showInfoDialog = false }
             )
         }
 
@@ -1617,6 +1615,16 @@ fun VideoPlayerScreen(
                             mediaController?.prepare()
                         }
                         mediaController?.play()
+                    }
+                },
+                onItemRemove = { index ->
+                    if (index >= 0 && index < (mediaController?.mediaItemCount ?: 0)) {
+                        mediaController?.removeMediaItem(index)
+                    }
+                },
+                onItemMove = { from, to ->
+                    if (from >= 0 && to >= 0) {
+                        mediaController?.moveMediaItem(from, to)
                     }
                 }
             )
