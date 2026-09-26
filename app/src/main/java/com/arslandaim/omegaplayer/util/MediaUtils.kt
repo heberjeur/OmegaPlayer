@@ -108,4 +108,23 @@ object MediaUtils {
             onRequireInternalPopup()
         }
     }
+
+    fun shareMedia(context: Context, uris: List<Uri>, mimeType: String = "*/*") {
+        if (uris.isEmpty()) return
+        val intent = if (uris.size == 1) {
+            android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(android.content.Intent.EXTRA_STREAM, uris.first())
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } else {
+            android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+                type = mimeType
+                putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, java.util.ArrayList(uris))
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+        val chooser = android.content.Intent.createChooser(intent, context.getString(com.arslandaim.omegaplayer.R.string.action_share))
+        context.startActivity(chooser)
+    }
 }

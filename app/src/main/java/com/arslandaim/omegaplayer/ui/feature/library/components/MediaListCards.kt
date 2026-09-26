@@ -46,6 +46,42 @@ fun VideoListItem(
     onPlaylistClick: () -> Unit,
     isInPlaylistView: Boolean = false
 ) {
+    val context = LocalContext.current
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(video.name) }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text(stringResource(R.string.action_rename)) },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.info_name)) },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showRenameDialog = false
+                    try {
+                        val values = android.content.ContentValues().apply {
+                            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newName)
+                        }
+                        context.contentResolver.update(video.uri, values, null, null)
+                        android.widget.Toast.makeText(context, "Renamed", android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (e: SecurityException) {
+                        android.widget.Toast.makeText(context, "Needs Scoped Storage Permission", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
+
     with(sharedTransitionScope) {
         Card(
             modifier = Modifier
@@ -165,6 +201,22 @@ fun VideoListItem(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_rename)) },
+                                onClick = { 
+                                    showMenu = false
+                                    showRenameDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_share)) },
+                                onClick = { 
+                                    showMenu = false
+                                    MediaUtils.shareMedia(context, listOf(video.uri), "video/*")
+                                },
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
                                 text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
                                 onClick = { 
                                     showMenu = false
@@ -202,6 +254,42 @@ fun AudioListItem(
     onPlaylistClick: () -> Unit,
     isInPlaylistView: Boolean = false
 ) {
+    val context = LocalContext.current
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(audio.name) }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text(stringResource(R.string.action_rename)) },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.info_name)) },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showRenameDialog = false
+                    try {
+                        val values = android.content.ContentValues().apply {
+                            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newName)
+                        }
+                        context.contentResolver.update(audio.uri, values, null, null)
+                        android.widget.Toast.makeText(context, "Renamed", android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (e: SecurityException) {
+                        android.widget.Toast.makeText(context, "Needs Scoped Storage Permission", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
+
     val albumArtUri = remember(audio) {
         MediaUtils.albumArtUri(audio.albumId)
     }
@@ -329,6 +417,22 @@ fun AudioListItem(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_rename)) },
+                            onClick = {
+                                showMenu = false
+                                showRenameDialog = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_share)) },
+                            onClick = {
+                                showMenu = false
+                                MediaUtils.shareMedia(context, listOf(audio.uri), "audio/*")
+                            },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                        )
                         DropdownMenuItem(
                             text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
                             onClick = {

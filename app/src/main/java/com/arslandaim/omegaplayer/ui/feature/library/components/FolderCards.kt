@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.arslandaim.omegaplayer.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun FolderListItem(
@@ -29,6 +30,7 @@ fun FolderListItem(
     onExclude: () -> Unit = {},
     onAddToPlaylist: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -88,6 +90,22 @@ fun FolderListItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_rename)) },
+                        onClick = {
+                            showMenu = false
+                            android.widget.Toast.makeText(context, "Folder rename not available in scoped storage", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_share)) },
+                        onClick = {
+                            showMenu = false
+                            android.widget.Toast.makeText(context, "Folder share requires selecting multiple items", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_add_to_playlist)) },
                         onClick = {
                             showMenu = false
@@ -127,6 +145,7 @@ fun FolderGridItem(
     onAddToPlaylist: (() -> Unit)? = null,
     aspectRatio: Float = 1f
 ) {
+    val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
@@ -152,6 +171,22 @@ fun FolderGridItem(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_rename)) },
+                            onClick = {
+                                showMenu = false
+                                android.widget.Toast.makeText(context, "Folder rename not available in scoped storage", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_share)) },
+                            onClick = {
+                                showMenu = false
+                                android.widget.Toast.makeText(context, "Folder share requires selecting multiple items", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                        )
                         if (onAddToPlaylist != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.menu_add_to_playlist)) },
