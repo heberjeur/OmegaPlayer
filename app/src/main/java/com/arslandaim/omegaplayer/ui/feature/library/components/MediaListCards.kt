@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.arslandaim.omegaplayer.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.arslandaim.omegaplayer.data.AudioModel
@@ -47,8 +48,19 @@ fun VideoListItem(
     isInPlaylistView: Boolean = false
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var showRenameDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(video.name) }
+    
+    var showInfoDialog by remember { mutableStateOf(false) }
+    var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
+
+    if (showInfoDialog && detailedInfo != null) {
+        MediaInfoDialog(
+            info = detailedInfo!!,
+            onDismiss = { showInfoDialog = false }
+        )
+    }
 
     if (showRenameDialog) {
         AlertDialog(
@@ -217,6 +229,24 @@ fun VideoListItem(
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
                             )
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_information)) },
+                                onClick = { 
+                                    showMenu = false
+                                    coroutineScope.launch {
+                                        detailedInfo = com.arslandaim.omegaplayer.util.extractDetailedMediaInfo(
+                                            context = context,
+                                            uri = video.uri,
+                                            fileName = video.name,
+                                            path = video.path,
+                                            sizeBytes = video.size,
+                                            durationMs = video.duration
+                                        )
+                                        showInfoDialog = true
+                                    }
+                                },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
                                 text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
                                 onClick = { 
                                     showMenu = false
@@ -255,8 +285,19 @@ fun AudioListItem(
     isInPlaylistView: Boolean = false
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var showRenameDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(audio.name) }
+    
+    var showInfoDialog by remember { mutableStateOf(false) }
+    var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
+
+    if (showInfoDialog && detailedInfo != null) {
+        MediaInfoDialog(
+            info = detailedInfo!!,
+            onDismiss = { showInfoDialog = false }
+        )
+    }
 
     if (showRenameDialog) {
         AlertDialog(
@@ -432,6 +473,24 @@ fun AudioListItem(
                                 MediaUtils.shareMedia(context, listOf(audio.uri), "audio/*")
                             },
                             leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_information)) },
+                            onClick = {
+                                showMenu = false
+                                coroutineScope.launch {
+                                    detailedInfo = com.arslandaim.omegaplayer.util.extractDetailedMediaInfo(
+                                        context = context,
+                                        uri = audio.uri,
+                                        fileName = audio.name,
+                                        path = audio.path,
+                                        sizeBytes = audio.size,
+                                        durationMs = audio.duration
+                                    )
+                                    showInfoDialog = true
+                                }
+                            },
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                         )
                         DropdownMenuItem(
                             text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },

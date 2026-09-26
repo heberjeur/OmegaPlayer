@@ -29,6 +29,7 @@
     <string name="action_previous">Previous</string>
     <string name="action_repeat">Repeat</string>
     <string name="action_retry">Retry</string>
+    <string name="action_rename">Rename</string>
     <string name="action_rewind">Rewind</string>
     <string name="action_rewind_10">Rewind 10s</string>
     <string name="action_save">Save</string>
@@ -255,4 +256,21 @@
     <string name="view_source_sub">Check the app source-code on GitHub</string>
     <string name="watch_history">Watch History</string>
     <string name="watch_history_setting">Watch History</string>
+    <string name="info_file">File</string>
+    <string name="info_location">Location</string>
+    <string name="info_format">Format</string>
+    <string name="info_video_track">Video Track</string>
+    <string name="info_codec">Codec</string>
+    <string name="info_resolution">Resolution</string>
+    <string name="info_frame_rate">Frame Rate</string>
+    <string name="info_bitrate">Bitrate</string>
+    <string name="info_bitrate_format">%1$d kbps</string>
+    <string name="info_audio_track">Audio Track #%1$d</string>
+    <string name="info_sample_rate">Sample Rate</string>
+    <string name="info_sample_rate_format">%1$d Hz</string>
+    <string name="info_channels">Channels</string>
+    <string name="info_channels_mono">mono</string>
+    <string name="info_channels_stereo">stereo</string>
+    <string name="info_language">Language</string>
+    <string name="info_bytes_format">%1$d Bytes</string>
 </resources>
