@@ -14,15 +14,26 @@ import android.app.RecoverableSecurityException
 object MediaUtils {
     private const val ALBUM_ART_BASE_URI = "content://media/external/audio/albumart"
 
-    private val videoExtensions = listOf(".mp4", ".mkv", ".webm", ".avi", ".mov", ".3gp", ".m4v", ".flv", ".ts")
-
     fun isVideoMediaItem(mediaItem: MediaItem?): Boolean {
         if (mediaItem == null) return false
-        val uriStr = mediaItem.localConfiguration?.uri?.toString()?.lowercase() ?: ""
-        val mimeType = mediaItem.localConfiguration?.mimeType?.lowercase() ?: ""
-        if (mimeType.startsWith("video/")) return true
+        
+        val mimeType = mediaItem.localConfiguration?.mimeType?.lowercase()
+        if (mimeType?.startsWith("video/") == true) return true
+        
         if (mediaItem.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_VIDEO) return true
-        return videoExtensions.any { uriStr.endsWith(it) }
+        
+        val uriStr = mediaItem.localConfiguration?.uri?.toString() ?: return false
+        var extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(uriStr)
+        if (extension.isNullOrEmpty()) {
+            extension = uriStr.substringAfterLast('.', "").substringBefore('?')
+        }
+        
+        if (extension.isNotEmpty()) {
+            val guessedMimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
+            if (guessedMimeType?.startsWith("video/") == true) return true
+        }
+        
+        return false
     }
 
     fun isAudioMediaItem(mediaItem: MediaItem?): Boolean {
