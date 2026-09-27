@@ -45,39 +45,15 @@ fun VideoListItem(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPlaylistClick: () -> Unit,
+    onRename: (String) -> Unit = {},
     isInPlaylistView: Boolean = false
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showRenameDialog by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf(video.name) }
     
     var showInfoDialog by remember { mutableStateOf(false) }
     var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
-    
-    val renameLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            try {
-                val oldFile = java.io.File(video.path)
-                val newFile = java.io.File(oldFile.parent, newName)
-                if (oldFile.renameTo(newFile)) {
-                    val values = android.content.ContentValues().apply {
-                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newName)
-                    }
-                    context.contentResolver.update(video.uri, values, null, null)
-                    android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
-                }
-            } catch (e: SecurityException) {
-                android.util.Log.e("MediaListCards", "SecurityException during video rename", e)
-                android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-            } catch (e: IllegalArgumentException) {
-                android.util.Log.e("MediaListCards", "IllegalArgumentException during video rename", e)
-                android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     if (showInfoDialog && detailedInfo != null) {
         MediaInfoDialog(
@@ -87,53 +63,10 @@ fun VideoListItem(
     }
 
     if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text(stringResource(R.string.action_rename)) },
-            text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text(stringResource(R.string.info_name)) },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showRenameDialog = false
-                    try {
-                        val oldFile = java.io.File(video.path)
-                        val newFile = java.io.File(oldFile.parent, newName)
-                        if (oldFile.renameTo(newFile)) {
-                            val values = android.content.ContentValues().apply {
-                                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newName)
-                            }
-                            context.contentResolver.update(video.uri, values, null, null)
-                            android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
-                        } else {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: SecurityException) {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                            val pendingIntent = android.provider.MediaStore.createWriteRequest(context.contentResolver, listOf(video.uri))
-                            renameLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build())
-                        } else if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q) {
-                            val recoverableException = e as? android.app.RecoverableSecurityException
-                            if (recoverableException != null) {
-                                renameLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(recoverableException.userAction.actionIntent.intentSender).build())
-                            }
-                        } else {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_needs_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: IllegalArgumentException) {
-                        android.util.Log.e("MediaListCards", "IllegalArgumentException during video rename", e)
-                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }) { Text(stringResource(R.string.action_apply)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
-            }
+        MediaRenameDialog(
+            currentName = video.name,
+            onDismiss = { showRenameDialog = false },
+            onConfirm = { onRename(it) }
         )
     }
 
@@ -325,38 +258,14 @@ fun AudioListItem(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPlaylistClick: () -> Unit,
+    onRename: (String) -> Unit = {},
     isInPlaylistView: Boolean = false
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showRenameDialog by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf(audio.name) }
     var showInfoDialog by remember { mutableStateOf(false) }
     var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
-    
-    val renameLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            try {
-                val oldFile = java.io.File(audio.path)
-                val newFile = java.io.File(oldFile.parent, newName)
-                if (oldFile.renameTo(newFile)) {
-                    val values = android.content.ContentValues().apply {
-                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newName)
-                    }
-                    context.contentResolver.update(audio.uri, values, null, null)
-                    android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
-                }
-            } catch (e: SecurityException) {
-                android.util.Log.e("MediaListCards", "SecurityException during audio rename", e)
-                android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-            } catch (e: IllegalArgumentException) {
-                android.util.Log.e("MediaListCards", "IllegalArgumentException during audio rename", e)
-                android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     if (showInfoDialog && detailedInfo != null) {
         MediaInfoDialog(
@@ -366,53 +275,10 @@ fun AudioListItem(
     }
 
     if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text(stringResource(R.string.action_rename)) },
-            text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text(stringResource(R.string.info_name)) },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showRenameDialog = false
-                    try {
-                        val oldFile = java.io.File(audio.path)
-                        val newFile = java.io.File(oldFile.parent, newName)
-                        if (oldFile.renameTo(newFile)) {
-                            val values = android.content.ContentValues().apply {
-                                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newName)
-                            }
-                            context.contentResolver.update(audio.uri, values, null, null)
-                            android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
-                        } else {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: SecurityException) {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                            val pendingIntent = android.provider.MediaStore.createWriteRequest(context.contentResolver, listOf(audio.uri))
-                            renameLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build())
-                        } else if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q) {
-                            val recoverableException = e as? android.app.RecoverableSecurityException
-                            if (recoverableException != null) {
-                                renameLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(recoverableException.userAction.actionIntent.intentSender).build())
-                            }
-                        } else {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_needs_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: IllegalArgumentException) {
-                        android.util.Log.e("MediaListCards", "IllegalArgumentException during audio rename", e)
-                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_failed), android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }) { Text(stringResource(R.string.action_apply)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
-            }
+        MediaRenameDialog(
+            currentName = audio.name,
+            onDismiss = { showRenameDialog = false },
+            onConfirm = { onRename(it) }
         )
     }
 

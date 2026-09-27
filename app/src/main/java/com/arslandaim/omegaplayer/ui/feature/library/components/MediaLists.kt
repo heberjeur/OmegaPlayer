@@ -37,7 +37,9 @@ fun MediaListItemInPlaylist(
     onPlayItem: (PlaylistItem) -> Unit,
     playlist: Playlist,
     onVideoDelete: (VideoModel) -> Unit,
-    onAudioDelete: (AudioModel) -> Unit
+    onAudioDelete: (AudioModel) -> Unit,
+    onVideoRename: (VideoModel, String) -> Unit = { _, _ -> },
+    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> }
 ) {
     if (item.mediaType == "video") {
         val video = videosByUri[item.mediaUri]
@@ -50,6 +52,7 @@ fun MediaListItemInPlaylist(
                 onClick = { onPlayItem(item) },
                 onDeleteClick = { onVideoDelete(video) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, video.uri.toString()) },
+                onRename = { onVideoRename(video, it) },
                 isInPlaylistView = true
             )
         }
@@ -62,6 +65,7 @@ fun MediaListItemInPlaylist(
                 onClick = { onPlayItem(item) },
                 onDeleteClick = { onAudioDelete(audio) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
+                onRename = { onAudioRename(audio, it) },
                 isInPlaylistView = true
             )
         }

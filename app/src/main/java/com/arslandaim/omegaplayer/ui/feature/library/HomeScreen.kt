@@ -364,6 +364,39 @@ fun HomeScreen(
             Toast.makeText(context, context.getString(R.string.delete_cancelled), Toast.LENGTH_SHORT).show()
         }
     }
+
+    var pendingMediaRename by remember { mutableStateOf<com.arslandaim.omegaplayer.util.PendingMediaRename?>(null) }
+    var pendingFolderRename by remember { mutableStateOf<com.arslandaim.omegaplayer.util.PendingFolderRename?>(null) }
+
+    val renameLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val pendingMedia = pendingMediaRename
+            val pendingFolder = pendingFolderRename
+            pendingMediaRename = null
+            pendingFolderRename = null
+            scope.launch {
+                isProcessing = true
+                val success = when {
+                    pendingMedia != null -> com.arslandaim.omegaplayer.util.MediaUtils.completePendingRename(context, pendingMedia)
+                    pendingFolder != null -> com.arslandaim.omegaplayer.util.MediaUtils.completePendingFolderRename(context, pendingFolder)
+                    else -> false
+                }
+                if (success) {
+                    viewModel.manualRefresh()
+                    audioViewModel.manualRefresh()
+                } else {
+                    Toast.makeText(context, context.getString(R.string.error_rename_failed), Toast.LENGTH_SHORT).show()
+                }
+                isProcessing = false
+            }
+        } else {
+            pendingMediaRename = null
+            pendingFolderRename = null
+            isProcessing = false
+        }
+    }
     
     fun checkPermission(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED &&
@@ -534,6 +567,62 @@ fun HomeScreen(
         com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(context = context, uris = listOf(audio.uri), deleteLauncher = deleteLauncher, onRequireInternalPopup = { selectedAudioForDelete = audio })
     }
 
+    val onMediaRename: (Uri, String, String, String) -> Unit = { uri, name, path, newName ->
+        scope.launch {
+            val pending = com.arslandaim.omegaplayer.util.MediaUtils.renameMedia(
+                context = context,
+                uri = uri,
+                currentName = name,
+                newNameInput = newName,
+                oldPath = path,
+                renameLauncher = renameLauncher
+            ) { success ->
+                if (success) {
+                    viewModel.manualRefresh()
+                    audioViewModel.manualRefresh()
+                } else {
+                    Toast.makeText(context, context.getString(R.string.error_rename_failed), Toast.LENGTH_SHORT).show()
+                }
+            }
+            if (pending != null) {
+                pendingMediaRename = pending
+            }
+        }
+    }
+
+    val onVideoRename: (VideoModel, String) -> Unit = { video, newName ->
+        onMediaRename(video.uri, video.name, video.path, newName)
+    }
+
+    val onAudioRename: (AudioModel, String) -> Unit = { audio, newName ->
+        onMediaRename(audio.uri, audio.name, audio.path, newName)
+    }
+
+    val onFolderRename: (String, String, Boolean) -> Unit = { path, newName, isVideo ->
+        scope.launch {
+            val videosInFolder = viewModel.getVideosInFolder(path)
+            val audiosInFolder = audioViewModel.getAudiosInFolder(path)
+            val allItems = videosInFolder.map { it.uri to it.path } + audiosInFolder.map { it.uri to it.path }
+            val pending = com.arslandaim.omegaplayer.util.MediaUtils.renameFolder(
+                context = context,
+                folderPath = path,
+                newFolderName = newName,
+                mediaItems = allItems,
+                renameLauncher = renameLauncher
+            ) { success ->
+                if (success) {
+                    viewModel.manualRefresh()
+                    audioViewModel.manualRefresh()
+                } else {
+                    Toast.makeText(context, context.getString(R.string.error_rename_failed), Toast.LENGTH_SHORT).show()
+                }
+            }
+            if (pending != null) {
+                pendingFolderRename = pending
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             HomeHeader(
@@ -657,7 +746,10 @@ fun HomeScreen(
                 onHistoryDeviceDelete = onHistoryDeviceDelete,
                 onFolderDeviceDelete = onFolderDeviceDelete,
                 onVideoDeviceDelete = onVideoDeviceDelete,
-                onAudioDeviceDelete = onAudioDeviceDelete
+                onAudioDeviceDelete = onAudioDeviceDelete,
+                onVideoRename = onVideoRename,
+                onAudioRename = onAudioRename,
+                onFolderRename = onFolderRename
             )
     }
 }

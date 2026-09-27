@@ -29,53 +29,23 @@ fun FolderListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onExclude: () -> Unit = {},
-    onAddToPlaylist: () -> Unit = {}
+    onAddToPlaylist: () -> Unit = {},
+    onRename: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf(name) }
 
     if (showInfo) {
         FolderInfoDialog(name = name, path = path, count = count, onDismiss = { showInfo = false })
     }
 
     if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text(stringResource(R.string.action_rename)) },
-            text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text(stringResource(R.string.info_name)) },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showRenameDialog = false
-                    try {
-                        val oldFile = java.io.File(path)
-                        val newFile = java.io.File(oldFile.parent, newName)
-                        if (oldFile.renameTo(newFile)) {
-                            android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
-                        } else {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: SecurityException) {
-                        android.util.Log.e("FolderCards", "SecurityException during folder rename", e)
-                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                    } catch (e: IllegalArgumentException) {
-                        android.util.Log.e("FolderCards", "IllegalArgumentException during folder rename", e)
-                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }) { Text(stringResource(R.string.action_apply)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
-            }
+        MediaRenameDialog(
+            currentName = name,
+            onDismiss = { showRenameDialog = false },
+            onConfirm = { onRename(it) }
         )
     }
 
@@ -190,53 +160,23 @@ fun FolderGridItem(
     onExclude: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
+    onRename: ((String) -> Unit)? = null,
     aspectRatio: Float = 1f
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf(name) }
 
     if (showInfo) {
         FolderInfoDialog(name = name, path = path, count = count, onDismiss = { showInfo = false })
     }
 
     if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text(stringResource(R.string.action_rename)) },
-            text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text(stringResource(R.string.info_name)) },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showRenameDialog = false
-                    try {
-                        val oldFile = java.io.File(path)
-                        val newFile = java.io.File(oldFile.parent, newName)
-                        if (oldFile.renameTo(newFile)) {
-                            android.media.MediaScannerConnection.scanFile(context, arrayOf(oldFile.absolutePath, newFile.absolutePath), null, null)
-                        } else {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: SecurityException) {
-                        android.util.Log.e("FolderCards", "SecurityException during folder rename", e)
-                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                    } catch (e: IllegalArgumentException) {
-                        android.util.Log.e("FolderCards", "IllegalArgumentException during folder rename", e)
-                        android.widget.Toast.makeText(context, context.getString(R.string.error_rename_scoped_storage), android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }) { Text(stringResource(R.string.action_apply)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
-            }
+        MediaRenameDialog(
+            currentName = name,
+            onDismiss = { showRenameDialog = false },
+            onConfirm = { onRename?.invoke(it) }
         )
     }
 

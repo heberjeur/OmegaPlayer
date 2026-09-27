@@ -1,15 +1,33 @@
 package com.arslandaim.omegaplayer.util
 
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
-import android.app.RecoverableSecurityException
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import java.io.File
+
+data class PendingMediaRename(
+    val uri: Uri,
+    val newDisplayName: String,
+    val oldPath: String = ""
+)
+
+data class PendingFolderRename(
+    val folderPath: String,
+    val newFolderName: String,
+    val items: List<Pair<Uri, String>>,
+    val oldPath: String,
+    val newPath: String
+)
 
 object MediaUtils {
 
@@ -128,5 +146,241 @@ object MediaUtils {
         }
         val chooser = android.content.Intent.createChooser(intent, context.getString(com.arslandaim.omegaplayer.R.string.action_share))
         context.startActivity(chooser)
+    }
+
+    fun appendExtensionIfNeeded(originalName: String, newName: String): String {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty()) return originalName
+        val lastDot = originalName.lastIndexOf('.')
+        if (lastDot > 0 && lastDot < originalName.length - 1) {
+            val extension = originalName.substring(lastDot)
+            if (!trimmed.endsWith(extension, ignoreCase = true)) {
+                return "$trimmed$extension"
+            }
+        }
+        return trimmed
+    }
+
+    fun renameMedia(
+        context: Context,
+        uri: Uri,
+        currentName: String,
+        newNameInput: String,
+        oldPath: String,
+        renameLauncher: ActivityResultLauncher<IntentSenderRequest>,
+        onComplete: (Boolean) -> Unit
+    ): PendingMediaRename? {
+        val trimmed = newNameInput.trim()
+        if (trimmed.isEmpty()) {
+            onComplete(false)
+            return null
+        }
+        val targetName = appendExtensionIfNeeded(currentName, trimmed)
+        if (targetName == currentName) {
+            onComplete(true)
+            return null
+        }
+
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && oldPath.isNotEmpty()) {
+            val oldFile = File(oldPath)
+            val newFile = File(oldFile.parentFile, targetName)
+            if (oldFile.renameTo(newFile)) {
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, targetName)
+                }
+                context.contentResolver.update(uri, values, null, null)
+                MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(oldFile.absolutePath, newFile.absolutePath),
+                    null,
+                    null
+                )
+                onComplete(true)
+                return null
+            }
+        }
+
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, targetName)
+        }
+
+        try {
+            val rows = context.contentResolver.update(uri, values, null, null)
+            if (rows > 0) {
+                if (oldPath.isNotEmpty()) {
+                    val oldFile = File(oldPath)
+                    val newFile = File(oldFile.parentFile, targetName)
+                    MediaScannerConnection.scanFile(
+                        context,
+                        arrayOf(oldFile.absolutePath, newFile.absolutePath),
+                        null,
+                        null
+                    )
+                }
+                onComplete(true)
+                return null
+            }
+        } catch (e: SecurityException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val pendingIntent = MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
+                val pending = PendingMediaRename(uri, targetName, oldPath)
+                renameLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                return pending
+            }
+            val recoverableException = e as? RecoverableSecurityException
+            if (recoverableException != null) {
+                val pending = PendingMediaRename(uri, targetName, oldPath)
+                renameLauncher.launch(IntentSenderRequest.Builder(recoverableException.userAction.actionIntent.intentSender).build())
+                return pending
+            }
+            throw e
+        }
+
+        onComplete(false)
+        return null
+    }
+
+    fun completePendingRename(
+        context: Context,
+        pending: PendingMediaRename
+    ): Boolean {
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, pending.newDisplayName)
+        }
+        val rows = context.contentResolver.update(pending.uri, values, null, null)
+        if (pending.oldPath.isNotEmpty()) {
+            val oldFile = File(pending.oldPath)
+            val newFile = File(oldFile.parentFile, pending.newDisplayName)
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(oldFile.absolutePath, newFile.absolutePath),
+                null,
+                null
+            )
+        }
+        return rows > 0
+    }
+
+    fun renameFolder(
+        context: Context,
+        folderPath: String,
+        newFolderName: String,
+        mediaItems: List<Pair<Uri, String>>,
+        renameLauncher: ActivityResultLauncher<IntentSenderRequest>,
+        onComplete: (Boolean) -> Unit
+    ): PendingFolderRename? {
+        val trimmedName = newFolderName.trim()
+        val oldDir = File(folderPath)
+        val parentDir = oldDir.parentFile ?: run {
+            onComplete(false)
+            return null
+        }
+        if (trimmedName.isEmpty() || oldDir.name == trimmedName) {
+            onComplete(true)
+            return null
+        }
+        val newDir = File(parentDir, trimmedName)
+
+        if (oldDir.renameTo(newDir)) {
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(oldDir.absolutePath, newDir.absolutePath),
+                null,
+                null
+            )
+            onComplete(true)
+            return null
+        }
+
+        if (mediaItems.isEmpty() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            onComplete(false)
+            return null
+        }
+
+        val rootPath = Environment.getExternalStorageDirectory().absolutePath
+        val relativeDir = if (newDir.absolutePath.startsWith(rootPath)) {
+            newDir.absolutePath.removePrefix(rootPath).removePrefix("/")
+        } else {
+            val parts = newDir.absolutePath.split("/").filter { it.isNotEmpty() }
+            if (parts.size >= 2) {
+                parts.drop(2).joinToString("/")
+            } else {
+                trimmedName
+            }
+        }
+
+        val itemsWithNewRelPath = mediaItems.map { (uri, filePath) ->
+            val fileParent = File(filePath).parentFile?.absolutePath ?: oldDir.absolutePath
+            val subPath = if (fileParent.startsWith(oldDir.absolutePath)) {
+                fileParent.removePrefix(oldDir.absolutePath).removePrefix("/")
+            } else {
+                ""
+            }
+            val itemRelativeDir = if (subPath.isNotEmpty()) {
+                "$relativeDir/$subPath"
+            } else {
+                relativeDir
+            }
+            val finalRelPath = if (itemRelativeDir.endsWith("/")) itemRelativeDir else "$itemRelativeDir/"
+            uri to finalRelPath
+        }
+
+        val pending = PendingFolderRename(
+            folderPath = folderPath,
+            newFolderName = trimmedName,
+            items = itemsWithNewRelPath,
+            oldPath = oldDir.absolutePath,
+            newPath = newDir.absolutePath
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val uris = itemsWithNewRelPath.map { it.first }
+            val pendingIntent = MediaStore.createWriteRequest(context.contentResolver, uris)
+            renameLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+            return pending
+        }
+
+        var successCount = 0
+        for ((uri, relPath) in itemsWithNewRelPath) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relPath)
+            }
+            try {
+                if (context.contentResolver.update(uri, values, null, null) > 0) {
+                    successCount++
+                }
+            } catch (e: SecurityException) {
+                val recoverable = e as? RecoverableSecurityException
+                if (recoverable != null) {
+                    renameLauncher.launch(IntentSenderRequest.Builder(recoverable.userAction.actionIntent.intentSender).build())
+                    return pending
+                }
+                throw e
+            }
+        }
+
+        onComplete(successCount > 0)
+        return null
+    }
+
+    fun completePendingFolderRename(
+        context: Context,
+        pending: PendingFolderRename
+    ): Boolean {
+        var successCount = 0
+        for ((uri, newRelPath) in pending.items) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, newRelPath)
+            }
+            val rows = context.contentResolver.update(uri, values, null, null)
+            if (rows > 0) successCount++
+        }
+        MediaScannerConnection.scanFile(
+            context,
+            arrayOf(pending.oldPath, pending.newPath),
+            null,
+            null
+        )
+        return successCount > 0
     }
 }

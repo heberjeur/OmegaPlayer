@@ -81,7 +81,10 @@ fun HomeTabPager(
     onHistoryDeviceDelete: (RecentPlayback) -> Unit,
     onFolderDeviceDelete: (String, Boolean) -> Unit,
     onVideoDeviceDelete: (VideoModel) -> Unit,
-    onAudioDeviceDelete: (AudioModel) -> Unit
+    onAudioDeviceDelete: (AudioModel) -> Unit,
+    onVideoRename: (VideoModel, String) -> Unit = { _, _ -> },
+    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> },
+    onFolderRename: (String, String, Boolean) -> Unit = { _, _, _ -> }
 ) {
     var preloadNeighborPages by remember { mutableStateOf(0) }
     LaunchedEffect(videos.isNotEmpty(), audios.isNotEmpty()) {
@@ -98,7 +101,7 @@ fun HomeTabPager(
             pageTab == MediaTab.VIDEOS -> "tab_videos"
             pageTab == MediaTab.AUDIOS && selectedAudioFolder != null -> "folder_audio_$selectedAudioFolder"
             pageTab == MediaTab.AUDIOS -> "tab_audios"
-            pageTab == MediaTab.PLAYLISTS && selectedPlaylistForDetails != null -> "playlist_${selectedPlaylistForDetails?.id}"
+            pageTab == MediaTab.PLAYLISTS && selectedPlaylistForDetails != null -> "playlist_${selectedPlaylistForDetails.id}"
             pageTab == MediaTab.PLAYLISTS -> "tab_playlists"
             pageTab == MediaTab.HISTORY -> "tab_history"
             else -> "default"
@@ -180,12 +183,14 @@ fun HomeTabPager(
                                         },
                                         onExclude = { onFolderExclude(folderNode.path, pageTab == MediaTab.VIDEOS) },
                                         onAddToPlaylist = { onFolderPendingPlaylist(folderNode.path, if (pageTab == MediaTab.VIDEOS) "video" else "audio") },
+                                        onDelete = { onFolderDeviceDelete(folderNode.path, pageTab == MediaTab.VIDEOS) },
+                                        onRename = { newName -> onFolderRename(folderNode.path, newName, pageTab == MediaTab.VIDEOS) },
                                         aspectRatio = ratio
                                     )
                                 }
                             }
                         } else if (selectedPlaylistForDetails != null) {
-                            val currentPlaylist = selectedPlaylistForDetails!!
+                            val currentPlaylist = selectedPlaylistForDetails
                             items(sortedPlaylistItems, key = { it.id }) { item ->
                                 PlaylistGridItem(
                                     item = item,
@@ -271,12 +276,13 @@ fun HomeTabPager(
                                         },
                                         onDelete = { onFolderDeviceDelete(folderNode.path, pageTab == MediaTab.VIDEOS) },
                                         onExclude = { onFolderExclude(folderNode.path, pageTab == MediaTab.VIDEOS) },
-                                        onAddToPlaylist = { onFolderPendingPlaylist(folderNode.path, if (pageTab == MediaTab.VIDEOS) "video" else "audio") }
+                                        onAddToPlaylist = { onFolderPendingPlaylist(folderNode.path, if (pageTab == MediaTab.VIDEOS) "video" else "audio") },
+                                        onRename = { newName -> onFolderRename(folderNode.path, newName, pageTab == MediaTab.VIDEOS) }
                                     )
                                 }
                             }
                         } else if (selectedPlaylistForDetails != null) {
-                            val currentPlaylist = selectedPlaylistForDetails!!
+                            val currentPlaylist = selectedPlaylistForDetails
                             items(sortedPlaylistItems, key = { it.id }) { item ->
                                 MediaListItemInPlaylist(
                                     item = item,
@@ -294,7 +300,9 @@ fun HomeTabPager(
                                     },
                                     playlist = currentPlaylist,
                                     onVideoDelete = { video -> onVideoDeviceDelete(video) },
-                                    onAudioDelete = { audio -> onAudioDeviceDelete(audio) }
+                                    onAudioDelete = { audio -> onAudioDeviceDelete(audio) },
+                                    onVideoRename = onVideoRename,
+                                    onAudioRename = onAudioRename
                                 )
                             }
                         } else if (pageTab == MediaTab.VIDEOS) {
@@ -302,13 +310,13 @@ fun HomeTabPager(
                                 val index = sortedVideos.indexOfFirst { it.id == video.id }.coerceAtLeast(0)
                                 viewModel.playVideos(sortedVideos, index)
                                 val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(video.uri.toString()); onVideoClick(encodedUri, -1L, "folder")
-                            }, onDeleteClick = { onVideoDeviceDelete(video) }, onPlaylistClick = { onMediaPendingPlaylist(video.uri.toString(), "video") }) }
+                            }, onDeleteClick = { onVideoDeviceDelete(video) }, onPlaylistClick = { onMediaPendingPlaylist(video.uri.toString(), "video") }, onRename = { newName -> onVideoRename(video, newName) }) }
                         } else {
                             items(sortedAudios, key = { it.id }) { audio -> AudioListItem(audio = audio, isPlaying = isAudioPlaying && activeAudioUri == audio.uri.toString(), onClick = {
                                 val index = sortedAudios.indexOfFirst { it.id == audio.id }.coerceAtLeast(0)
                                 audioViewModel.playAudios(sortedAudios, index)
                                 val encodedUri = com.arslandaim.omegaplayer.util.MediaUtils.safeEncodeUri(audio.uri.toString()); onAudioClick(encodedUri, -1L, "folder")
-                            }, onDeleteClick = { onAudioDeviceDelete(audio) }, onPlaylistClick = { onMediaPendingPlaylist(audio.uri.toString(), "audio") }) }
+                            }, onDeleteClick = { onAudioDeviceDelete(audio) }, onPlaylistClick = { onMediaPendingPlaylist(audio.uri.toString(), "audio") }, onRename = { newName -> onAudioRename(audio, newName) }) }
                         }
                     }
                 }
