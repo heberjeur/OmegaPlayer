@@ -393,6 +393,10 @@ class AudioViewModel @Inject constructor(
         playbackConnection.removeQueueItem(index, fallbackItems)
     }
 
+    fun removeQueueItems(uris: Collection<String>) {
+        playbackConnection.removeQueueItems(uris)
+    }
+
     fun excludeFolder(folderName: String) {
         viewModelScope.launch {
             themePreferences.addExcludedFolder(folderName)

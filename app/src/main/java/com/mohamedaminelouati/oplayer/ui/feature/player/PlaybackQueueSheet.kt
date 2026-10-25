@@ -89,6 +89,7 @@ fun PlaybackQueueSheet(
     onDismiss: () -> Unit,
     onItemClick: (index: Int) -> Unit,
     onItemRemove: (index: Int) -> Unit = {},
+    onItemsRemove: ((List<PlaybackQueueItem>) -> Unit)? = null,
     onItemMove: (from: Int, to: Int) -> Unit = { _, _ -> },
     onItemAddToPlaylist: ((PlaybackQueueItem) -> Unit)? = null,
     onItemsAddToPlaylist: ((List<PlaybackQueueItem>) -> Unit)? = null,
@@ -121,7 +122,11 @@ fun PlaybackQueueSheet(
 
     LaunchedEffect(queueItems) {
         if (!isDragging) {
-            mutableQueue = queueItems.mapIndexed { idx, it -> DraggableQueueItem(idx.toLong(), it) }
+            val existingMap = mutableQueue.associateBy { it.item.uri }
+            var nextId = (mutableQueue.maxOfOrNull { it.instanceId } ?: 0L) + 1L
+            mutableQueue = queueItems.map { item ->
+                existingMap[item.uri] ?: DraggableQueueItem(nextId++, item)
+            }
             val validIds = mutableQueue.map { it.instanceId }.toSet()
             selectedInstanceIds = selectedInstanceIds.filter { validIds.contains(it) }.toSet()
         }
@@ -645,6 +650,7 @@ fun PlaybackQueueSheet(
                         }
                     } else null,
                     onRemoveFromQueue = {
+                        val itemsToRemove = mutableQueue.filter { selectedInstanceIds.contains(it.instanceId) }.map { it.item }
                         val indicesToRemove = mutableQueue.mapIndexedNotNull { idx, entry ->
                             if (selectedInstanceIds.contains(entry.instanceId)) idx else null
                         }
@@ -653,10 +659,16 @@ fun PlaybackQueueSheet(
                             if (idx in updated.indices) {
                                 updated.removeAt(idx)
                             }
-                            onItemRemove(idx)
                         }
                         mutableQueue = updated
                         selectedInstanceIds = emptySet()
+                        if (onItemsRemove != null) {
+                            onItemsRemove(itemsToRemove)
+                        } else {
+                            indicesToRemove.sortedDescending().forEach { idx ->
+                                onItemRemove(idx)
+                            }
+                        }
                     },
                     onDelete = if (onItemDeleteFromDevice != null || onItemsDeleteFromDevice != null) {
                         {

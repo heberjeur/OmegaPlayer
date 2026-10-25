@@ -829,6 +829,10 @@ class VideoViewModel @Inject constructor(
         playbackConnection.removeQueueItem(index, fallbackItems)
     }
 
+    fun removeQueueItems(uris: Collection<String>) {
+        playbackConnection.removeQueueItems(uris)
+    }
+
     val showSystemStatusBar: StateFlow<Boolean> = themePreferences.showSystemStatusBar.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val autoPlayNext: StateFlow<Boolean> = themePreferences.autoPlayNext.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val autoPip: StateFlow<Boolean> = themePreferences.autoPip.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)

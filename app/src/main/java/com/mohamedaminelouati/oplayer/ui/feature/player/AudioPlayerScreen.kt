@@ -295,40 +295,35 @@ fun AudioPlayerScreen(
     }
 
     var pendingUrisToDelete by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var queueItemPendingDelete by remember { mutableStateOf<com.mohamedaminelouati.oplayer.media.PlaybackQueueItem?>(null) }
+    var queueItemsPendingDelete by remember { mutableStateOf<List<com.mohamedaminelouati.oplayer.media.PlaybackQueueItem>>(emptyList()) }
 
     val deleteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
-            pendingUrisToDelete.forEach { uri -> viewModel.deleteHistoryItem(uri.toString()) }
-            val isCurrent = pendingUrisToDelete.any { it.toString() == (currentAudio?.uri?.toString() ?: audioUri) }
+            val deletedUriStrings = pendingUrisToDelete.map { it.toString() }.toSet()
+            deletedUriStrings.forEach { uri -> viewModel.deleteHistoryItem(uri) }
+            val currentTarget = currentAudio?.uri?.toString() ?: audioUri
+            val isCurrent = deletedUriStrings.contains(currentTarget)
+            val hasRemainingItems = queueItems.any { !deletedUriStrings.contains(it.uri) }
             if (isCurrent) {
                 val autoPlayNext = viewModel.autoPlayNext.value
-                val hasNext = controller?.hasNextMediaItem() == true
-                if (hasNext && autoPlayNext) {
-                    val currentIndex = controller?.currentMediaItemIndex ?: -1
-                    if (currentIndex != -1) {
-                        controller?.removeMediaItem(currentIndex)
-                    }
+                if (hasRemainingItems && autoPlayNext) {
+                    viewModel.removeQueueItems(deletedUriStrings)
                 } else {
                     currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
+                    viewModel.removeQueueItems(deletedUriStrings)
                     onBack()
                 }
             } else {
-                pendingUrisToDelete.forEach { delUri ->
-                    val qIdx = queueItems.indexOfFirst { it.uri == delUri.toString() }
-                    if (qIdx != -1) {
-                        viewModel.removeQueueItem(qIdx, queueItems)
-                    }
-                }
+                viewModel.removeQueueItems(deletedUriStrings)
             }
             if (pendingUrisToDelete.isNotEmpty()) viewModel.onAudiosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
-            queueItemPendingDelete = null
+            queueItemsPendingDelete = emptyList()
         } else {
             pendingUrisToDelete = emptyList()
-            queueItemPendingDelete = null
+            queueItemsPendingDelete = emptyList()
         }
     }
 
@@ -489,6 +484,7 @@ fun AudioPlayerScreen(
             }
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) || events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+                    currentMediaIndexState = player.currentMediaItemIndex
                     hasNext = player.hasNextMediaItem()
                     hasPrevious = player.hasPreviousMediaItem()
                 }
@@ -873,6 +869,9 @@ fun AudioPlayerScreen(
             onItemRemove = { index ->
                 viewModel.removeQueueItem(index, queueItems)
             },
+            onItemsRemove = { items ->
+                viewModel.removeQueueItems(items.map { it.uri })
+            },
             onItemMove = { from, to ->
                 viewModel.moveQueueItem(from, to, queueItems)
             },
@@ -892,7 +891,7 @@ fun AudioPlayerScreen(
                     context = context,
                     uris = listOf(uri),
                     deleteLauncher = deleteLauncher,
-                    onRequireInternalPopup = { queueItemPendingDelete = item }
+                    onRequireInternalPopup = { queueItemsPendingDelete = listOf(item) }
                 )
             },
             onItemsDeleteFromDevice = { items ->
@@ -902,7 +901,7 @@ fun AudioPlayerScreen(
                     context = context,
                     uris = uris,
                     deleteLauncher = deleteLauncher,
-                    onRequireInternalPopup = { queueItemPendingDelete = items.firstOrNull() }
+                    onRequireInternalPopup = { queueItemsPendingDelete = items }
                 )
             },
             isFullyExpanded = upNextFullyExpanded
@@ -985,44 +984,58 @@ fun AudioPlayerScreen(
         )
     }
 
-    if (queueItemPendingDelete != null) {
-        val item = queueItemPendingDelete!!
+    if (queueItemsPendingDelete.isNotEmpty()) {
+        val itemsToDelete = queueItemsPendingDelete
+        val isSingle = itemsToDelete.size == 1
         AlertDialog(
-            onDismissRequest = { queueItemPendingDelete = null },
+            onDismissRequest = { queueItemsPendingDelete = emptyList() },
             icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
             title = { Text(stringResource(R.string.delete_audio_title), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.delete_media_from_device_confirm, item.title)) },
+            text = {
+                Text(
+                    if (isSingle) {
+                        stringResource(R.string.delete_media_from_device_confirm, itemsToDelete.first().title)
+                    } else {
+                        stringResource(R.string.delete_selected_confirm, itemsToDelete.size)
+                    }
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        val delUri = Uri.parse(item.uri)
-                        queueItemPendingDelete = null
+                        val items = itemsToDelete
+                        queueItemsPendingDelete = emptyList()
                         scope.launch {
-                            viewModel.deleteHistoryItem(item.uri)
-                            val deleted = withContext(Dispatchers.IO) {
-                                context.contentResolver.delete(delUri, null, null)
+                            val urisToDelete = items.map { Uri.parse(it.uri) }
+                            val deletedUriStrings = items.map { it.uri }.toSet()
+                            deletedUriStrings.forEach { uriStr -> viewModel.deleteHistoryItem(uriStr) }
+                            val currentTarget = currentAudio?.uri?.toString() ?: audioUri
+                            val isCurrentDeleted = deletedUriStrings.contains(currentTarget)
+                            if (isCurrentDeleted) {
+                                viewModel.stopIfPlaying(Uri.parse(currentTarget))
                             }
-                            val isCurrent = item.uri == (currentAudio?.uri?.toString() ?: audioUri)
-                            if (isCurrent) {
-                                val autoPlayNext = viewModel.autoPlayNext.value
-                                val hasNext = controller?.hasNextMediaItem() == true
-                                if (hasNext && autoPlayNext) {
-                                    val currentIndex = controller?.currentMediaItemIndex ?: -1
-                                    if (currentIndex != -1) {
-                                        controller?.removeMediaItem(currentIndex)
+                            withContext(Dispatchers.IO) {
+                                urisToDelete.forEach { u ->
+                                    try {
+                                        context.contentResolver.delete(u, null, null)
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("AudioPlayerScreen", "Failed to delete uri: $u", e)
                                     }
+                                }
+                            }
+                            val hasRemainingItems = queueItems.any { !deletedUriStrings.contains(it.uri) }
+                            if (isCurrentDeleted) {
+                                val autoPlayNext = viewModel.autoPlayNext.value
+                                if (hasRemainingItems && autoPlayNext) {
+                                    viewModel.removeQueueItems(deletedUriStrings)
                                 } else {
-                                    viewModel.stopIfPlaying(delUri)
+                                    viewModel.removeQueueItems(deletedUriStrings)
                                     onBack()
                                 }
                             } else {
-                                val qIdx = queueItems.indexOfFirst { it.uri == item.uri }
-                                if (qIdx != -1) {
-                                    viewModel.removeQueueItem(qIdx, queueItems)
-                                }
+                                viewModel.removeQueueItems(deletedUriStrings)
                             }
-                            if (deleted > 0) viewModel.onAudiosDeleted(listOf(delUri))
-                            else viewModel.refreshAudios(context)
+                            viewModel.onAudiosDeleted(urisToDelete)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -1034,7 +1047,7 @@ fun AudioPlayerScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { queueItemPendingDelete = null }) {
+                TextButton(onClick = { queueItemsPendingDelete = emptyList() }) {
                     Text(stringResource(R.string.action_close))
                 }
             },

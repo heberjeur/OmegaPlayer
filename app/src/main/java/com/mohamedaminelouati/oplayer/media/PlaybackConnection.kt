@@ -146,17 +146,27 @@ class PlaybackConnection @Inject constructor(
 
                 override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                     val count = controller.mediaItemCount
+                    if (count == 0) {
+                        if (_currentQueue.value.isNotEmpty()) {
+                            _currentQueue.value = emptyList()
+                        }
+                        return
+                    }
                     val currentList = _currentQueue.value
-                    if (count > 0 && currentList.isNotEmpty() && count == currentList.size) {
-                        val uriMap = currentList.associateBy { it.uri }
-                        val reordered = (0 until count).mapNotNull { i ->
-                            val item = controller.getMediaItemAt(i)
-                            val uriStr = item.localConfiguration?.uri?.toString() ?: item.mediaId
-                            uriMap[uriStr]
-                        }
-                        if (reordered.size == count && reordered != currentList) {
-                            _currentQueue.value = reordered
-                        }
+                    val uriMap = currentList.associateBy { it.uri }
+                    val syncedQueue = (0 until count).mapNotNull { i ->
+                        val item = controller.getMediaItemAt(i)
+                        val uriStr = item.localConfiguration?.uri?.toString() ?: item.mediaId
+                        uriMap[uriStr] ?: PlaybackQueueItem(
+                            uri = uriStr,
+                            title = item.mediaMetadata.title?.toString() ?: "",
+                            duration = 0L,
+                            isVideo = item.mediaMetadata.mediaType != androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC,
+                            artist = item.mediaMetadata.artist?.toString()
+                        )
+                    }
+                    if (syncedQueue != currentList) {
+                        _currentQueue.value = syncedQueue
                     }
                 }
             })
@@ -366,6 +376,29 @@ class PlaybackConnection @Inject constructor(
             _currentQueue.value = current
         }
         _mediaController.value?.removeMediaItem(index)
+    }
+
+    fun removeQueueItems(uris: Collection<String>) {
+        if (uris.isEmpty()) return
+        val uriSet = uris.toSet()
+        val controller = _mediaController.value
+        if (controller != null) {
+            val count = controller.mediaItemCount
+            val indicesToRemove = mutableListOf<Int>()
+            for (i in 0 until count) {
+                val item = controller.getMediaItemAt(i)
+                val uriStr = item.localConfiguration?.uri?.toString() ?: item.mediaId
+                if (uriSet.contains(uriStr)) {
+                    indicesToRemove.add(i)
+                }
+            }
+            indicesToRemove.sortedDescending().forEach { idx ->
+                if (idx in 0 until controller.mediaItemCount) {
+                    controller.removeMediaItem(idx)
+                }
+            }
+        }
+        _currentQueue.value = _currentQueue.value.filterNot { uriSet.contains(it.uri) }
     }
 
     fun playPlaylist(
