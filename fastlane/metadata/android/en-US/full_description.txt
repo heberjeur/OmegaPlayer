@@ -15,7 +15,7 @@ SILKY SMOOTH VIDEO PLAYBACK
   Smart Controls: Repeat modes, skip, and smooth seek bars.
 
  PRIVATE MEDIA VAULT
-  PIN & Biometric Protection: App supports both fingerprint and pin support for better security and user ease.
+  PIN & Pattern Protection: App supports both PIN code and pattern lock for privacy and security.
 
  MODERN & RESPONSIVE UI
   Material 3 Design: A clean, beautiful interface that supports Light and Dark modes.

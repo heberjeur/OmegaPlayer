@@ -12,27 +12,33 @@ import coil.imageLoader
 import com.arslandaim.omegaplayer.data.MediaSortOrder
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
+import com.arslandaim.omegaplayer.data.BrightnessScope
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.data.Playlist
+import com.arslandaim.omegaplayer.data.SearchScope
 import com.arslandaim.omegaplayer.domain.usecase.media.GetVideosUseCase
 import com.arslandaim.omegaplayer.domain.usecase.media.SyncMediaUseCase
 import com.arslandaim.omegaplayer.domain.usecase.playback.PlaylistUseCases
 import com.arslandaim.omegaplayer.domain.usecase.playback.GetRecentPlaybackUseCase
 import com.arslandaim.omegaplayer.data.repository.PlaybackRepository
 import com.arslandaim.omegaplayer.data.ThemePreferences
+import com.arslandaim.omegaplayer.data.SecurityLockType
+import com.arslandaim.omegaplayer.util.SecurityUtils
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.PlaylistItem
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.media.PlaybackQueueItem
+import com.arslandaim.omegaplayer.media.PlaybackSource
+import com.arslandaim.omegaplayer.media.PlayerRepeatMode
 import com.arslandaim.omegaplayer.media.SleepTimerController
 import com.arslandaim.omegaplayer.service.PlaybackService
 import com.arslandaim.omegaplayer.util.Resource
-import com.arslandaim.omegaplayer.util.StartupTrace
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import javax.inject.Inject
 
@@ -77,7 +83,11 @@ class VideoViewModel @Inject constructor(
 
     val isPlaying: StateFlow<Boolean> = playbackConnection.isPlaying
     val mediaController: StateFlow<androidx.media3.session.MediaController?> = playbackConnection.mediaController
+    val repeatMode: StateFlow<PlayerRepeatMode> = playbackConnection.repeatMode
     val activeQueue: StateFlow<List<PlaybackQueueItem>> = playbackConnection.currentQueue
+    val playbackSource: StateFlow<PlaybackSource> = playbackConnection.playbackSource
+
+    fun cycleRepeatMode() = playbackConnection.cycleRepeatMode()
 
     private val _selectedFolder = MutableStateFlow<String?>(null)
     val selectedFolder: StateFlow<String?> = _selectedFolder.asStateFlow()
@@ -126,7 +136,7 @@ class VideoViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
 
     val upNextFullyExpanded: StateFlow<Boolean> = themePreferences.upNextFullyExpanded
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val defaultPlaybackSpeed: StateFlow<Float> = themePreferences.defaultPlaybackSpeed
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
@@ -137,12 +147,184 @@ class VideoViewModel @Inject constructor(
     val defaultSortOrder: StateFlow<String> = themePreferences.defaultSortOrder
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MediaSortOrder.DATE_DESC.name)
 
+    val defaultSearchScope: StateFlow<SearchScope> = themePreferences.defaultSearchScope
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SearchScope.CURRENT_TYPE)
+
     val volumeBoostEnabled: StateFlow<Boolean> = themePreferences.volumeBoostEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val audioNormalizationEnabled: StateFlow<Boolean> = themePreferences.audioNormalizationEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val audioNormalizationDb: StateFlow<Float> = themePreferences.audioNormalizationDb
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 6.0f)
+
+    val skipSilenceEnabled: StateFlow<Boolean> = playbackConnection.skipSilenceEnabled
+
+    val savePositionOnQuit: StateFlow<Boolean> = themePreferences.savePositionOnQuit
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val closeAfterQueueEnds: StateFlow<Boolean> = themePreferences.closeAfterQueueEnds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val brightnessScope: StateFlow<BrightnessScope> = themePreferences.brightnessScope
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BrightnessScope.NONE)
+
+    val globalBrightness: StateFlow<Float> = themePreferences.globalBrightness
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), -1f)
+
+    val keepScreenOnWhenPaused: StateFlow<Boolean> = themePreferences.keepScreenOnWhenPaused
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val gestureVolumeEnabled: StateFlow<Boolean> = themePreferences.gestureVolumeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureBrightnessEnabled: StateFlow<Boolean> = themePreferences.gestureBrightnessEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gesturePinchToZoomEnabled: StateFlow<Boolean> = themePreferences.gesturePinchToZoomEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureSeekForwardEnabled: StateFlow<Boolean> = themePreferences.gestureSeekForwardEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureSeekBackwardEnabled: StateFlow<Boolean> = themePreferences.gestureSeekBackwardEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gesturePlayPauseEnabled: StateFlow<Boolean> = themePreferences.gesturePlayPauseEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureLongPressSpeedEnabled: StateFlow<Boolean> = themePreferences.gestureLongPressSpeedEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureTapControlsEnabled: StateFlow<Boolean> = themePreferences.gestureTapControlsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val securityLockType: StateFlow<SecurityLockType> = themePreferences.securityLockType
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SecurityLockType.NONE)
+
+    val securityPinHash: StateFlow<String> = themePreferences.securityPinHash
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val securityPatternHash: StateFlow<String> = themePreferences.securityPatternHash
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val securityAppLockEnabled: StateFlow<Boolean> = themePreferences.securityAppLockEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val securityLockedFolders: StateFlow<Set<String>> = themePreferences.securityLockedFolders
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    val securityLockedMedia: StateFlow<Set<String>> = themePreferences.securityLockedMedia
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     fun toggleVolumeBoost(enabled: Boolean) {
         viewModelScope.launch {
             themePreferences.saveVolumeBoostEnabled(enabled)
+        }
+    }
+
+    fun toggleAudioNormalization(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.saveAudioNormalizationEnabled(enabled)
+        }
+    }
+
+    fun setAudioNormalizationDb(db: Float) {
+        viewModelScope.launch {
+            themePreferences.saveAudioNormalizationDb(db)
+        }
+    }
+
+    fun setSavePositionOnQuit(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.saveSavePositionOnQuit(enabled)
+        }
+    }
+
+    fun setSecurityLockType(type: SecurityLockType) {
+        viewModelScope.launch { themePreferences.saveSecurityLockType(type) }
+    }
+
+    fun setSecurityPin(pin: String) {
+        viewModelScope.launch {
+            val hash = SecurityUtils.hashSecret(pin)
+            themePreferences.saveSecurityPinHash(hash)
+        }
+    }
+
+    fun setSecurityPattern(pattern: String) {
+        viewModelScope.launch {
+            val hash = SecurityUtils.hashSecret(pattern)
+            themePreferences.saveSecurityPatternHash(hash)
+        }
+    }
+
+    fun setSecurityAppLockEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveSecurityAppLockEnabled(enabled) }
+    }
+
+    fun toggleFolderLock(path: String) {
+        viewModelScope.launch { themePreferences.toggleFolderLock(path) }
+    }
+
+    fun unlockFolder(path: String) {
+        viewModelScope.launch { themePreferences.unlockFolder(path) }
+    }
+
+    fun toggleMediaLock(uri: String) {
+        viewModelScope.launch { themePreferences.toggleMediaLock(uri) }
+    }
+
+    fun unlockMedia(uri: String) {
+        viewModelScope.launch { themePreferences.unlockMedia(uri) }
+    }
+
+    fun clearAllLocks() {
+        viewModelScope.launch { themePreferences.clearAllLocks() }
+    }
+
+    fun isFolderLocked(path: String): Boolean = securityLockedFolders.value.contains(path)
+
+    fun isMediaLocked(uri: String): Boolean = securityLockedMedia.value.contains(uri)
+
+    fun isFolderProtected(path: String): Boolean {
+        if (securityLockType.value == SecurityLockType.NONE) return false
+        val locked = securityLockedFolders.value
+        if (locked.isEmpty()) return false
+        return locked.any { path == it || path.startsWith("$it/") }
+    }
+
+    fun isMediaProtected(uri: String, parentFolderPath: String? = null): Boolean {
+        if (securityLockType.value == SecurityLockType.NONE) return false
+        val lockedMedia = securityLockedMedia.value
+        if (lockedMedia.contains(uri)) return true
+        if (!parentFolderPath.isNullOrEmpty()) {
+            val lockedFolders = securityLockedFolders.value
+            if (lockedFolders.isNotEmpty() && lockedFolders.any { parentFolderPath == it || parentFolderPath.startsWith("$it/") }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun verifyPin(pin: String): Boolean {
+        val hash = securityPinHash.value.ifEmpty {
+            runBlocking { themePreferences.securityPinHash.first() }
+        }
+        return SecurityUtils.verifySecret(pin, hash)
+    }
+
+    fun verifyPattern(pattern: String): Boolean {
+        val hash = securityPatternHash.value.ifEmpty {
+            runBlocking { themePreferences.securityPatternHash.first() }
+        }
+        return SecurityUtils.verifySecret(pattern, hash)
+    }
+
+    fun setCloseAfterQueueEnds(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.saveCloseAfterQueueEnds(enabled)
         }
     }
 
@@ -169,8 +351,7 @@ class VideoViewModel @Inject constructor(
             val folder = File(it.path).parentFile?.name ?: "Internal"
             !excluded.contains(folder)
         }
-    }.onEach { list -> StartupTrace.markOnce("videos.firstEmission") { "videos flow first emission (${list.size} items)" } }
-        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val videosByUri: StateFlow<Map<String, VideoModel>> = videos
         .map { list -> list.associateBy { it.uri.toString() } }
@@ -182,6 +363,22 @@ class VideoViewModel @Inject constructor(
 
     val fullHistory: StateFlow<List<RecentPlayback>> = playbackRepository.getAllRecentPlayback()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val playbackProgressMap: StateFlow<Map<String, Float>> = combine(
+        playbackRepository.getAllRecentPlayback(),
+        playbackConnection.livePlaybackProgress
+    ) { recentList, liveProgressMap ->
+        val map = recentList.associate { recent ->
+            val ratio = if (recent.duration > 0L) {
+                (recent.position.toFloat() / recent.duration.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            recent.uri to ratio
+        }.toMutableMap()
+        map.putAll(liveProgressMap)
+        map
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val isHistoryPaused: StateFlow<Boolean> = themePreferences.isHistoryPaused
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -195,6 +392,14 @@ class VideoViewModel @Inject constructor(
     fun clearAllHistory() {
         viewModelScope.launch {
             playbackRepository.clearAllRecentPlayback()
+            playbackConnection.clearLiveProgress()
+        }
+    }
+
+    fun resetAllPlaybackPositions() {
+        viewModelScope.launch {
+            playbackRepository.resetAllPlaybackPositions()
+            playbackConnection.clearLiveProgress()
         }
     }
 
@@ -389,6 +594,7 @@ class VideoViewModel @Inject constructor(
         val name = video.name
 
         viewModelScope.launch {
+            if (!themePreferences.savePositionOnQuit.first()) return@launch
             if (themePreferences.isHistoryPaused.first()) return@launch
 
             playbackRepository.saveRecentPlayback(
@@ -405,7 +611,11 @@ class VideoViewModel @Inject constructor(
     }
 
     suspend fun getSavedPosition(uri: String): Long {
-        return playbackRepository.getRecentPlayback(uri)?.position ?: 0L
+        val recent = playbackRepository.getRecentPlayback(uri) ?: return 0L
+        if (recent.duration > 0L && recent.position >= recent.duration - 2000L) {
+            return 0L
+        }
+        return recent.position
     }
 
     fun setSpeedScope(scope: PlaybackSpeedScope) {
@@ -420,6 +630,40 @@ class VideoViewModel @Inject constructor(
 
     fun setFolderPlaybackSpeed(folderName: String, speed: Float) {
         viewModelScope.launch { themePreferences.saveFolderPlaybackSpeed(folderName, speed) }
+    }
+
+    fun getHistorySpeed(): Flow<Float?> = themePreferences.getHistorySpeed()
+
+    fun setHistoryPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { themePreferences.saveHistoryPlaybackSpeed(speed) }
+    }
+
+    fun getPlaylistSpeed(playlistId: Int): Flow<Float?> = themePreferences.getPlaylistSpeed(playlistId)
+
+    fun setPlaylistPlaybackSpeed(playlistId: Int, speed: Float) {
+        viewModelScope.launch { themePreferences.savePlaylistPlaybackSpeed(playlistId, speed) }
+    }
+
+    fun setSkipSilenceEnabled(enabled: Boolean, persist: Boolean = true) {
+        playbackConnection.setSkipSilenceEnabled(enabled, persist)
+    }
+
+    fun setBrightnessScope(scope: BrightnessScope) {
+        viewModelScope.launch { themePreferences.saveBrightnessScope(scope) }
+    }
+
+    fun saveGlobalBrightness(brightness: Float) {
+        viewModelScope.launch { themePreferences.saveGlobalBrightness(brightness) }
+    }
+
+    fun getFolderBrightness(folderName: String): Flow<Float?> = themePreferences.getFolderBrightness(folderName)
+
+    fun saveFolderBrightness(folderName: String, brightness: Float) {
+        viewModelScope.launch { themePreferences.saveFolderBrightness(folderName, brightness) }
+    }
+
+    fun setKeepScreenOnWhenPaused(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveKeepScreenOnWhenPaused(enabled) }
     }
 
     fun getFolderViewMode(folderKey: String, defaultMode: Int? = null): Flow<Int> =
@@ -473,6 +717,48 @@ class VideoViewModel @Inject constructor(
 
     fun setDefaultSortOrder(sortOrder: String) {
         viewModelScope.launch { themePreferences.saveDefaultSortOrder(sortOrder) }
+    }
+
+    fun setDefaultSearchScope(scope: SearchScope) {
+        viewModelScope.launch { themePreferences.saveDefaultSearchScope(scope) }
+    }
+
+    fun resetDefaultPreferences(clearFolderCustomizations: Boolean) {
+        viewModelScope.launch {
+            themePreferences.resetDefaultPreferences(clearFolderCustomizations)
+        }
+    }
+
+    fun setGestureVolumeEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGestureVolumeEnabled(enabled) }
+    }
+
+    fun setGestureBrightnessEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGestureBrightnessEnabled(enabled) }
+    }
+
+    fun setGesturePinchToZoomEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGesturePinchToZoomEnabled(enabled) }
+    }
+
+    fun setGestureSeekForwardEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGestureSeekForwardEnabled(enabled) }
+    }
+
+    fun setGestureSeekBackwardEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGestureSeekBackwardEnabled(enabled) }
+    }
+
+    fun setGesturePlayPauseEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGesturePlayPauseEnabled(enabled) }
+    }
+
+    fun setGestureLongPressSpeedEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGestureLongPressSpeedEnabled(enabled) }
+    }
+
+    fun setGestureTapControlsEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveGestureTapControlsEnabled(enabled) }
     }
 
     val subtitleTextSize: StateFlow<Int> = themePreferences.subtitleTextSize
@@ -529,10 +815,19 @@ class VideoViewModel @Inject constructor(
         playbackConnection.setQueue(queueItems)
     }
 
+    fun moveQueueItem(from: Int, to: Int, fallbackItems: List<com.arslandaim.omegaplayer.media.PlaybackQueueItem>? = null) {
+        playbackConnection.moveQueueItem(from, to, fallbackItems)
+    }
+
+    fun removeQueueItem(index: Int, fallbackItems: List<com.arslandaim.omegaplayer.media.PlaybackQueueItem>? = null) {
+        playbackConnection.removeQueueItem(index, fallbackItems)
+    }
+
     val showSystemStatusBar: StateFlow<Boolean> = themePreferences.showSystemStatusBar.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val autoPlayNext: StateFlow<Boolean> = themePreferences.autoPlayNext.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val autoPip: StateFlow<Boolean> = themePreferences.autoPip.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val controlsTimeout: StateFlow<Int> = themePreferences.controlsTimeout.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 3)
+    val seekIncrement: StateFlow<Int> = themePreferences.seekIncrement.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
     val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 5)
 
     val notifShowPrevious: StateFlow<Boolean> = themePreferences.notifShowPrevious.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -570,7 +865,7 @@ class VideoViewModel @Inject constructor(
     val currentNavPath: StateFlow<String?> = _currentNavPath.asStateFlow()
 
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(videos, folderFlattenThreshold) { videoList, threshold ->
-        StartupTrace.trace("folder tree rebuilt (${videoList.size} items)") { buildVideoTree(videoList, threshold) }
+        buildVideoTree(videoList, threshold)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
@@ -602,7 +897,23 @@ class VideoViewModel @Inject constructor(
     }
 
     fun playVideos(folderVideos: List<VideoModel>, startIndex: Int) {
-        playbackConnection.playVideos(folderVideos, startIndex)
+        viewModelScope.launch {
+            val savePosition = themePreferences.savePositionOnQuit.first()
+            val startPos = if (savePosition && startIndex in folderVideos.indices) {
+                getSavedPosition(folderVideos[startIndex].uri.toString())
+            } else 0L
+            playbackConnection.playVideos(folderVideos, startIndex, startPos)
+        }
+    }
+
+    fun playMixedMedia(items: List<com.arslandaim.omegaplayer.data.SearchMediaItem>, startIndex: Int) {
+        viewModelScope.launch {
+            val savePosition = themePreferences.savePositionOnQuit.first()
+            val startPos = if (savePosition && startIndex in items.indices) {
+                getSavedPosition(items[startIndex].uri.toString())
+            } else 0L
+            playbackConnection.playMixedMedia(items, startIndex, startPos)
+        }
     }
 
     private fun buildVideoTree(videos: List<VideoModel>, threshold: Int): com.arslandaim.omegaplayer.data.model.FolderNode {

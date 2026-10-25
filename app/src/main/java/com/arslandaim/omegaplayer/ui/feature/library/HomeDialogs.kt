@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.arslandaim.omegaplayer.R
@@ -37,7 +38,7 @@ fun DeleteFolderDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(text = if (isVideoTab) stringResource(R.string.delete_video_folder_title) else stringResource(R.string.delete_audio_folder_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
         text = { Text(text = stringResource(R.string.delete_folder_confirm, folderName), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
         confirmButton = {
@@ -70,7 +71,7 @@ fun DeleteFolderDialog(
                     }
                     onProcessingChange(false)
                 }
-            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
+            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)) { Text(stringResource(R.string.menu_delete_folder), color = Color.White) }
         },
         dismissButton = { TextButton(onClick = { onDismiss() }) { Text(stringResource(R.string.action_cancel)) } }
     )
@@ -87,7 +88,7 @@ fun DeleteVideoDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(text = stringResource(R.string.delete_video_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
         text = { Text(text = stringResource(R.string.delete_media_confirm, video.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
         confirmButton = {
@@ -101,7 +102,7 @@ fun DeleteVideoDialog(
                     if (deleted > 0) viewModel.onVideosDeleted(listOf(video.uri)) else viewModel.refreshVideos(context)
                     onProcessingChange(false)
                 }
-            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
+            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)) { Text(stringResource(R.string.delete_from_device), color = Color.White) }
         },
         dismissButton = { TextButton(onClick = { onDismiss() }) { Text(stringResource(R.string.action_cancel)) } }
     )
@@ -118,7 +119,7 @@ fun DeleteAudioDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(text = stringResource(R.string.delete_audio_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
         text = { Text(text = stringResource(R.string.delete_media_confirm, audio.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
         confirmButton = {
@@ -132,7 +133,7 @@ fun DeleteAudioDialog(
                     if (deleted > 0) audioViewModel.onAudiosDeleted(listOf(audio.uri)) else audioViewModel.refreshAudios(context)
                     onProcessingChange(false)
                 }
-            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
+            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)) { Text(stringResource(R.string.delete_from_device), color = Color.White) }
         },
         dismissButton = { TextButton(onClick = { onDismiss() }) { Text(stringResource(R.string.action_cancel)) } }
     )
@@ -150,7 +151,7 @@ fun DeleteHistoryItemDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+        icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(text = stringResource(R.string.delete_media_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
         text = { Text(text = stringResource(R.string.delete_media_from_device_confirm, item.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
         confirmButton = {
@@ -171,7 +172,7 @@ fun DeleteHistoryItemDialog(
                     }
                     onProcessingChange(false)
                 }
-            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
+            }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)) { Text(stringResource(R.string.delete_from_device), color = Color.White) }
         },
         dismissButton = { TextButton(onClick = { onDismiss() }) { Text(stringResource(R.string.action_cancel)) } }
     )

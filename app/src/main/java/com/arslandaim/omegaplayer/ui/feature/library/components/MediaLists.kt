@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,7 +40,10 @@ fun MediaListItemInPlaylist(
     onVideoDelete: (VideoModel) -> Unit,
     onAudioDelete: (AudioModel) -> Unit,
     onVideoRename: (VideoModel, String) -> Unit = { _, _ -> },
-    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> }
+    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> },
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
     if (item.mediaType == "video") {
         val video = videosByUri[item.mediaUri]
@@ -53,7 +57,10 @@ fun MediaListItemInPlaylist(
                 onDeleteClick = { onVideoDelete(video) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, video.uri.toString()) },
                 onRename = { onVideoRename(video, it) },
-                isInPlaylistView = true
+                isInPlaylistView = true,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
             )
         }
     } else {
@@ -66,7 +73,10 @@ fun MediaListItemInPlaylist(
                 onDeleteClick = { onAudioDelete(audio) },
                 onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
                 onRename = { onAudioRename(audio, it) },
-                isInPlaylistView = true
+                isInPlaylistView = true,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
             )
         }
     }
@@ -83,17 +93,51 @@ fun PlaylistGridItem(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onPlayItem: (PlaylistItem) -> Unit,
     playlist: Playlist,
-    aspectRatio: Float = 1f
+    audioViewModel: AudioViewModel? = null,
+    onVideoDelete: ((VideoModel) -> Unit)? = null,
+    onAudioDelete: ((AudioModel) -> Unit)? = null,
+    onVideoRename: (VideoModel, String) -> Unit = { _, _ -> },
+    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> },
+    aspectRatio: Float = 1f,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
     if (item.mediaType == "video") {
         val video = videosByUri[item.mediaUri]
         if (video != null) {
-            VideoGridItem(video, isPlaying, sharedTransitionScope, animatedVisibilityScope, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
+            VideoGridItem(
+                video = video,
+                isPlaying = isPlaying,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onClick = { onPlayItem(item) },
+                onDelete = { onVideoDelete?.invoke(video) },
+                onPlaylist = { audioViewModel?.removeFromPlaylist(playlist.id, video.uri.toString()) },
+                onRename = { onVideoRename(video, it) },
+                isInPlaylistView = true,
+                aspectRatio = aspectRatio,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
+            )
         }
     } else {
         val audio = audiosByUri[item.mediaUri]
         if (audio != null) {
-            AudioGridItem(audio, isPlaying, { onPlayItem(item) }, {}, {}, aspectRatio = aspectRatio)
+            AudioGridItem(
+                audio = audio,
+                isPlaying = isPlaying,
+                onClick = { onPlayItem(item) },
+                onDelete = { onAudioDelete?.invoke(audio) },
+                onPlaylist = { audioViewModel?.removeFromPlaylist(playlist.id, audio.uri.toString()) },
+                onRename = { onAudioRename(audio, it) },
+                isInPlaylistView = true,
+                aspectRatio = aspectRatio,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
+            )
         }
     }
 }
@@ -158,12 +202,18 @@ fun AddToPlaylistFromHomeDialog(
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    if (newPlaylistName.isNotBlank()) {
-                        onCreatePlaylist(newPlaylistName)
-                        showCreateDialog = false
-                    }
-                }) { Text(stringResource(R.string.action_create)) }
+                Button(
+                    onClick = {
+                        if (newPlaylistName.isNotBlank()) {
+                            onCreatePlaylist(newPlaylistName)
+                            showCreateDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
+                ) { Text(stringResource(R.string.action_create), color = Color.White) }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) { Text(stringResource(R.string.action_cancel)) }
@@ -179,11 +229,15 @@ fun AddToPlaylistFromHomeDialog(
                 Button(
                     onClick = { showCreateDialog = true },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.menu_new_playlist))
+                    Text(stringResource(R.string.menu_new_playlist), color = Color.White)
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))

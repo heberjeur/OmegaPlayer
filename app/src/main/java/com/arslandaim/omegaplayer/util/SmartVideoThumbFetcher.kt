@@ -37,9 +37,7 @@ class SmartVideoThumbFetcher(
             val targetWidth = options.size.width.pxOrElse { MAX_DECODE_WIDTH }
                 .coerceIn(64, MAX_DECODE_WIDTH)
 
-            val fastPathStarted = SystemClock.uptimeMillis()
             systemThumbnail(context, model.uri, targetWidth)?.let { bitmap ->
-                StartupTrace.count("thumbnails.fastPath (MediaStore)", SystemClock.uptimeMillis() - fastPathStarted)
                 return@withContext DrawableResult(
                     drawable = BitmapDrawable(context.resources, bitmap),
                     isSampled = true,
@@ -47,7 +45,6 @@ class SmartVideoThumbFetcher(
                 )
             }
 
-            val slowPathStarted = SystemClock.uptimeMillis()
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(context, model.uri)
             val durationMs = model.durationMs
@@ -72,7 +69,6 @@ class SmartVideoThumbFetcher(
                 }
             }
 
-            StartupTrace.count("thumbnails.frameExtraction (MediaMetadataRetriever)", SystemClock.uptimeMillis() - slowPathStarted)
             retriever.release()
             bestBitmap?.let { bitmap ->
                 DrawableResult(

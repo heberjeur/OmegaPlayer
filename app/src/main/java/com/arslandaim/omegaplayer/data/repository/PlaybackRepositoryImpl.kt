@@ -52,4 +52,8 @@ class PlaybackRepositoryImpl @Inject constructor(
     override suspend fun clearAllRecentPlayback() {
         appDao.clearAllRecentPlayback()
     }
+
+    override suspend fun resetAllPlaybackPositions() {
+        appDao.resetAllPlaybackPositions()
+    }
 }

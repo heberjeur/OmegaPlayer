@@ -3,12 +3,16 @@ package com.arslandaim.omegaplayer.ui.feature.library.components
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +36,10 @@ import coil.request.ImageRequest
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.common.videoThumbImageRequest
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
+import com.arslandaim.omegaplayer.ui.theme.LocalSavePositionOnQuit
+import com.arslandaim.omegaplayer.ui.theme.LocalTextTruncationMode
+import com.arslandaim.omegaplayer.ui.theme.maxLines
+import com.arslandaim.omegaplayer.ui.theme.overflow
 
 @Composable
 fun RecentPlaybackItem(
@@ -83,6 +91,7 @@ fun RecentPlaybackItem(
                 }
             }
 
+            val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,8 +106,8 @@ fun RecentPlaybackItem(
                     color = Color.White,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Justify,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
             }
 
@@ -144,35 +153,57 @@ fun RecentPlaybackItem(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = Color.White.copy(alpha = 0.3f)
-                )
+                val savePositionOnQuit = LocalSavePositionOnQuit.current
+                if (savePositionOnQuit) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.3f)
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryGridCard(
     item: RecentPlayback,
     onClick: () -> Unit,
-    aspectRatio: Float = 1f
+    onDelete: (() -> Unit)? = null,
+    onDeleteFromDevice: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
+    aspectRatio: Float = 1f,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(aspectRatio)
-            .clickable(onClick = onClick),
+            .clip(RoundedCornerShape(20.dp))
+            .combinedClickable(
+                onClick = {
+                    if (isSelectionMode) onToggleSelect() else onClick()
+                },
+                onLongClick = onToggleSelect
+            ),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+            else MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -203,12 +234,13 @@ fun HistoryGridCard(
                 }
             }
 
+            val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
-                    .padding(8.dp)
+                    .padding(start = 8.dp, end = if (onDelete != null || onDeleteFromDevice != null) 36.dp else 8.dp, top = 8.dp, bottom = 8.dp)
             ) {
                 Text(
                     text = item.name,
@@ -216,9 +248,103 @@ fun HistoryGridCard(
                     color = Color.White,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Justify,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
+            }
+
+            if (isSelectionMode) {
+                IconButton(
+                    onClick = onToggleSelect,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(28.dp)
+                ) {
+                    Surface(
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Default.Check else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                ) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.action_more),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_play)) },
+                            onClick = {
+                                showMenu = false
+                                onClick()
+                            },
+                            leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                        )
+                        if (onAddToPlaylist != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_add_to_playlist)) },
+                                onClick = {
+                                    showMenu = false
+                                    onAddToPlaylist()
+                                },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                        }
+                        if (onDelete != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.remove_from_history)) },
+                                onClick = {
+                                    showMenu = false
+                                    onDelete()
+                                },
+                                leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                        }
+                        if (onDeleteFromDevice != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.delete_from_device)) },
+                                onClick = {
+                                    showMenu = false
+                                    onDeleteFromDevice()
+                                },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                        }
+                    }
+                }
             }
 
             Column(
@@ -263,34 +389,52 @@ fun HistoryGridCard(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = Color.White.copy(alpha = 0.3f)
-                )
+                val savePositionOnQuit = LocalSavePositionOnQuit.current
+                if (savePositionOnQuit) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.3f)
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryItem(
     item: RecentPlayback,
     onClick: () -> Unit,
     onDelete: () -> Unit,
-    onDeleteFromDevice: () -> Unit
+    onDeleteFromDevice: () -> Unit,
+    onAddToPlaylist: (() -> Unit)? = null,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clip(RoundedCornerShape(24.dp))
+            .combinedClickable(
+                onClick = {
+                    if (isSelectionMode) onToggleSelect() else onClick()
+                },
+                onLongClick = onToggleSelect
+            ),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+            else MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -363,6 +507,7 @@ fun HistoryItem(
                 }
             }
             
+            val truncation = LocalTextTruncationMode.current
             Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
                 Text(
                     text = item.name,
@@ -371,52 +516,84 @@ fun HistoryItem(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Justify,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                val savePositionOnQuit = LocalSavePositionOnQuit.current
+                if (savePositionOnQuit) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val progress = item.position.toFloat() / item.duration.coerceAtLeast(1L)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
             }
             
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
+                if (isSelectionMode) {
+                    IconButton(onClick = onToggleSelect) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.action_more),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(22.dp)
+                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.remove_from_history)) },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.delete_from_device), color = MaterialTheme.colorScheme.error) },
-                            onClick = {
-                                showMenu = false
-                                onDeleteFromDevice()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
-                        )
+                } else {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.action_more),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_play)) },
+                                onClick = {
+                                    showMenu = false
+                                    onClick()
+                                },
+                                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                            if (onAddToPlaylist != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.menu_add_to_playlist)) },
+                                    onClick = {
+                                        showMenu = false
+                                        onAddToPlaylist()
+                                    },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.remove_from_history)) },
+                                onClick = {
+                                    showMenu = false
+                                    onDelete()
+                                },
+                                leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.delete_from_device)) },
+                                onClick = {
+                                    showMenu = false
+                                    onDeleteFromDevice()
+                                },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                        }
                     }
                 }
             }

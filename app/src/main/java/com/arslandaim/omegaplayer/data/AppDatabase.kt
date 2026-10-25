@@ -87,6 +87,9 @@ interface AppDao {
     @Query("DELETE FROM recent_playback")
     suspend fun clearAllRecentPlayback()
 
+    @Query("UPDATE recent_playback SET position = 0")
+    suspend fun resetAllPlaybackPositions()
+
     @Query("SELECT * FROM videos")
     fun getAllVideos(): Flow<List<VideoModel>>
 

@@ -19,6 +19,9 @@ import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
+import com.arslandaim.omegaplayer.data.BrightnessScope
+import com.arslandaim.omegaplayer.media.PlaybackSource
+import kotlinx.coroutines.flow.flowOf
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +49,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -56,6 +60,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -90,6 +96,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.Job
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
@@ -122,23 +130,30 @@ fun VideoPlayerScreen(
     val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager }
     
     val mediaController by viewModel.mediaController.collectAsStateWithLifecycle()
+    val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
     val isBackgroundPlayEnabled by viewModel.isBackgroundPlayEnabled.collectAsStateWithLifecycle()
     val controlsTimeout by viewModel.controlsTimeout.collectAsStateWithLifecycle(initialValue = 3)
+    val seekIncrement by viewModel.seekIncrement.collectAsStateWithLifecycle(initialValue = 10)
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val sleepTimerActive by viewModel.sleepTimerActive.collectAsStateWithLifecycle()
     val sleepTimerTimeLeft by viewModel.sleepTimerTimeLeft.collectAsStateWithLifecycle()
     val stopAfterCurrent by viewModel.stopAfterCurrent.collectAsStateWithLifecycle()
     val volumeBoostEnabled by viewModel.volumeBoostEnabled.collectAsStateWithLifecycle()
+    val skipSilenceEnabled by viewModel.skipSilenceEnabled.collectAsStateWithLifecycle()
+    val savePositionOnQuit by viewModel.savePositionOnQuit.collectAsStateWithLifecycle(initialValue = true)
+    val closeAfterQueueEnds by viewModel.closeAfterQueueEnds.collectAsStateWithLifecycle(initialValue = false)
 
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showPlaybackSpeedDialog by remember { mutableStateOf(false) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
+    var targetPlaylistUri by remember { mutableStateOf<String?>(null) }
+    var targetPlaylistUris by remember { mutableStateOf<List<String>>(emptyList()) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var currentTracks by remember { mutableStateOf(mediaController?.currentTracks ?: Tracks.EMPTY) }
     var showQueueSheet by remember { mutableStateOf(false) }
-    val upNextFullyExpanded by viewModel.upNextFullyExpanded.collectAsStateWithLifecycle(initialValue = false)
+    val upNextFullyExpanded by viewModel.upNextFullyExpanded.collectAsStateWithLifecycle(initialValue = true)
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = upNextFullyExpanded)
 
     val subtitleTextSize by viewModel.subtitleTextSize.collectAsStateWithLifecycle(initialValue = 18)
@@ -148,31 +163,11 @@ fun VideoPlayerScreen(
 
     var isVerticalVideo by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     var pendingUrisToDelete by remember { mutableStateOf<List<Uri>>(emptyList()) }
-
-    val deleteLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            pendingUrisToDelete.forEach { uri -> viewModel.deleteHistoryItem(uri.toString()) }
-            val autoPlayNext = viewModel.autoPlayNext.value
-            val hasNext = mediaController?.hasNextMediaItem() == true
-            if (hasNext && autoPlayNext) {
-                val currentIndex = mediaController?.currentMediaItemIndex ?: -1
-                if (currentIndex != -1) {
-                    mediaController?.removeMediaItem(currentIndex)
-                }
-            } else {
-                mediaController?.currentMediaItem?.localConfiguration?.uri?.let { viewModel.stopIfPlaying(it) }
-                onBack()
-            }
-            if (pendingUrisToDelete.isNotEmpty()) viewModel.onVideosDeleted(pendingUrisToDelete)
-            pendingUrisToDelete = emptyList()
-        } else {
-            pendingUrisToDelete = emptyList()
-        }
-    }
+    var queueItemPendingDelete by remember { mutableStateOf<com.arslandaim.omegaplayer.media.PlaybackQueueItem?>(null) }
 
     val enterPiP: () -> Unit = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -246,13 +241,90 @@ fun VideoPlayerScreen(
         if (folderVideos.isNotEmpty()) folderVideos else videosList
     }
     val activeQueue by viewModel.activeQueue.collectAsStateWithLifecycle()
+    val queueItems = remember(activeQueue, activeQueueVideos, videoUri) {
+        if (activeQueue.isNotEmpty()) {
+            activeQueue
+        } else if (activeQueueVideos.isNotEmpty()) {
+            activeQueueVideos.map {
+                com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                    uri = it.uri.toString(),
+                    title = it.name,
+                    duration = it.duration,
+                    isVideo = true
+                )
+            }
+        } else {
+            listOf(
+                com.arslandaim.omegaplayer.media.PlaybackQueueItem(
+                    uri = videoUri,
+                    title = "",
+                    duration = 0L,
+                    isVideo = true
+                )
+            )
+        }
+    }
+
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            pendingUrisToDelete.forEach { uri -> viewModel.deleteHistoryItem(uri.toString()) }
+            val isCurrent = pendingUrisToDelete.any { it.toString() == playingUri }
+            if (isCurrent) {
+                val autoPlayNext = viewModel.autoPlayNext.value
+                val hasNext = mediaController?.hasNextMediaItem() == true
+                if (hasNext && autoPlayNext) {
+                    val currentIndex = mediaController?.currentMediaItemIndex ?: -1
+                    if (currentIndex != -1) {
+                        mediaController?.removeMediaItem(currentIndex)
+                    }
+                } else {
+                    mediaController?.currentMediaItem?.localConfiguration?.uri?.let { viewModel.stopIfPlaying(it) }
+                    onBack()
+                }
+            } else {
+                pendingUrisToDelete.forEach { delUri ->
+                    val qIdx = queueItems.indexOfFirst { it.uri == delUri.toString() }
+                    if (qIdx != -1) {
+                        viewModel.removeQueueItem(qIdx, queueItems)
+                    }
+                }
+            }
+            if (pendingUrisToDelete.isNotEmpty()) viewModel.onVideosDeleted(pendingUrisToDelete)
+            pendingUrisToDelete = emptyList()
+            queueItemPendingDelete = null
+        } else {
+            pendingUrisToDelete = emptyList()
+            queueItemPendingDelete = null
+        }
+    }
     val playerOrientation by viewModel.playerOrientation.collectAsStateWithLifecycle(initialValue = 0)
 
     val speedScope by viewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
     val globalSpeed by viewModel.globalPlaybackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
     val folderSpeedFlow = remember(currentFolder) { viewModel.getFolderSpeed(currentFolder) }
     val folderSpeed by folderSpeedFlow.collectAsStateWithLifecycle(initialValue = 1.0f)
-    val effectiveSpeed = if (speedScope == PlaybackSpeedScope.GLOBAL) globalSpeed else (folderSpeed ?: 1.0f)
+
+    val playbackSource by viewModel.playbackSource.collectAsStateWithLifecycle(initialValue = PlaybackSource.None)
+    val isHistory = com.arslandaim.omegaplayer.media.PlaybackSpeedResolver.isHistorySource(from, playbackSource)
+    val playlistId = com.arslandaim.omegaplayer.media.PlaybackSpeedResolver.resolvePlaylistId(from, playbackSource)
+
+    val historySpeed by viewModel.getHistorySpeed().collectAsStateWithLifecycle(initialValue = globalSpeed)
+    val playlistSpeedFlow = remember(playlistId) {
+        if (playlistId != null) viewModel.getPlaylistSpeed(playlistId) else flowOf(null)
+    }
+    val playlistSpeed by playlistSpeedFlow.collectAsStateWithLifecycle(initialValue = null)
+
+    val effectiveSpeed = com.arslandaim.omegaplayer.media.PlaybackSpeedResolver.resolveEffectiveSpeed(
+        scope = speedScope,
+        globalSpeed = globalSpeed,
+        isHistory = isHistory,
+        historySpeed = historySpeed,
+        playlistId = playlistId,
+        playlistSpeed = playlistSpeed,
+        folderSpeed = folderSpeed ?: 1.0f
+    )
 
     val showSystemStatusBar by viewModel.showSystemStatusBar.collectAsStateWithLifecycle(initialValue = true)
     val hudShowClock by viewModel.showPlayerClock.collectAsStateWithLifecycle(initialValue = false)
@@ -260,6 +332,14 @@ fun VideoPlayerScreen(
     val hudShowMediaInfo by viewModel.showPlayerMediaInfo.collectAsStateWithLifecycle(initialValue = false)
     val hudShowVolume by viewModel.showPlayerVolume.collectAsStateWithLifecycle(initialValue = false)
     val hudShowBrightness by viewModel.showPlayerBrightness.collectAsStateWithLifecycle(initialValue = false)
+    val gestureVolumeEnabled by viewModel.gestureVolumeEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gestureBrightnessEnabled by viewModel.gestureBrightnessEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gesturePinchToZoomEnabled by viewModel.gesturePinchToZoomEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gestureSeekForwardEnabled by viewModel.gestureSeekForwardEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gestureSeekBackwardEnabled by viewModel.gestureSeekBackwardEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gesturePlayPauseEnabled by viewModel.gesturePlayPauseEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gestureLongPressSpeedEnabled by viewModel.gestureLongPressSpeedEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val gestureTapControlsEnabled by viewModel.gestureTapControlsEnabled.collectAsStateWithLifecycle(initialValue = true)
 
     val audioManager = rememberSystemAudioManager()
     val maxVolume = rememberSystemMaxVolume(audioManager)
@@ -295,9 +375,17 @@ fun VideoPlayerScreen(
 
     var videoResolution by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(isPlaying) {
+    val keepScreenOnWhenPaused by viewModel.keepScreenOnWhenPaused.collectAsStateWithLifecycle(initialValue = false)
+    val brightnessScope by viewModel.brightnessScope.collectAsStateWithLifecycle(initialValue = BrightnessScope.NONE)
+    val globalBrightness by viewModel.globalBrightness.collectAsStateWithLifecycle(initialValue = -1f)
+    val folderBrightnessFlow = remember(currentFolder) {
+        if (currentFolder.isNotEmpty()) viewModel.getFolderBrightness(currentFolder) else flowOf(null)
+    }
+    val folderBrightness by folderBrightnessFlow.collectAsStateWithLifecycle(initialValue = null)
+
+    LaunchedEffect(isPlaying, keepScreenOnWhenPaused) {
         activity?.window?.let { window ->
-            if (isPlaying) {
+            if (isPlaying || keepScreenOnWhenPaused) {
                 window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             } else {
                 window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -311,22 +399,38 @@ fun VideoPlayerScreen(
     val initialBrightness = rememberInitialSystemBrightness()
     var brightness by remember { mutableFloatStateOf(initialBrightness) }
 
+    LaunchedEffect(brightnessScope, globalBrightness, folderBrightness) {
+        val targetBrightness = when (brightnessScope) {
+            BrightnessScope.GLOBAL -> if (globalBrightness > 0f) globalBrightness else null
+            BrightnessScope.PER_FOLDER -> if ((folderBrightness ?: -1f) > 0f) folderBrightness else null
+            BrightnessScope.NONE -> null
+        }
+        if (targetBrightness != null && targetBrightness > 0f) {
+            brightness = targetBrightness
+            setBrightness(context, targetBrightness)
+        }
+    }
+
     SystemVolumeSyncEffect(
         audioManager = audioManager,
         volumeProvider = { volume },
         onVolumeChange = { volume = it },
         onVolumeBoostReset = { viewModel.eqManager.setVolumeBoostScale(1.0f) }
     )
-    var isControlsVisible by remember { mutableStateOf(false) }
+    var isControlsVisible by remember { mutableStateOf(true) }
     var isDraggingSlider by remember { mutableStateOf(false) }
+    var seekBarTopY by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     var pendingSeekPosition by remember { mutableLongStateOf(-1L) }
     var seekGracePeriod by remember { mutableLongStateOf(0L) }
     var controlsLastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var isLocked by remember { mutableStateOf(false) }
     var playbackError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(isControlsVisible, controlsLastInteraction, isDraggingSlider, isPlaying, controlsTimeout) {
-        if (isControlsVisible && !isDraggingSlider && isPlaying && controlsTimeout > 0) {
+    val isAnyDialogShown = showSleepTimerDialog || showPlaybackSpeedDialog || showPlaylistDialog ||
+            showEqualizerDialog || showSubtitleDialog || showInfoDialog || showDeleteDialog || showQueueSheet || showMoreMenu
+
+    LaunchedEffect(isControlsVisible, controlsLastInteraction, isDraggingSlider, isPlaying, controlsTimeout, isAnyDialogShown) {
+        if (isControlsVisible && !isDraggingSlider && isPlaying && controlsTimeout > 0 && !isAnyDialogShown) {
             delay(controlsTimeout * 1000L)
             isControlsVisible = false
         }
@@ -336,7 +440,6 @@ fun VideoPlayerScreen(
     var isLandscape by rememberSaveable { mutableStateOf(false) }
     var aspectRatio by remember { mutableIntStateOf(0) }
 
-    var repeatMode by remember { mutableIntStateOf(mediaController?.repeatMode ?: Player.REPEAT_MODE_OFF) }
     var isShuffle by remember { mutableStateOf(mediaController?.shuffleModeEnabled ?: false) }
     var currentMediaIndexState by remember { mutableIntStateOf(mediaController?.currentMediaItemIndex ?: 0) }
     var hasNext by remember { mutableStateOf(mediaController?.hasNextMediaItem() ?: false) }
@@ -345,10 +448,11 @@ fun VideoPlayerScreen(
     val onSpeedChange: (Float) -> Unit = { speed ->
         playbackSpeed = speed
         mediaController?.setPlaybackSpeed(speed)
-        if (speedScope == PlaybackSpeedScope.GLOBAL) {
-            viewModel.setGlobalPlaybackSpeed(speed)
-        } else {
-            viewModel.setFolderPlaybackSpeed(currentFolder, speed)
+        when {
+            speedScope == PlaybackSpeedScope.GLOBAL -> viewModel.setGlobalPlaybackSpeed(speed)
+            isHistory -> viewModel.setHistoryPlaybackSpeed(speed)
+            playlistId != null -> viewModel.setPlaylistPlaybackSpeed(playlistId, speed)
+            else -> viewModel.setFolderPlaybackSpeed(currentFolder, speed)
         }
     }
 
@@ -363,12 +467,15 @@ fun VideoPlayerScreen(
         }
     }
 
-    var showInfoDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentBackgroundPlay = rememberUpdatedState(isBackgroundPlayEnabled)
+    val coroutineScope = rememberCoroutineScope()
+    var lastTapTime by remember { mutableLongStateOf(0L) }
+    var lastTapPos by remember { mutableStateOf(Offset.Zero) }
+    var tapJob by remember { mutableStateOf<Job?>(null) }
 
     var hasSeekedInitialPosition by remember(videoUri, initialPosition) { mutableStateOf(false) }
-    LaunchedEffect(currentMediaIndexState) {
+    LaunchedEffect(currentMediaIndexState, effectiveSpeed) {
         mediaController?.let { player ->
             if (playbackSpeed != effectiveSpeed) {
                 playbackSpeed = effectiveSpeed
@@ -377,11 +484,25 @@ fun VideoPlayerScreen(
         }
     }
 
+    val currentCloseAfterQueueEnds by rememberUpdatedState(closeAfterQueueEnds)
+    val currentOnBack by rememberUpdatedState(onBack)
+    var playbackState by remember { mutableIntStateOf(mediaController?.playbackState ?: Player.STATE_IDLE) }
+
+    LaunchedEffect(playbackState, closeAfterQueueEnds) {
+        if (playbackState == Player.STATE_ENDED && closeAfterQueueEnds) {
+            onBack()
+        }
+    }
+
     LaunchedEffect(videoUri, mediaController, initialPosition, effectiveSpeed) {
         val player = mediaController ?: return@LaunchedEffect
         val newUri = Uri.parse(videoUri)
         val currentUri = player.currentMediaItem?.localConfiguration?.uri
-        val targetPos = if (initialPosition >= 0L) initialPosition else viewModel.getSavedPosition(videoUri)
+        val targetPos = if (initialPosition >= 0L) {
+            initialPosition
+        } else if (savePositionOnQuit) {
+            viewModel.getSavedPosition(videoUri)
+        } else 0L
         if (from == "intent" || from == null) {
             if (currentUri != newUri) {
                 playbackError = null
@@ -393,6 +514,18 @@ fun VideoPlayerScreen(
                     player.seekTo(targetPos)
                 }
                 hasSeekedInitialPosition = true
+            } else {
+                if (!hasSeekedInitialPosition && initialPosition >= 0L) {
+                    player.seekTo(initialPosition)
+                    hasSeekedInitialPosition = true
+                }
+            }
+        } else {
+            if (currentUri == newUri) {
+                if (!hasSeekedInitialPosition && initialPosition >= 0L) {
+                    player.seekTo(initialPosition)
+                    hasSeekedInitialPosition = true
+                }
             } else {
                 if (!hasSeekedInitialPosition && targetPos > 0L) {
                     player.seekTo(targetPos)
@@ -425,10 +558,15 @@ fun VideoPlayerScreen(
                 }
             }
             override fun onPlaybackStateChanged(state: Int) {
+                playbackState = state
                 if (state == Player.STATE_READY) {
                     playbackError = null
                     if (player.videoSize.width > 0 && player.videoSize.height > 0) {
                         videoResolution = "${player.videoSize.width}x${player.videoSize.height}"
+                    }
+                } else if (state == Player.STATE_ENDED) {
+                    if (currentCloseAfterQueueEnds) {
+                        currentOnBack()
                     }
                 }
             }
@@ -440,9 +578,6 @@ fun VideoPlayerScreen(
             }
             override fun onTracksChanged(tracks: Tracks) {
                 currentTracks = tracks
-            }
-            override fun onRepeatModeChanged(mode: Int) {
-                repeatMode = mode
             }
             override fun onShuffleModeEnabledChanged(shuffle: Boolean) {
                 isShuffle = shuffle
@@ -469,7 +604,6 @@ fun VideoPlayerScreen(
             videoResolution = "${player.videoSize.width}x${player.videoSize.height}"
             isVerticalVideo = player.videoSize.height > player.videoSize.width
         }
-        repeatMode = player.repeatMode
         isShuffle = player.shuffleModeEnabled
         onDispose {
             player.removeListener(listener)
@@ -504,7 +638,9 @@ fun VideoPlayerScreen(
 
             activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-            viewModel.savePlaybackProgress()
+            if (savePositionOnQuit) {
+                viewModel.savePlaybackProgress()
+            }
             
             if (!currentBackgroundPlay.value) {
                 mediaController?.pause()
@@ -518,12 +654,10 @@ fun VideoPlayerScreen(
     var consumedSeekBackwardPulse by remember { mutableIntStateOf(0) }
     var scale by remember { mutableFloatStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
-    val transformState = rememberTransformableState { _, zoomChange, offsetChange, _ ->
-        if (!isLocked) {
-            scale = (scale * zoomChange).coerceIn(1f, 5f)
-            panOffset += offsetChange
-        }
-    }
+    var isZoomIndicatorVisible by remember { mutableStateOf(false) }
+
+    var isFastSeekingActive by remember { mutableStateOf(false) }
+    var wasPlayingBeforeFastForward by remember { mutableStateOf(false) }
 
     var isVolumeVisible by remember { mutableStateOf(false) }
     var isBrightnessVisible by remember { mutableStateOf(false) }
@@ -560,9 +694,56 @@ fun VideoPlayerScreen(
 
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+
     
-    var showPlayPausePulse by remember { mutableStateOf<Boolean?>(null) }
-    var pulseTrigger by remember { mutableIntStateOf(0) }
+    var activeCenterAction by remember { mutableStateOf(CenterActionType.NONE) }
+    var centerActionTrigger by remember { mutableLongStateOf(0L) }
+    var playPausePulse by remember { mutableIntStateOf(0) }
+    var seekStreak by remember { mutableIntStateOf(0) }
+    var lastSeekTimestamp by remember { mutableLongStateOf(0L) }
+    var lastSeekDirection by remember { mutableIntStateOf(0) }
+    var lastSeekAmountSeconds by remember { mutableIntStateOf(10) }
+
+    val performSeek: (Int) -> Unit = performSeek@{ direction ->
+        val player = mediaController ?: return@performSeek
+        val now = System.currentTimeMillis()
+        if (lastSeekDirection == direction && now - lastSeekTimestamp < 1200L) {
+            seekStreak = (seekStreak + 1).coerceAtMost(5)
+        } else {
+            seekStreak = 0
+        }
+        lastSeekDirection = direction
+        lastSeekTimestamp = now
+
+        val multiplier = 1 shl seekStreak
+        val jumpSeconds = seekIncrement * multiplier
+        lastSeekAmountSeconds = jumpSeconds
+        val jumpMs = jumpSeconds * 1000L
+
+        if (direction < 0) {
+            val target = (player.currentPosition - jumpMs).coerceAtLeast(0L)
+            seekGracePeriod = now + SEEK_TOLERANCE_MS
+            player.seekTo(target)
+            seekBackwardPulse++
+            activeCenterAction = CenterActionType.REWIND
+        } else {
+            val dur = player.duration.coerceAtLeast(0L)
+            val target = if (dur > 0L) (player.currentPosition + jumpMs).coerceAtMost(dur) else player.currentPosition + jumpMs
+            seekGracePeriod = now + SEEK_TOLERANCE_MS
+            player.seekTo(target)
+            seekForwardPulse++
+            activeCenterAction = CenterActionType.FORWARD
+        }
+        centerActionTrigger = now
+        controlsLastInteraction = now
+    }
+
+    LaunchedEffect(centerActionTrigger) {
+        if (centerActionTrigger > 0L) {
+            delay(850L)
+            activeCenterAction = CenterActionType.NONE
+        }
+    }
 
     LaunchedEffect(mediaController) {
         while (true) {
@@ -606,8 +787,6 @@ fun VideoPlayerScreen(
         }
     }
 
-    var showMoreMenu by remember { mutableStateOf(false) }
-
     if (isInPiPMode) {
         AndroidView(
             factory = { ctx ->
@@ -628,545 +807,204 @@ fun VideoPlayerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        if (!isLandscape) {
-            Column(
+        with(sharedTransitionScope) {
+            AndroidView(
+                factory = { ctx ->
+                    val view = LayoutInflater.from(ctx).inflate(R.layout.player_view, null) as PlayerView
+                    view.apply {
+                        player = mediaController
+                    }
+                },
+                update = { playerView ->
+                    playerView.player = mediaController
+                    playerView.resizeMode = when (aspectRatio) {
+                        1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+                    val fgColor = when (subtitleTextColor) {
+                        1 -> android.graphics.Color.YELLOW
+                        2 -> android.graphics.Color.CYAN
+                        else -> android.graphics.Color.WHITE
+                    }
+                    val bgColor = when (subtitleBgStyle) {
+                        2 -> android.graphics.Color.BLACK
+                        1 -> android.graphics.Color.argb(140, 0, 0, 0)
+                        else -> android.graphics.Color.TRANSPARENT
+                    }
+                    val style = CaptionStyleCompat(
+                        fgColor,
+                        bgColor,
+                        android.graphics.Color.TRANSPARENT,
+                        CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                        android.graphics.Color.BLACK,
+                        null
+                    )
+                    playerView.subtitleView?.setStyle(style)
+                    playerView.subtitleView?.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, subtitleTextSize.toFloat())
+                },
+                onRelease = { playerView ->
+                    if (!currentBackgroundPlay.value) {
+                        playerView.player = null
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black)
-                    .statusBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
-                    }
-                    Text(
-                        text = videoName,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Clip,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
-                            .basicMarquee()
+                    .align(Alignment.Center)
+                    .sharedBounds(
+                        rememberSharedContentState(key = "video_bounds_$videoUri"),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
                     )
-                    IconButton(onClick = { showQueueSheet = true }) {
-                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.queue), tint = Color.White)
-                    }
-                    Box {
-                        IconButton(onClick = { showMoreMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more), tint = Color.White)
-                        }
-                        PlayerDropdownMenu(
-                            expanded = showMoreMenu,
-                            onDismiss = { showMoreMenu = false },
-                            playbackSpeed = playbackSpeed,
-                            sleepTimerActive = sleepTimerActive,
-                            sleepTimerTimeLeft = sleepTimerTimeLeft,
-                            onPlaylistClick = { showPlaylistDialog = true },
-                            onSleepTimerClick = { showSleepTimerDialog = true },
-                            onSpeedClick = { showPlaybackSpeedDialog = true },
-                            onEqualizerClick = { showEqualizerDialog = true },
-                            onInfoClick = { showInfoDialog = true },
-                            onDeleteClick = { 
-                                val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
-                                val targetUri = resolvedVideo?.uri ?: Uri.parse(playingUri)
-                                pendingUrisToDelete = listOf(targetUri)
-                                com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(
-                                    context = context,
-                                    uris = listOf(targetUri),
-                                    deleteLauncher = deleteLauncher,
-                                    onRequireInternalPopup = { showDeleteDialog = true }
-                                )
-                            }
-                        )
-                    }
-                }
+                    .clipToBounds()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = panOffset.x,
+                        translationY = panOffset.y
+                    )
+            )
+        }
 
-                PlayerTopHUD(
-                    showClock = hudShowClock,
-                    currentTime = currentTimeString,
-                    showBattery = hudShowBattery,
-                    batteryPercentage = batteryPercentage,
-                    showVolume = hudShowVolume,
-                    volumePercentage = (volume * 100).toInt(),
-                    showBrightness = hudShowBrightness,
-                    brightnessPercentage = (brightness * 100).toInt(),
-                    showMediaInfo = hudShowMediaInfo,
-                    resolution = videoResolution
-                )
-
-                Box(
-                    modifier = if (isVerticalVideo) {
-                        Modifier
-                            .fillMaxWidth()
-                            .weight(1.3f)
-                            .background(Color.Black)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(isLocked) {
+                    if (isLocked) {
+                        detectTapGestures(onTap = {
+                            isControlsVisible = !isControlsVisible
+                            controlsLastInteraction = System.currentTimeMillis()
+                        })
                     } else {
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .background(Color.Black)
-                    }
-                ) {
-                    with(sharedTransitionScope) {
-                        AndroidView(
-                            factory = { ctx ->
-                                val view = LayoutInflater.from(ctx).inflate(R.layout.player_view, null) as PlayerView
-                                view.apply {
-                                    player = mediaController
-                                }
-                            },
-                            update = { playerView ->
-                                playerView.player = mediaController
-                                playerView.resizeMode = when (aspectRatio) {
-                                    1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                    2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-                                    else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                }
-                                val fgColor = when (subtitleTextColor) {
-                                    1 -> android.graphics.Color.YELLOW
-                                    2 -> android.graphics.Color.CYAN
-                                    else -> android.graphics.Color.WHITE
-                                }
-                                val bgColor = when (subtitleBgStyle) {
-                                    2 -> android.graphics.Color.BLACK
-                                    1 -> android.graphics.Color.argb(140, 0, 0, 0)
-                                    else -> android.graphics.Color.TRANSPARENT
-                                }
-                                val style = CaptionStyleCompat(
-                                    fgColor,
-                                    bgColor,
-                                    android.graphics.Color.TRANSPARENT,
-                                    CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                                    android.graphics.Color.BLACK,
-                                    null
-                                )
-                                playerView.subtitleView?.setStyle(style)
-                                playerView.subtitleView?.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, subtitleTextSize.toFloat())
-                            },
-                            onRelease = { playerView ->
-                                if (!currentBackgroundPlay.value) {
-                                    playerView.player = null
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .sharedBounds(
-                                    rememberSharedContentState(key = "video_bounds_$videoUri"),
-                                    animatedVisibilityScope = animatedVisibilityScope,
-                                    enter = fadeIn(),
-                                    exit = fadeOut(),
-                                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                                )
-                        )
-                    }
+                        awaitPointerEventScope {
+                            while (true) {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val downTime = System.currentTimeMillis()
+                                val downPos = down.position
+                                val limitY = if (seekBarTopY < size.height) seekBarTopY else (size.height * if (isLandscape) 0.8f else 0.75f)
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(isLocked) {
-                                if (!isLocked) {
-                                    kotlinx.coroutines.coroutineScope {
-                                        launch {
-                                            detectTapGestures(
-                                                onTap = { offset ->
-                                                    val isCenter = offset.x > size.width * 0.2f && offset.x < size.width * 0.8f && offset.y > size.height * 0.2f && offset.y < size.height * 0.8f
-                                                    if (isCenter && !isControlsVisible) {
-                                                        val p = mediaController
-                                                        if (p != null) {
-                                                            if (p.isPlaying) p.pause() else p.play()
-                                                            showPlayPausePulse = !p.isPlaying
-                                                            pulseTrigger++
-                                                        }
-                                                        isControlsVisible = true
-                                                    } else {
-                                                        isControlsVisible = !isControlsVisible
-                                                    }
-                                                    controlsLastInteraction = System.currentTimeMillis()
-                                                },
-                                                onDoubleTap = { offset ->
-                                                    val p = mediaController ?: return@detectTapGestures
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    if (offset.x < size.width / 2) {
-                                                        p.seekBack()
-                                                        seekBackwardPulse++
-                                                        isControlsVisible = true
-                                                    } else {
-                                                        p.seekForward()
-                                                        seekForwardPulse++
-                                                        isControlsVisible = true
-                                                    }
-                                                }
-                                            )
-                                        }
-                                        launch {
-                                            detectDragGestures(
-                                                onDragEnd = {
-                                                    isVolumeVisible = false
-                                                    isBrightnessVisible = false
-                                                },
-                                                onDragCancel = {
-                                                    isVolumeVisible = false
-                                                    isBrightnessVisible = false
-                                                }
-                                            ) { change, dragAmount ->
-                                                change.consume()
-                                                val isRightSide = change.position.x > size.width / 2
-                                                if (isRightSide) {
-                                                    val oldVolume = volume
-                                                    val maxVolMultiplier = if (volumeBoostEnabled) 2f else 1f
-                                                    volume = (volume - dragAmount.y / size.height).coerceIn(0f, maxVolMultiplier)
-                                                    if (abs(volume - oldVolume) > 0.05f) {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    }
-                                                    applySystemMusicVolume(audioManager, volume, maxVolume)
-                                                    if (volumeBoostEnabled) {
-                                                        viewModel.eqManager.setVolumeBoostScale(if (volume > 1f) volume else 1.0f)
-                                                    }
-                                                    isVolumeVisible = true
-                                                } else {
-                                                    val oldBrightness = brightness
-                                                    brightness = (brightness - dragAmount.y / size.height).coerceIn(0.01f, 1f)
-                                                    if (abs(brightness - oldBrightness) > 0.05f) {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    }
-                                                    setBrightness(context, brightness)
-                                                    isBrightnessVisible = true
+                                var isMultiTouch = false
+                                var isHoldingLongPress = false
+                                var isDraggingVertical = false
+                                var hasMovedPastSlop = false
+                                var activeDragType = 0
+
+                                 val isLeftZone = downPos.x < size.width * 0.25f && gestureBrightnessEnabled
+                                val isRightZone = downPos.x > size.width * 0.75f && gestureVolumeEnabled
+                                val canAdjustVertical = (isLeftZone || isRightZone) && downPos.y < limitY && scale <= 1.05f
+                                if (canAdjustVertical) {
+                                    activeDragType = if (isLeftZone) 1 else 2
+                                }
+
+                                var isLongPressTimedOut = false
+                                val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                                while (System.currentTimeMillis() - downTime < longPressTimeout) {
+                                    val remainingTime = longPressTimeout - (System.currentTimeMillis() - downTime)
+                                    val event = withTimeoutOrNull(remainingTime) {
+                                        awaitPointerEvent()
+                                    }
+                                    if (event == null) {
+                                        isLongPressTimedOut = true
+                                        if (gestureLongPressSpeedEnabled && scale <= 1.05f && downPos.y < limitY && downPos.x >= size.width * 0.5f) {
+                                            isHoldingLongPress = true
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            val player = mediaController
+                                            if (player != null) {
+                                                isFastSeekingActive = true
+                                                wasPlayingBeforeFastForward = player.isPlaying
+                                                player.setPlaybackSpeed(if (playbackSpeed >= 2.0f) 3.0f else 2.0f)
+                                                if (!player.isPlaying) {
+                                                    player.play()
                                                 }
                                             }
                                         }
+                                        break
                                     }
-                                }
-                            }
-                    )
 
-                    VerticalIndicator(
-                        value = volume / if (volumeBoostEnabled) 2f else 1f,
-                        icon = Icons.AutoMirrored.Filled.VolumeUp,
-                        visible = isVolumeVisible && !isLocked,
-                        text = (volume * 100).toInt().toString(),
-                        color = if (volume > 1f) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.align(Alignment.CenterEnd)
-                    )
-                    
-                    VerticalIndicator(
-                        value = brightness,
-                        icon = Icons.Default.BrightnessMedium,
-                        visible = isBrightnessVisible && !isLocked,
-                        text = (brightness * 100).toInt().toString(),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.align(Alignment.CenterStart)
-                    )
-
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = isControlsVisible && !isLocked,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.align(Alignment.Center)
-                    ) {
-                        Row(
-                            modifier = Modifier.align(Alignment.Center),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(48.dp)
-                        ) {
-                            SeekControlButton(
-                                icon = Icons.Default.FastRewind,
-                                contentDescription = stringResource(R.string.action_rewind),
-                                onClick = { mediaController?.seekBack() },
-                                trigger = seekBackwardPulse,
-                                consumedTrigger = consumedSeekBackwardPulse,
-                                onConsume = { consumedSeekBackwardPulse = it }
-                            )
-                            CenterPlayPauseButton(
-                                isPlaying = isPlaying,
-                                onClick = {
-                                    if (isPlaying) mediaController?.pause() else mediaController?.play()
-                                }
-                            )
-                            SeekControlButton(
-                                icon = Icons.Default.FastForward,
-                                contentDescription = stringResource(R.string.action_forward),
-                                onClick = { mediaController?.seekForward() },
-                                trigger = seekForwardPulse,
-                                consumedTrigger = consumedSeekForwardPulse,
-                                onConsume = { consumedSeekForwardPulse = it }
-                            )
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Spacer(modifier = Modifier.weight(0.2f))
-
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        PlayerSlider(
-                            videoUri = playingUri,
-                            currentPosition = currentPosition,
-                            duration = duration,
-                            pendingSeekPosition = pendingSeekPosition,
-                            isDraggingSlider = isDraggingSlider,
-                            onValueChange = { fraction ->
-                                isDraggingSlider = true
-                                val target = (fraction * duration).toLong()
-                                currentPosition = target
-                                pendingSeekPosition = target
-                            },
-                            onValueChangeFinished = {
-                                isDraggingSlider = false
-                                val target = pendingSeekPosition.coerceAtLeast(0L)
-                                seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
-                                mediaController?.seekTo(target)
-                            },
-                            textsBelow = true
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.weight(0.5f))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = {
-                            val nextMode = when (mediaController?.repeatMode) {
-                                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                                else -> Player.REPEAT_MODE_OFF
-                            }
-                            mediaController?.repeatMode = nextMode
-                            repeatMode = nextMode
-                        }) {
-                            Icon(
-                                when (repeatMode) {
-                                    Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
-                                    else -> Icons.Default.Repeat
-                                },
-                                contentDescription = stringResource(R.string.action_repeat),
-                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
-                            )
-                        }
-
-                        IconButton(onClick = { mediaController?.seekToPrevious() }, enabled = hasPrevious) {
-                            Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.action_previous), modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
-                        }
-
-                        FilledIconButton(
-                            onClick = {
-                                if (mediaController?.isPlaying == true) mediaController?.pause() else mediaController?.play()
-                            },
-                            modifier = Modifier.size(76.dp),
-                            shape = CircleShape,
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color.White,
-                                contentColor = Color.Black
-                            )
-                        ) {
-                            Icon(
-                                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) stringResource(R.string.action_pause) else stringResource(R.string.action_play),
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-
-                        IconButton(onClick = { mediaController?.seekToNext() }, enabled = hasNext) {
-                            Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.action_next), modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
-                        }
-
-                        IconButton(onClick = {
-                            val nextShuffle = !(mediaController?.shuffleModeEnabled ?: false)
-                            mediaController?.shuffleModeEnabled = nextShuffle
-                            isShuffle = nextShuffle
-                        }) {
-                            Icon(
-                                Icons.Default.Shuffle,
-                                contentDescription = stringResource(R.string.action_shuffle),
-                                tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.weight(0.5f))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (playerOrientation == 2) { IconButton(onClick = { isLandscape = true; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }) { Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.action_fullscreen), tint = Color.White) } }
-                        IconButton(onClick = { aspectRatio = (aspectRatio + 1) % 3 }) {
-                            Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = stringResource(R.string.action_aspect_ratio), tint = Color.White)
-                        }
-
-                        IconButton(onClick = {
-                            showSubtitleDialog = true
-                        }) {
-                            Icon(Icons.Default.Subtitles, contentDescription = stringResource(R.string.subtitles_title), tint = Color.White)
-                        }
-                        IconButton(onClick = enterPiP) {
-                            Icon(Icons.Default.PictureInPictureAlt, contentDescription = stringResource(R.string.action_pip), tint = Color.White)
-                        }
-                        IconButton(onClick = { isLocked = !isLocked }) {
-                            Icon(
-                                if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                                contentDescription = stringResource(R.string.action_lock),
-                                tint = if (isLocked) Color.Red else Color.White
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            with(sharedTransitionScope) {
-                AndroidView(
-                    factory = { ctx ->
-                        val view = LayoutInflater.from(ctx).inflate(R.layout.player_view, null) as PlayerView
-                        view.apply {
-                            player = mediaController
-                        }
-                    },
-                    update = { playerView ->
-                        playerView.player = mediaController
-                        playerView.resizeMode = when (aspectRatio) {
-                            1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                            2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-                            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        }
-                        val fgColor = when (subtitleTextColor) {
-                            1 -> android.graphics.Color.YELLOW
-                            2 -> android.graphics.Color.CYAN
-                            else -> android.graphics.Color.WHITE
-                        }
-                        val bgColor = when (subtitleBgStyle) {
-                            2 -> android.graphics.Color.BLACK
-                            1 -> android.graphics.Color.argb(140, 0, 0, 0)
-                            else -> android.graphics.Color.TRANSPARENT
-                        }
-                        val style = CaptionStyleCompat(
-                            fgColor,
-                            bgColor,
-                            android.graphics.Color.TRANSPARENT,
-                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                            android.graphics.Color.BLACK,
-                            null
-                        )
-                        playerView.subtitleView?.setStyle(style)
-                        playerView.subtitleView?.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, subtitleTextSize.toFloat())
-                    },
-                    onRelease = { playerView ->
-                        if (!currentBackgroundPlay.value) {
-                            playerView.player = null
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .sharedBounds(
-                            rememberSharedContentState(key = "video_bounds_$videoUri"),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            enter = fadeIn(),
-                            exit = fadeOut(),
-                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                        )
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = panOffset.x,
-                            translationY = panOffset.y
-                        )
-                        .transformable(state = transformState)
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(isLocked) {
-                        if (isLocked) {
-                            detectTapGestures(onTap = { isControlsVisible = !isControlsVisible })
-                        } else {
-                            detectTapGestures(
-                                onTap = { offset ->
-                                    val isCenter = offset.x > size.width * 0.2f && offset.x < size.width * 0.8f && offset.y > size.height * 0.2f && offset.y < size.height * 0.8f
-                                    if (isCenter && !isControlsVisible) {
-                                        val p = mediaController
-                                        if (p != null) {
-                                            if (p.isPlaying) p.pause() else p.play()
-                                            showPlayPausePulse = !p.isPlaying
-                                            pulseTrigger++
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) {
+                                        isMultiTouch = true
+                                        break
+                                    }
+                                    if (pressed.isEmpty()) {
+                                        break
+                                    }
+                                    val pointer = pressed[0]
+                                    val delta = pointer.position - downPos
+                                    val dist = (delta.x * delta.x + delta.y * delta.y)
+                                    if (dist > viewConfiguration.touchSlop * viewConfiguration.touchSlop) {
+                                        hasMovedPastSlop = true
+                                        if (gesturePinchToZoomEnabled && scale > 1.05f) {
+                                            panOffset += (pointer.position - pointer.previousPosition)
+                                            pointer.consume()
+                                        } else if (canAdjustVertical && abs(delta.y) > abs(delta.x)) {
+                                            isDraggingVertical = true
+                                            pointer.consume()
                                         }
-                                        isControlsVisible = true
-                                    } else {
-                                        isControlsVisible = !isControlsVisible
+                                        break
                                     }
-                                    controlsLastInteraction = System.currentTimeMillis()
-                                },
-                                onDoubleTap = { offset ->
-                                    val player = mediaController ?: return@detectTapGestures
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    if (offset.x < size.width / 2) {
-                                        player.seekBack()
-                                        seekBackwardPulse++
-                                        isControlsVisible = true
-                                    } else {
-                                        player.seekForward()
-                                        seekForwardPulse++
-                                        isControlsVisible = true
-                                    }
-                                },
-                                onLongPress = {
-                                    val player = mediaController ?: return@detectTapGestures
-                                    if (player.isPlaying) {
-                                        player.pause()
-                                        showPlayPausePulse = false
-                                    } else {
-                                        player.play()
-                                        showPlayPausePulse = true
-                                    }
-                                    pulseTrigger++
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
-                            )
-                        }
-                    }
-                    .pointerInput(isLocked) {
-                        if (!isLocked) {
-                            detectDragGestures(
-                                onDragStart = { },
-                                onDragEnd = {
-                                    isVolumeVisible = false
-                                    isBrightnessVisible = false
-                                },
-                                onDrag = { change, dragAmount ->
-                                    val width = size.width
-                                    val height = size.height
-                                    if (abs(dragAmount.y) > abs(dragAmount.x)) {
-                                        if (change.position.x < width / 2) {
+
+                                while (isHoldingLongPress) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) {
+                                        mediaController?.setPlaybackSpeed(playbackSpeed)
+                                        if (!wasPlayingBeforeFastForward) {
+                                            mediaController?.pause()
+                                        }
+                                        isFastSeekingActive = false
+                                        isHoldingLongPress = false
+                                        isMultiTouch = true
+                                        break
+                                    } else if (pressed.size == 1) {
+                                        pressed[0].consume()
+                                    } else {
+                                        mediaController?.setPlaybackSpeed(playbackSpeed)
+                                        if (!wasPlayingBeforeFastForward) {
+                                            mediaController?.pause()
+                                        }
+                                        isFastSeekingActive = false
+                                        isHoldingLongPress = false
+                                        break
+                                    }
+                                }
+
+                                while (isDraggingVertical) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) {
+                                        if (activeDragType == 1) {
+                                            when (brightnessScope) {
+                                                BrightnessScope.GLOBAL -> viewModel.saveGlobalBrightness(brightness)
+                                                BrightnessScope.PER_FOLDER -> if (currentFolder.isNotEmpty()) viewModel.saveFolderBrightness(currentFolder, brightness)
+                                                BrightnessScope.NONE -> {}
+                                            }
+                                        }
+                                        isDraggingVertical = false
+                                        isVolumeVisible = false
+                                        isBrightnessVisible = false
+                                        isMultiTouch = true
+                                        break
+                                    } else if (pressed.size == 1) {
+                                        val pointer = pressed[0]
+                                        pointer.consume()
+                                        val dragDeltaY = pointer.position.y - pointer.previousPosition.y
+                                        val height = size.height
+                                        if (activeDragType == 1) {
                                             val oldBrightness = brightness
-                                            brightness = (brightness - dragAmount.y / height).coerceIn(0.01f, 1f)
+                                            brightness = (brightness - dragDeltaY / height).coerceIn(0.01f, 1f)
                                             if (abs(brightness - oldBrightness) > 0.05f) {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
                                             setBrightness(context, brightness)
                                             isBrightnessVisible = true
-                                        } else {
+                                        } else if (activeDragType == 2) {
                                             val oldVolume = volume
                                             val maxVolMultiplier = if (volumeBoostEnabled) 2f else 1f
-                                            volume = (volume - dragAmount.y / height).coerceIn(0f, maxVolMultiplier)
+                                            volume = (volume - dragDeltaY / height).coerceIn(0f, maxVolMultiplier)
                                             if (abs(volume - oldVolume) > 0.05f) {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
@@ -1176,219 +1014,404 @@ fun VideoPlayerScreen(
                                             }
                                             isVolumeVisible = true
                                         }
+                                    } else {
+                                        if (activeDragType == 1) {
+                                            when (brightnessScope) {
+                                                BrightnessScope.GLOBAL -> viewModel.saveGlobalBrightness(brightness)
+                                                BrightnessScope.PER_FOLDER -> if (currentFolder.isNotEmpty()) viewModel.saveFolderBrightness(currentFolder, brightness)
+                                                BrightnessScope.NONE -> {}
+                                            }
+                                        }
+                                        isDraggingVertical = false
+                                        isVolumeVisible = false
+                                        isBrightnessVisible = false
+                                        break
                                     }
                                 }
-                            )
+
+                                if (gesturePinchToZoomEnabled && hasMovedPastSlop && scale > 1.05f) {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val pressed = event.changes.filter { it.pressed }
+                                        if (pressed.size >= 2) {
+                                            isMultiTouch = true
+                                            break
+                                        } else if (pressed.size == 1) {
+                                            val pointer = pressed[0]
+                                            val panDelta = pointer.position - pointer.previousPosition
+                                            panOffset += panDelta
+                                            pointer.consume()
+                                        } else {
+                                            break
+                                        }
+                                    }
+                                }
+
+                                if (isMultiTouch) {
+                                    if (gesturePinchToZoomEnabled) {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val pressed = event.changes.filter { it.pressed }
+                                            if (pressed.size >= 2) {
+                                                val p1 = pressed[0]
+                                                val p2 = pressed[1]
+                                                val curDist = kotlin.math.hypot(p1.position.x - p2.position.x, p1.position.y - p2.position.y)
+                                                val prevDist = kotlin.math.hypot(p1.previousPosition.x - p2.previousPosition.x, p1.previousPosition.y - p2.previousPosition.y)
+                                                if (prevDist > 0f && curDist > 0f) {
+                                                    val zoomRatio = curDist / prevDist
+                                                    val newScale = (scale * zoomRatio).coerceIn(1f, 5f)
+                                                    scale = newScale
+                                                    if (newScale <= 1.02f) {
+                                                        scale = 1f
+                                                        panOffset = Offset.Zero
+                                                    } else {
+                                                        val curCentroid = (p1.position + p2.position) / 2f
+                                                        val prevCentroid = (p1.previousPosition + p2.previousPosition) / 2f
+                                                        val panDelta = curCentroid - prevCentroid
+                                                        panOffset = (panOffset * zoomRatio) + panDelta
+                                                    }
+                                                }
+                                                isZoomIndicatorVisible = true
+                                                p1.consume()
+                                                p2.consume()
+                                            } else {
+                                                isZoomIndicatorVisible = false
+                                                if (scale <= 1.02f) {
+                                                    scale = 1f
+                                                    panOffset = Offset.Zero
+                                                }
+                                                if (pressed.isEmpty()) {
+                                                    break
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val pressed = event.changes.filter { it.pressed }
+                                            if (pressed.isEmpty()) break
+                                        }
+                                    }
+                                }
+
+                                if (!isMultiTouch && !hasMovedPastSlop && !isHoldingLongPress && !isDraggingVertical && !isLongPressTimedOut) {
+                                    val now = System.currentTimeMillis()
+                                    val dist = (downPos.x - lastTapPos.x) * (downPos.x - lastTapPos.x) + (downPos.y - lastTapPos.y) * (downPos.y - lastTapPos.y)
+                                    if (now - lastTapTime < 350L && dist < 14400f) {
+                                        tapJob?.cancel()
+                                        tapJob = null
+                                        lastTapTime = 0L
+
+                                        val player = mediaController
+                                        if (player != null) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            if (downPos.x < size.width * 0.25f) {
+                                                if (gestureSeekBackwardEnabled) {
+                                                    performSeek(-1)
+                                                }
+                                            } else if (downPos.x > size.width * 0.75f) {
+                                                if (gestureSeekForwardEnabled) {
+                                                    performSeek(1)
+                                                }
+                                            } else {
+                                                if (gesturePlayPauseEnabled) {
+                                                    if (player.isPlaying) {
+                                                        player.pause()
+                                                    } else {
+                                                        player.play()
+                                                    }
+                                                    playPausePulse++
+                                                    activeCenterAction = CenterActionType.PLAY_PAUSE
+                                                    centerActionTrigger = System.currentTimeMillis()
+                                                    controlsLastInteraction = System.currentTimeMillis()
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        lastTapTime = now
+                                        lastTapPos = downPos
+                                        tapJob?.cancel()
+                                        tapJob = coroutineScope.launch {
+                                            delay(350L)
+                                            if (gestureTapControlsEnabled) {
+                                                isControlsVisible = !isControlsVisible
+                                                controlsLastInteraction = System.currentTimeMillis()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-            )
+                }
+        )
 
-            if (isLocked && isControlsVisible) {
-                IconButton(
-                    onClick = { isLocked = false },
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(24.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+        if (isLocked && isControlsVisible) {
+            IconButton(
+                onClick = {
+                    isLocked = false
+                    controlsLastInteraction = System.currentTimeMillis()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(24.dp)
+                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+            ) {
+                Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.action_unlock), tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+
+        VerticalIndicator(
+            value = volume / if (volumeBoostEnabled) 2f else 1f,
+            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            visible = isVolumeVisible && !isLocked,
+            text = (volume * 100).toInt().toString(),
+            color = if (volume > 1f) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterEnd)
+        )
+        
+        VerticalIndicator(
+            value = brightness,
+            icon = Icons.Default.BrightnessMedium,
+            visible = isBrightnessVisible && !isLocked,
+            text = (brightness * 100).toInt().toString(),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterStart)
+        )
+
+        AnimatedVisibility(
+            visible = isFastSeekingActive && !isLocked,
+            enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.8f, animationSpec = tween(150)),
+            exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = if (isLandscape) 84.dp else 96.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                contentColor = Color.White,
+                tonalElevation = 6.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.action_unlock), tint = Color.Red)
+                    Icon(
+                        imageVector = Icons.Default.FastForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(R.string.speed_fast_forward_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
             }
+        }
 
-            VerticalIndicator(
-                value = volume / if (volumeBoostEnabled) 2f else 1f,
-                icon = Icons.AutoMirrored.Filled.VolumeUp,
-                visible = isVolumeVisible && !isLocked,
-                text = (volume * 100).toInt().toString(),
-                color = if (volume > 1f) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.CenterEnd)
-            )
-            
-            VerticalIndicator(
-                value = brightness,
-                icon = Icons.Default.BrightnessMedium,
-                visible = isBrightnessVisible && !isLocked,
-                text = (brightness * 100).toInt().toString(),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.CenterStart)
-            )
-
-            AnimatedVisibility(
-                visible = isControlsVisible && !isLocked,
-                enter = fadeIn(),
-                exit = fadeOut()
+        AnimatedVisibility(
+            visible = isZoomIndicatorVisible && !isFastSeekingActive && !isLocked,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(250)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = if (isLandscape) 84.dp else 96.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                contentColor = Color.White,
+                tonalElevation = 6.dp
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.75f),
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.75f)
-                                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ZoomIn,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "${(scale * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isControlsVisible && !isLocked,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.75f),
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f)
                             )
                         )
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                    )
+            ) {
+
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(horizontal = if (isLandscape) 24.dp else 8.dp, vertical = 4.dp)
                 ) {
                     Row(
-                        modifier = Modifier.align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(80.dp)
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        SeekControlButton(
-                            icon = Icons.Default.FastRewind,
-                            contentDescription = stringResource(R.string.action_rewind),
-                            onClick = { mediaController?.seekBack() },
-                            trigger = seekBackwardPulse,
-                            consumedTrigger = consumedSeekBackwardPulse,
-                            onConsume = { consumedSeekBackwardPulse = it }
-                        )
-                        CenterPlayPauseButton(
-                            isPlaying = isPlaying,
-                            onClick = {
-                                if (isPlaying) mediaController?.pause() else mediaController?.play()
-                            }
-                        )
-                        SeekControlButton(
-                            icon = Icons.Default.FastForward,
-                            contentDescription = stringResource(R.string.action_forward),
-                            onClick = { mediaController?.seekForward() },
-                            trigger = seekForwardPulse,
-                            consumedTrigger = consumedSeekForwardPulse,
-                            onConsume = { consumedSeekForwardPulse = it }
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.TopCenter)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(onClick = {
+                        IconButton(onClick = {
+                            if (isLandscape) {
                                 isLandscape = false
                                 activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
+                            } else {
+                                onBack()
                             }
-                            Text(
-                                text = videoName,
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Clip,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp)
-                                    .basicMarquee()
-                            )
-                            IconButton(onClick = { showQueueSheet = true }) {
-                                Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.queue), tint = Color.White)
-                            }
-                            Box {
-                                IconButton(onClick = { showMoreMenu = true }) {
-                                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more), tint = Color.White)
-                                }
-                                PlayerDropdownMenu(
-                                    expanded = showMoreMenu,
-                                    onDismiss = { showMoreMenu = false },
-                                    playbackSpeed = playbackSpeed,
-                                    sleepTimerActive = sleepTimerActive,
-                                    sleepTimerTimeLeft = sleepTimerTimeLeft,
-                                    onPlaylistClick = { showPlaylistDialog = true },
-                                    onSleepTimerClick = { showSleepTimerDialog = true },
-                                    onSpeedClick = { showPlaybackSpeedDialog = true },
-                                    onEqualizerClick = { showEqualizerDialog = true },
-                                    onInfoClick = { showInfoDialog = true },
-                                    onDeleteClick = { 
-                                        val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
-                                        val targetUri = resolvedVideo?.uri ?: Uri.parse(playingUri)
-                                        pendingUrisToDelete = listOf(targetUri)
-                                        com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(
-                                            context = context,
-                                            uris = listOf(targetUri),
-                                            deleteLauncher = deleteLauncher,
-                                            onRequireInternalPopup = { showDeleteDialog = true }
-                                        )
-                                    },
-                                )
-                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
                         }
-
-                        PlayerTopHUD(
-                            showClock = hudShowClock,
-                            currentTime = currentTimeString,
-                            showBattery = hudShowBattery,
-                            batteryPercentage = batteryPercentage,
-                            showVolume = hudShowVolume,
-                            volumePercentage = (volume * 100).toInt(),
-                            showBrightness = hudShowBrightness,
-                            brightnessPercentage = (brightness * 100).toInt(),
-                            showMediaInfo = hudShowMediaInfo,
-                            resolution = videoResolution
+                        Text(
+                            text = videoName,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
+                                .basicMarquee()
                         )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter)
-                    ) {
-                        PlayerSlider(
-                            videoUri = playingUri,
-                            currentPosition = currentPosition,
-                            duration = duration,
-                            pendingSeekPosition = pendingSeekPosition,
-                            isDraggingSlider = isDraggingSlider,
-                            onValueChange = { fraction ->
-                                isDraggingSlider = true
-                                val target = (fraction * duration).toLong()
-                                currentPosition = target
-                                pendingSeekPosition = target
-                            },
-                            onValueChangeFinished = {
-                                isDraggingSlider = false
-                                val target = pendingSeekPosition.coerceAtLeast(0L)
-                                seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
-                                mediaController?.seekTo(target)
+                        IconButton(onClick = {
+                            showQueueSheet = true
+                            controlsLastInteraction = System.currentTimeMillis()
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.queue), tint = Color.White)
+                        }
+                        Box {
+                            IconButton(onClick = {
+                                showMoreMenu = true
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more), tint = Color.White)
                             }
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = {
-                                    val nextMode = when (mediaController?.repeatMode) {
-                                        Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                                        Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                                        else -> Player.REPEAT_MODE_OFF
-                                    }
-                                    mediaController?.repeatMode = nextMode
-                                    repeatMode = nextMode
-                                }) {
-                                    Icon(
-                                        when (repeatMode) {
-                                            Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
-                                            else -> Icons.Default.Repeat
-                                        },
-                                        contentDescription = stringResource(R.string.action_repeat),
-                                        tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
+                            PlayerDropdownMenu(
+                                expanded = showMoreMenu,
+                                onDismiss = { showMoreMenu = false },
+                                playbackSpeed = playbackSpeed,
+                                sleepTimerActive = sleepTimerActive,
+                                sleepTimerTimeLeft = sleepTimerTimeLeft,
+                                onPlaylistClick = { showPlaylistDialog = true },
+                                onSleepTimerClick = { showSleepTimerDialog = true },
+                                onSpeedClick = { showPlaybackSpeedDialog = true },
+                                onEqualizerClick = { showEqualizerDialog = true },
+                                onInfoClick = { showInfoDialog = true },
+                                onDeleteClick = { 
+                                    val resolvedVideo = currentVideo ?: activeQueueVideos.find { it.uri.toString() == playingUri }
+                                    val targetUri = resolvedVideo?.uri ?: Uri.parse(playingUri)
+                                    pendingUrisToDelete = listOf(targetUri)
+                                    com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(
+                                        context = context,
+                                        uris = listOf(targetUri),
+                                        deleteLauncher = deleteLauncher,
+                                        onRequireInternalPopup = { showDeleteDialog = true }
                                     )
                                 }
+                            )
+                        }
+                    }
+
+                    PlayerTopHUD(
+                        showClock = hudShowClock,
+                        currentTime = currentTimeString,
+                        showBattery = hudShowBattery,
+                        batteryPercentage = batteryPercentage,
+                        showVolume = hudShowVolume,
+                        volumePercentage = (volume * 100).toInt(),
+                        showBrightness = hudShowBrightness,
+                        brightnessPercentage = (brightness * 100).toInt(),
+                        showMediaInfo = hudShowMediaInfo,
+                        resolution = videoResolution
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(horizontal = if (isLandscape) 24.dp else 16.dp, vertical = 8.dp)
+                        .onGloballyPositioned { coordinates ->
+                            if (coordinates.isAttached) {
+                                seekBarTopY = coordinates.positionInRoot().y
+                            }
+                        }
+                ) {
+                    PlayerSlider(
+                        videoUri = playingUri,
+                        currentPosition = currentPosition,
+                        duration = duration,
+                        pendingSeekPosition = pendingSeekPosition,
+                        isDraggingSlider = isDraggingSlider,
+                        onValueChange = { fraction ->
+                            isDraggingSlider = true
+                            val target = (fraction * duration).toLong()
+                            currentPosition = target
+                            pendingSeekPosition = target
+                        },
+                        onValueChangeFinished = {
+                            isDraggingSlider = false
+                            val target = pendingSeekPosition.coerceAtLeast(0L)
+                            seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
+                            mediaController?.seekTo(target)
+                            controlsLastInteraction = System.currentTimeMillis()
+                        },
+                        textsBelow = false
+                    )
+
+                    if (isLandscape) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterStart),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RepeatControlButton(
+                                    repeatMode = repeatMode,
+                                    onClick = {
+                                        viewModel.cycleRepeatMode()
+                                        controlsLastInteraction = System.currentTimeMillis()
+                                    }
+                                )
                                 IconButton(onClick = {
                                     val nextShuffle = !(mediaController?.shuffleModeEnabled ?: false)
                                     mediaController?.shuffleModeEnabled = nextShuffle
                                     isShuffle = nextShuffle
+                                    controlsLastInteraction = System.currentTimeMillis()
                                 }) {
                                     Icon(
                                         Icons.Default.Shuffle,
@@ -1396,19 +1419,23 @@ fun VideoPlayerScreen(
                                         tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
                                     )
                                 }
-
                             }
 
                             Row(
+                                modifier = Modifier.align(Alignment.Center),
                                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(onClick = { mediaController?.seekToPrevious() }, enabled = hasPrevious) {
+                                IconButton(onClick = {
+                                    mediaController?.seekToPrevious()
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                }, enabled = hasPrevious) {
                                     Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.action_previous), modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
                                 }
                                 FilledIconButton(
                                     onClick = {
                                         if (mediaController?.isPlaying == true) mediaController?.pause() else mediaController?.play()
+                                        controlsLastInteraction = System.currentTimeMillis()
                                     },
                                     modifier = Modifier.size(64.dp),
                                     shape = CircleShape,
@@ -1423,25 +1450,143 @@ fun VideoPlayerScreen(
                                         modifier = Modifier.size(36.dp)
                                     )
                                 }
-                                IconButton(onClick = { mediaController?.seekToNext() }, enabled = hasNext) {
+                                IconButton(onClick = {
+                                    mediaController?.seekToNext()
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                }, enabled = hasNext) {
                                     Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.action_next), modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
                                 }
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { showSubtitleDialog = true }) {
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterEnd),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = {
+                                    showSubtitleDialog = true
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                }) {
                                     Icon(Icons.Default.Subtitles, contentDescription = stringResource(R.string.subtitles_title), tint = Color.White)
                                 }
                                 IconButton(onClick = enterPiP) {
                                     Icon(Icons.Default.PictureInPictureAlt, contentDescription = stringResource(R.string.action_pip), tint = Color.White)
                                 }
-                                IconButton(onClick = { aspectRatio = (aspectRatio + 1) % 3 }) {
+                                IconButton(onClick = {
+                                    aspectRatio = (aspectRatio + 1) % 3
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                }) {
                                     Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = stringResource(R.string.action_aspect_ratio), tint = Color.White)
                                 }
-                                IconButton(onClick = { isLocked = true; isControlsVisible = false }) {
+                                IconButton(onClick = {
+                                    isLocked = true
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                }) {
                                     Icon(Icons.Default.LockOpen, contentDescription = stringResource(R.string.action_lock), tint = Color.White)
                                 }
-                                if (playerOrientation == 2) { IconButton(onClick = { isLandscape = false; activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }) { Icon(Icons.Default.FullscreenExit, contentDescription = stringResource(R.string.action_exit_fullscreen), tint = Color.White) } }
+                                if (playerOrientation == 2) {
+                                    IconButton(onClick = {
+                                        isLandscape = false
+                                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                    }) {
+                                        Icon(Icons.Default.FullscreenExit, contentDescription = stringResource(R.string.action_exit_fullscreen), tint = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RepeatControlButton(
+                                repeatMode = repeatMode,
+                                onClick = {
+                                    viewModel.cycleRepeatMode()
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                }
+                            )
+
+                            IconButton(onClick = {
+                                mediaController?.seekToPrevious()
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }, enabled = hasPrevious) {
+                                Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.action_previous), modifier = Modifier.size(36.dp), tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f))
+                            }
+
+                            FilledIconButton(
+                                onClick = {
+                                    if (mediaController?.isPlaying == true) mediaController?.pause() else mediaController?.play()
+                                    controlsLastInteraction = System.currentTimeMillis()
+                                },
+                                modifier = Modifier.size(64.dp),
+                                shape = CircleShape,
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black
+                                )
+                            ) {
+                                Icon(
+                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (isPlaying) stringResource(R.string.action_pause) else stringResource(R.string.action_play),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+
+                            IconButton(onClick = {
+                                mediaController?.seekToNext()
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }, enabled = hasNext) {
+                                Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.action_next), modifier = Modifier.size(36.dp), tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f))
+                            }
+
+                            IconButton(onClick = {
+                                val nextShuffle = !(mediaController?.shuffleModeEnabled ?: false)
+                                mediaController?.shuffleModeEnabled = nextShuffle
+                                isShuffle = nextShuffle
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }) {
+                                Icon(
+                                    Icons.Default.Shuffle,
+                                    contentDescription = stringResource(R.string.action_shuffle),
+                                    tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceAround,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = {
+                                isLandscape = true
+                                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                            }) {
+                                Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.action_fullscreen), tint = Color.White)
+                            }
+                            IconButton(onClick = {
+                                aspectRatio = (aspectRatio + 1) % 3
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }) {
+                                Icon(when(aspectRatio) { 1 -> Icons.Default.Fullscreen; 2 -> Icons.Default.AspectRatio; else -> Icons.Default.FitScreen }, contentDescription = stringResource(R.string.action_aspect_ratio), tint = Color.White)
+                            }
+                            IconButton(onClick = {
+                                showSubtitleDialog = true
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }) {
+                                Icon(Icons.Default.Subtitles, contentDescription = stringResource(R.string.subtitles_title), tint = Color.White)
+                            }
+                            IconButton(onClick = enterPiP) {
+                                Icon(Icons.Default.PictureInPictureAlt, contentDescription = stringResource(R.string.action_pip), tint = Color.White)
+                            }
+                            IconButton(onClick = {
+                                isLocked = true
+                                controlsLastInteraction = System.currentTimeMillis()
+                            }) {
+                                Icon(Icons.Default.LockOpen, contentDescription = stringResource(R.string.action_lock), tint = Color.White)
                             }
                         }
                     }
@@ -1449,18 +1594,46 @@ fun VideoPlayerScreen(
             }
         }
 
+        CenterPlaybackControlsRow(
+            isPlaying = isPlaying,
+            activeCenterAction = if (isLocked) CenterActionType.NONE else activeCenterAction,
+            isCenterControlsVisible = false,
+            playPausePulse = playPausePulse,
+            seekBackwardPulse = seekBackwardPulse,
+            seekForwardPulse = seekForwardPulse,
+            consumedSeekBackwardPulse = consumedSeekBackwardPulse,
+            consumedSeekForwardPulse = consumedSeekForwardPulse,
+            onConsumeSeekBackward = { consumedSeekBackwardPulse = it },
+            onConsumeSeekForward = { consumedSeekForwardPulse = it },
+            lastSeekAmountSeconds = lastSeekAmountSeconds,
+            onRewindClick = { performSeek(-1) },
+            onForwardClick = { performSeek(1) },
+            onPlayPauseClick = {
+                if (isPlaying) mediaController?.pause() else mediaController?.play()
+                playPausePulse++
+                activeCenterAction = CenterActionType.PLAY_PAUSE
+                centerActionTrigger = System.currentTimeMillis()
+                controlsLastInteraction = System.currentTimeMillis()
+            },
+            modifier = Modifier.align(Alignment.Center),
+            spacing = if (isLandscape) 80.dp else 48.dp
+        )
+
         if (showPlaybackSpeedDialog) {
             PlaybackSpeedDialog(
                 currentSpeed = playbackSpeed,
+                skipSilenceEnabled = skipSilenceEnabled,
                 onDismiss = { showPlaybackSpeedDialog = false },
-                onConfirm = { speed, applyTemporarily ->
+                onConfirm = { speed, applyTemporarily, skipSilence ->
                     playbackSpeed = speed
                     mediaController?.setPlaybackSpeed(speed)
+                    viewModel.setSkipSilenceEnabled(skipSilence, persist = !applyTemporarily)
                     if (!applyTemporarily) {
-                        if (speedScope == PlaybackSpeedScope.GLOBAL) {
-                            viewModel.setGlobalPlaybackSpeed(speed)
-                        } else {
-                            viewModel.setFolderPlaybackSpeed(currentFolder, speed)
+                        when {
+                            speedScope == PlaybackSpeedScope.GLOBAL -> viewModel.setGlobalPlaybackSpeed(speed)
+                            isHistory -> viewModel.setHistoryPlaybackSpeed(speed)
+                            playlistId != null -> viewModel.setPlaylistPlaybackSpeed(playlistId, speed)
+                            else -> viewModel.setFolderPlaybackSpeed(currentFolder, speed)
                         }
                     }
                     showPlaybackSpeedDialog = false
@@ -1520,7 +1693,7 @@ fun VideoPlayerScreen(
             val targetUri = resolvedVideo?.uri ?: Uri.parse(playingUri)
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
-                icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary) },
                 title = { Text(stringResource(R.string.delete_video_title), fontWeight = FontWeight.Bold) },
                 text = { Text(stringResource(R.string.delete_media_confirm, displayName)) },
                 confirmButton = {
@@ -1538,9 +1711,12 @@ fun VideoPlayerScreen(
                                 onBack()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        )
                     ) {
-                        Text(stringResource(R.string.action_delete))
+                        Text(stringResource(R.string.delete_from_device), color = Color.White)
                     }
                 },
                 dismissButton = {
@@ -1552,14 +1728,85 @@ fun VideoPlayerScreen(
             )
         }
 
+        if (queueItemPendingDelete != null) {
+            val item = queueItemPendingDelete!!
+            AlertDialog(
+                onDismissRequest = { queueItemPendingDelete = null },
+                icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text(stringResource(R.string.delete_video_title), fontWeight = FontWeight.Bold) },
+                text = { Text(stringResource(R.string.delete_media_from_device_confirm, item.title)) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val delUri = Uri.parse(item.uri)
+                            queueItemPendingDelete = null
+                            scope.launch {
+                                viewModel.deleteHistoryItem(item.uri)
+                                val isCurrent = item.uri == playingUri
+                                if (isCurrent) {
+                                    viewModel.stopIfPlaying(delUri)
+                                }
+                                val deleted = withContext(Dispatchers.IO) {
+                                    context.contentResolver.delete(delUri, null, null)
+                                }
+                                if (isCurrent) {
+                                    val autoPlayNext = viewModel.autoPlayNext.value
+                                    val hasNext = mediaController?.hasNextMediaItem() == true
+                                    if (hasNext && autoPlayNext) {
+                                        val currentIndex = mediaController?.currentMediaItemIndex ?: -1
+                                        if (currentIndex != -1) {
+                                            mediaController?.removeMediaItem(currentIndex)
+                                        }
+                                    } else {
+                                        onBack()
+                                    }
+                                } else {
+                                    val qIdx = queueItems.indexOfFirst { it.uri == item.uri }
+                                    if (qIdx != -1) {
+                                        viewModel.removeQueueItem(qIdx, queueItems)
+                                    }
+                                }
+                                if (deleted > 0) viewModel.onVideosDeleted(listOf(delUri))
+                                else viewModel.refreshVideos(context)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(stringResource(R.string.delete_from_device), color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { queueItemPendingDelete = null }) {
+                        Text(stringResource(R.string.action_close))
+                    }
+                },
+                shape = RoundedCornerShape(28.dp)
+            )
+        }
+
         if (showPlaylistDialog) {
             AddToPlaylistDialog(
                 playlists = playlists,
-                onDismiss = { showPlaylistDialog = false },
-                onPlaylistSelected = { playlistId ->
-                    val currentUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
-                    viewModel.addToPlaylist(playlistId, currentUri)
+                onDismiss = {
                     showPlaylistDialog = false
+                    targetPlaylistUri = null
+                    targetPlaylistUris = emptyList()
+                },
+                onPlaylistSelected = { playlistId ->
+                    val urisToAdd = if (targetPlaylistUris.isNotEmpty()) {
+                        targetPlaylistUris
+                    } else {
+                        listOfNotNull(targetPlaylistUri ?: (mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri))
+                    }
+                    urisToAdd.forEach { uri ->
+                        viewModel.addToPlaylist(playlistId, uri)
+                    }
+                    showPlaylistDialog = false
+                    targetPlaylistUri = null
+                    targetPlaylistUris = emptyList()
                 },
                 onCreatePlaylist = { name ->
                     viewModel.createPlaylist(name)
@@ -1575,31 +1822,10 @@ fun VideoPlayerScreen(
         }
 
         if (showQueueSheet) {
-            val queueItems = if (activeQueue.isNotEmpty()) {
-                activeQueue
-            } else if (activeQueueVideos.isNotEmpty()) {
-                activeQueueVideos.map {
-                    com.arslandaim.omegaplayer.media.PlaybackQueueItem(
-                        uri = it.uri.toString(),
-                        title = it.name,
-                        duration = it.duration,
-                        isVideo = true
-                    )
-                }
-            } else {
-                listOf(
-                    com.arslandaim.omegaplayer.media.PlaybackQueueItem(
-                        uri = videoUri,
-                        title = stringResource(R.string.unknown_title),
-                        duration = 0L,
-                        isVideo = true
-                    )
-                )
-            }
-
             com.arslandaim.omegaplayer.ui.feature.player.PlaybackQueueSheet(
                 queueItems = queueItems,
                 currentMediaIndex = currentMediaIndexState,
+                isPlaying = isPlaying,
                 sheetState = queueSheetState,
                 onDismiss = { showQueueSheet = false },
                 onItemClick = { index ->
@@ -1615,18 +1841,48 @@ fun VideoPlayerScreen(
                             mediaController?.prepare()
                         }
                         mediaController?.play()
+                    } else {
+                        if (mediaController?.isPlaying != true) {
+                            mediaController?.play()
+                        }
                     }
                 },
                 onItemRemove = { index ->
-                    if (index >= 0 && index < (mediaController?.mediaItemCount ?: 0)) {
-                        mediaController?.removeMediaItem(index)
-                    }
+                    viewModel.removeQueueItem(index, queueItems)
                 },
                 onItemMove = { from, to ->
-                    if (from >= 0 && to >= 0) {
-                        mediaController?.moveMediaItem(from, to)
-                    }
-                }
+                    viewModel.moveQueueItem(from, to, queueItems)
+                },
+                onItemAddToPlaylist = { item ->
+                    targetPlaylistUri = item.uri
+                    targetPlaylistUris = listOf(item.uri)
+                    showPlaylistDialog = true
+                },
+                onItemsAddToPlaylist = { items ->
+                    targetPlaylistUris = items.map { it.uri }
+                    showPlaylistDialog = true
+                },
+                onItemDeleteFromDevice = { item ->
+                    val uri = Uri.parse(item.uri)
+                    pendingUrisToDelete = listOf(uri)
+                    com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(
+                        context = context,
+                        uris = listOf(uri),
+                        deleteLauncher = deleteLauncher,
+                        onRequireInternalPopup = { queueItemPendingDelete = item }
+                    )
+                },
+                onItemsDeleteFromDevice = { items ->
+                    val uris = items.map { Uri.parse(it.uri) }
+                    pendingUrisToDelete = uris
+                    com.arslandaim.omegaplayer.util.MediaUtils.requestMediaDelete(
+                        context = context,
+                        uris = uris,
+                        deleteLauncher = deleteLauncher,
+                        onRequireInternalPopup = { queueItemPendingDelete = items.firstOrNull() }
+                    )
+                },
+                isFullyExpanded = upNextFullyExpanded
             )
         }
 

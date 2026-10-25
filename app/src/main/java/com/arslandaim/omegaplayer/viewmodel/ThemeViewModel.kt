@@ -3,6 +3,7 @@ package com.arslandaim.omegaplayer.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arslandaim.omegaplayer.data.AppTheme
+import com.arslandaim.omegaplayer.data.TextTruncationMode
 import com.arslandaim.omegaplayer.data.ThemePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +29,30 @@ class ThemeViewModel @Inject constructor(
         initialValue = true
     )
 
+    val darkPrimaryColor: StateFlow<Int> = themePreferences.darkPrimaryColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.arslandaim.omegaplayer.ui.theme.DefaultDarkPrimaryInt
+    )
+
+    val darkSecondaryColor: StateFlow<Int> = themePreferences.darkSecondaryColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.arslandaim.omegaplayer.ui.theme.DefaultDarkSecondaryInt
+    )
+
+    val lightPrimaryColor: StateFlow<Int> = themePreferences.lightPrimaryColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.arslandaim.omegaplayer.ui.theme.DefaultLightPrimaryInt
+    )
+
+    val lightSecondaryColor: StateFlow<Int> = themePreferences.lightSecondaryColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.arslandaim.omegaplayer.ui.theme.DefaultLightSecondaryInt
+    )
+
     val folderFlattenThreshold: StateFlow<Int> = themePreferences.folderFlattenThreshold.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -40,6 +65,12 @@ class ThemeViewModel @Inject constructor(
         initialValue = 3
     )
 
+    val seekIncrement: StateFlow<Int> = themePreferences.seekIncrement.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 10
+    )
+
     val playerOrientation: StateFlow<Int> = themePreferences.playerOrientation.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Lazily,
@@ -49,7 +80,19 @@ class ThemeViewModel @Inject constructor(
     val upNextFullyExpanded: StateFlow<Boolean> = themePreferences.upNextFullyExpanded.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Lazily,
-        initialValue = false
+        initialValue = true
+    )
+
+    val textTruncationMode: StateFlow<TextTruncationMode> = themePreferences.textTruncationMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = TextTruncationMode.TWO_LINES
+    )
+
+    val savePositionOnQuit: StateFlow<Boolean> = themePreferences.savePositionOnQuit.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
     )
 
     fun setTheme(theme: AppTheme) {
@@ -76,6 +119,12 @@ class ThemeViewModel @Inject constructor(
         }
     }
 
+    fun setSeekIncrement(increment: Int) {
+        viewModelScope.launch {
+            themePreferences.saveSeekIncrement(increment)
+        }
+    }
+
     fun setPlayerOrientation(mode: Int) {
         viewModelScope.launch {
             themePreferences.savePlayerOrientation(mode)
@@ -85,6 +134,42 @@ class ThemeViewModel @Inject constructor(
     fun setUpNextFullyExpanded(expanded: Boolean) {
         viewModelScope.launch {
             themePreferences.saveUpNextFullyExpanded(expanded)
+        }
+    }
+
+    fun setTextTruncationMode(mode: TextTruncationMode) {
+        viewModelScope.launch {
+            themePreferences.saveTextTruncationMode(mode)
+        }
+    }
+
+    fun setDarkPrimaryColor(color: Int) {
+        viewModelScope.launch {
+            themePreferences.saveDarkPrimaryColor(color)
+        }
+    }
+
+    fun setDarkSecondaryColor(color: Int) {
+        viewModelScope.launch {
+            themePreferences.saveDarkSecondaryColor(color)
+        }
+    }
+
+    fun setLightPrimaryColor(color: Int) {
+        viewModelScope.launch {
+            themePreferences.saveLightPrimaryColor(color)
+        }
+    }
+
+    fun setLightSecondaryColor(color: Int) {
+        viewModelScope.launch {
+            themePreferences.saveLightSecondaryColor(color)
+        }
+    }
+
+    fun resetThemeColors() {
+        viewModelScope.launch {
+            themePreferences.resetThemeColors()
         }
     }
 }

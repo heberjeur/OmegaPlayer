@@ -19,7 +19,6 @@
 -keep class coil.decode.VideoFrameDecoder { *; }
 -keep class coil.decode.VideoFrameDecoder$Factory { *; }
 
--keep class androidx.biometric.** { *; }
--keepclassmembers class * extends androidx.biometric.BiometricPrompt$AuthenticationCallback { *; }
+
 
 -keep class androidx.datastore.preferences.** { *; }

@@ -40,7 +40,7 @@ fun PlaybackErrorOverlay(error: String, onRetry: () -> Unit) {
             Icon(
                 Icons.Default.ErrorOutline,
                 contentDescription = null,
-                tint = Color.Red,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -91,7 +91,8 @@ fun PlayerTopHUD(
     brightnessPercentage: Int,
     showMediaInfo: Boolean,
     resolution: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mediaIcon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.HighQuality
 ) {
     val itemsVisible = (showClock && currentTime.isNotEmpty()) ||
             showBattery ||
@@ -134,7 +135,7 @@ fun PlayerTopHUD(
         }
         if (showMediaInfo && !resolution.isNullOrBlank()) {
             HudBadge(
-                icon = Icons.Default.HighQuality,
+                icon = mediaIcon,
                 text = resolution
             )
         }
@@ -195,7 +196,7 @@ fun PlayerDropdownMenu(
                 onDismiss()
                 onPlaylistClick()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         )
         DropdownMenuItem(
             text = {
@@ -207,7 +208,7 @@ fun PlayerDropdownMenu(
                 onDismiss()
                 onSleepTimerClick()
             },
-            leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) MaterialTheme.colorScheme.primary else Color.White) }
+            leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.playback_speed_format, String.format(java.util.Locale.US, "%.2f", playbackSpeed))) },
@@ -215,7 +216,7 @@ fun PlayerDropdownMenu(
                 onDismiss()
                 onSpeedClick()
             },
-            leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null) }
+            leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.equalizer)) },
@@ -223,7 +224,7 @@ fun PlayerDropdownMenu(
                 onDismiss()
                 onEqualizerClick()
             },
-            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
+            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.menu_information)) },
@@ -231,15 +232,15 @@ fun PlayerDropdownMenu(
                 onDismiss()
                 onInfoClick()
             },
-            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         )
         DropdownMenuItem(
-            text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+            text = { Text(stringResource(R.string.delete_from_device)) },
             onClick = {
                 onDismiss()
                 onDeleteClick()
             },
-            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         )
     }
 }

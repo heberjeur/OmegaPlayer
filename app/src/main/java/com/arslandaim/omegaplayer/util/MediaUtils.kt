@@ -247,7 +247,7 @@ object MediaUtils {
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, pending.newDisplayName)
         }
-        val rows = context.contentResolver.update(pending.uri, values, null, null)
+        val rows = runCatching { context.contentResolver.update(pending.uri, values, null, null) }.getOrDefault(0)
         if (pending.oldPath.isNotEmpty()) {
             val oldFile = File(pending.oldPath)
             val newFile = File(oldFile.parentFile, pending.newDisplayName)
@@ -372,7 +372,7 @@ object MediaUtils {
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.RELATIVE_PATH, newRelPath)
             }
-            val rows = context.contentResolver.update(uri, values, null, null)
+            val rows = runCatching { context.contentResolver.update(uri, values, null, null) }.getOrDefault(0)
             if (rows > 0) successCount++
         }
         MediaScannerConnection.scanFile(

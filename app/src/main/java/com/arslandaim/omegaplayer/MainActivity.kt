@@ -30,15 +30,18 @@ import com.arslandaim.omegaplayer.ui.navigation.Screen
 import com.arslandaim.omegaplayer.ui.feature.player.VideoPlayerScreen
 import com.arslandaim.omegaplayer.ui.feature.settings.SettingsScreen
 import com.arslandaim.omegaplayer.ui.theme.OmegaPlayerTheme
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.arslandaim.omegaplayer.data.SecurityLockType
+import com.arslandaim.omegaplayer.ui.feature.security.AppLockScreen
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import com.arslandaim.omegaplayer.viewmodel.AudioViewModel
 import com.arslandaim.omegaplayer.viewmodel.ThemeViewModel
 import com.arslandaim.omegaplayer.ui.feature.player.AudioPlayerScreen
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.ui.common.NowPlayingBar
-import com.arslandaim.omegaplayer.util.StartupTrace
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -53,20 +56,38 @@ class MainActivity : FragmentActivity() {
     lateinit var playbackConnection: PlaybackConnection
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        StartupTrace.mark("Activity.onCreate begin")
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        StartupTrace.mark("edge-to-edge applied")
         setContent {
-            remember { StartupTrace.mark("content first composition"); true }
-            LaunchedEffect(Unit) {
-                withFrameNanos { }
-                StartupTrace.onFirstFrame()
-            }
 
             val themeViewModel: ThemeViewModel = hiltViewModel()
+            val mainVideoViewModel: VideoViewModel = hiltViewModel(this@MainActivity)
+            val securityLockType by mainVideoViewModel.securityLockType.collectAsState()
+            val securityAppLockEnabled by mainVideoViewModel.securityAppLockEnabled.collectAsState()
+
+            var isAppUnlocked by rememberSaveable { mutableStateOf(false) }
+
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner, securityAppLockEnabled, securityLockType) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && securityAppLockEnabled && securityLockType != SecurityLockType.NONE) {
+                        isAppUnlocked = false
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
             val appTheme by themeViewModel.theme.collectAsState()
             val dynamicColor by themeViewModel.dynamicColor.collectAsState()
+            val textTruncationMode by themeViewModel.textTruncationMode.collectAsState()
+            val savePositionOnQuit by themeViewModel.savePositionOnQuit.collectAsState()
+            val darkPrimaryColor by themeViewModel.darkPrimaryColor.collectAsState()
+            val darkSecondaryColor by themeViewModel.darkSecondaryColor.collectAsState()
+            val lightPrimaryColor by themeViewModel.lightPrimaryColor.collectAsState()
+            val lightSecondaryColor by themeViewModel.lightSecondaryColor.collectAsState()
             
             val isDarkTheme = when (appTheme) {
                 com.arslandaim.omegaplayer.data.AppTheme.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
@@ -74,13 +95,22 @@ class MainActivity : FragmentActivity() {
                 com.arslandaim.omegaplayer.data.AppTheme.DARK -> true
             }
 
-            OmegaPlayerTheme(appTheme = appTheme, dynamicColor = dynamicColor) {
+            OmegaPlayerTheme(
+                appTheme = appTheme,
+                dynamicColor = dynamicColor,
+                textTruncationMode = textTruncationMode,
+                savePositionOnQuit = savePositionOnQuit,
+                darkPrimaryColor = androidx.compose.ui.graphics.Color(darkPrimaryColor),
+                darkSecondaryColor = androidx.compose.ui.graphics.Color(darkSecondaryColor),
+                lightPrimaryColor = androidx.compose.ui.graphics.Color(lightPrimaryColor),
+                lightSecondaryColor = androidx.compose.ui.graphics.Color(lightSecondaryColor)
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    
+
                     DisposableEffect(Unit) {
                         val consumer = androidx.core.util.Consumer<Intent> { intent ->
                             navController.handleDeepLink(intent)
@@ -89,11 +119,12 @@ class MainActivity : FragmentActivity() {
                         onDispose { removeOnNewIntentListener(consumer) }
                     }
 
-                    SharedTransitionLayout {
-                        NavHost(
-                            navController = navController,
-                            startDestination = Screen.Main.route
-                        ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        SharedTransitionLayout {
+                            NavHost(
+                                navController = navController,
+                                startDestination = Screen.Main.route
+                            ) {
                             composable(
                                 route = Screen.Main.route,
                                 arguments = listOf(navArgument("tab") { 
@@ -117,7 +148,6 @@ class MainActivity : FragmentActivity() {
                                 val activity = androidx.compose.ui.platform.LocalContext.current as MainActivity
                                 val videoVM: VideoViewModel = hiltViewModel(activity)
                                 val audioVM: AudioViewModel = hiltViewModel(activity)
-                                StartupTrace.markOnce("viewModels.created") { "Video/Audio view models created" }
                                 videoViewModel = videoVM
 
                                 MainScreen(
@@ -267,11 +297,19 @@ class MainActivity : FragmentActivity() {
                             }
                         }
                     }
+
+                    if (securityAppLockEnabled && securityLockType != SecurityLockType.NONE && !isAppUnlocked) {
+                        AppLockScreen(
+                            lockType = securityLockType,
+                            videoViewModel = mainVideoViewModel,
+                            onUnlocked = { isAppUnlocked = true }
+                        )
+                    }
                 }
             }
         }
-        StartupTrace.mark("Activity.onCreate end")
     }
+}
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -330,23 +368,46 @@ fun MainScreen(
     isDarkTheme: Boolean,
     initialTab: com.arslandaim.omegaplayer.ui.feature.library.MediaTab? = null
 ) {
-    remember { StartupTrace.mark("MainScreen composition"); true }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = context as? android.app.Activity
+    val keepScreenOnWhenPaused by videoViewModel.keepScreenOnWhenPaused.collectAsStateWithLifecycle()
+    val currentMediaItem by playbackConnection.currentMediaItem.collectAsStateWithLifecycle()
+    val isPlaying by playbackConnection.isPlaying.collectAsStateWithLifecycle()
+    var isSelectionActive by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentMediaItem, isPlaying, keepScreenOnWhenPaused) {
+        activity?.window?.let { window ->
+            val shouldKeepOn = currentMediaItem != null && (isPlaying || keepScreenOnWhenPaused)
+            if (shouldKeepOn) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
-            Column(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isDarkTheme) 0.9f else 0.95f))
+            AnimatedVisibility(
+                visible = currentMediaItem != null && !isSelectionActive,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                NowPlayingBar(
-                    playbackConnection = playbackConnection,
-                    onAudioClick = { uri ->
-                        navController.navigate(Screen.AudioPlayer.createRoute(uri))
-                    },
-                    onVideoClick = { uri ->
-                        navController.navigate(Screen.Player.createRoute(uri))
-                    }
-                )
+                Column(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isDarkTheme) 0.9f else 0.95f))
+                ) {
+                    NowPlayingBar(
+                        playbackConnection = playbackConnection,
+                        onAudioClick = { uri ->
+                            navController.navigate(Screen.AudioPlayer.createRoute(uri))
+                        },
+                        onVideoClick = { uri ->
+                            navController.navigate(Screen.Player.createRoute(uri))
+                        }
+                    )
+                }
             }
         }
     ) { padding ->
@@ -364,7 +425,8 @@ fun MainScreen(
             onSettingsClick = { navController.navigate(Screen.Settings.route) },
             bottomPadding = padding.calculateBottomPadding(),
             isFocused = true,
-            initialTab = initialTab
+            initialTab = initialTab,
+            onSelectionModeChange = { isSelectionActive = it }
         )
     }
 }

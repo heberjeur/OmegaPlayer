@@ -3,10 +3,13 @@ package com.arslandaim.omegaplayer.ui.feature.library.components
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -34,6 +37,11 @@ import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.ui.common.videoThumbImageRequest
 import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.MediaUtils.formatDuration
+import com.arslandaim.omegaplayer.ui.theme.LocalPlaybackProgress
+import com.arslandaim.omegaplayer.ui.theme.LocalSavePositionOnQuit
+import com.arslandaim.omegaplayer.ui.theme.LocalTextTruncationMode
+import com.arslandaim.omegaplayer.ui.theme.maxLines
+import com.arslandaim.omegaplayer.ui.theme.overflow
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -46,10 +54,16 @@ fun VideoListItem(
     onDeleteClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     onRename: (String) -> Unit = {},
-    isInPlaylistView: Boolean = false
+    isInPlaylistView: Boolean = false,
+    isLocked: Boolean = false,
+    onToggleLock: () -> Unit = {},
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -74,7 +88,13 @@ fun VideoListItem(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clip(RoundedCornerShape(24.dp))
+                .combinedClickable(
+                    onClick = {
+                        if (isSelectionMode) onToggleSelect() else onClick()
+                    },
+                    onLongClick = onToggleSelect
+                )
                 .sharedBounds(
                     rememberSharedContentState(key = "video_bounds_${video.uri}"),
                     animatedVisibilityScope = animatedVisibilityScope,
@@ -83,8 +103,10 @@ fun VideoListItem(
                     resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
                 ),
             shape = RoundedCornerShape(24.dp),
+            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
             colors = CardDefaults.cardColors(
-                containerColor = if (isPlaying) MaterialTheme.colorScheme.surfaceVariant 
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+                                else if (isPlaying) MaterialTheme.colorScheme.surfaceVariant 
                                 else MaterialTheme.colorScheme.surface
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -128,6 +150,26 @@ fun VideoListItem(
                             PlayingVisualizer()
                         }
                     }
+
+                    if (isLocked) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(6.dp)
+                                .size(22.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                    }
                     
                     Surface(
                         color = Color.Black.copy(alpha = 0.7f),
@@ -162,6 +204,9 @@ fun VideoListItem(
                     }
                 }
                 
+                val truncation = LocalTextTruncationMode.current
+                val savePositionOnQuit = LocalSavePositionOnQuit.current
+                val playbackProgress = if (savePositionOnQuit) LocalPlaybackProgress.current[video.uri.toString()] ?: 0f else 0f
                 Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
                     Text(
                         text = video.name,
@@ -169,32 +214,77 @@ fun VideoListItem(
                         fontWeight = FontWeight.ExtraBold,
                         color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Justify
+                        textAlign = TextAlign.Justify,
+                        maxLines = truncation.maxLines,
+                        overflow = truncation.overflow
                     )
+                    if (playbackProgress > 0f) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress = { playbackProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(CircleShape),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    var showMenu by remember { mutableStateOf(false) }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
+                    if (isSelectionMode) {
+                        IconButton(onClick = onToggleSelect) {
                             Icon(
-                                Icons.Default.MoreVert,
-                                contentDescription = stringResource(R.string.action_more),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(22.dp)
+                                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp)
                             )
                         }
-                        DropdownMenu(
+                    } else {
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.action_more),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_play)) },
+                                onClick = {
+                                    showMenu = false
+                                    onClick()
+                                },
+                                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
+                                onClick = { 
+                                    showMenu = false
+                                    onPlaylistClick() 
+                                },
+                                leadingIcon = { 
+                                    Icon(
+                                        if (isInPlaylistView) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd, 
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    ) 
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_rename)) },
                                 onClick = { 
                                     showMenu = false
                                     showRenameDialog = true
                                 },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_share)) },
@@ -202,7 +292,7 @@ fun VideoListItem(
                                     showMenu = false
                                     MediaUtils.shareMedia(context, listOf(video.uri), "video/*")
                                 },
-                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.menu_information)) },
@@ -220,30 +310,26 @@ fun VideoListItem(
                                         showInfoDialog = true
                                     }
                                 },
-                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                             )
                             DropdownMenuItem(
-                                text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
-                                onClick = { 
+                                text = { Text(if (isLocked) stringResource(R.string.action_unlock_media) else stringResource(R.string.action_lock_media)) },
+                                onClick = {
                                     showMenu = false
-                                    onPlaylistClick() 
+                                    onToggleLock()
                                 },
-                                leadingIcon = { 
-                                    Icon(
-                                        if (isInPlaylistView) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd, 
-                                        contentDescription = null
-                                    ) 
-                                }
+                                leadingIcon = { Icon(if (isLocked) Icons.Default.LockOpen else Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(stringResource(R.string.delete_from_device)) },
                                 onClick = { 
                                     showMenu = false
                                     onDeleteClick() 
                                 },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                             )
                         }
+                    }
                     }
                 }
             }
@@ -251,6 +337,7 @@ fun VideoListItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AudioListItem(
     audio: AudioModel,
@@ -259,10 +346,16 @@ fun AudioListItem(
     onDeleteClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     onRename: (String) -> Unit = {},
-    isInPlaylistView: Boolean = false
+    isInPlaylistView: Boolean = false,
+    isLocked: Boolean = false,
+    onToggleLock: () -> Unit = {},
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
     var detailedInfo by remember { mutableStateOf<com.arslandaim.omegaplayer.util.DetailedMediaInfo?>(null) }
@@ -289,10 +382,18 @@ fun AudioListItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clip(RoundedCornerShape(24.dp))
+            .combinedClickable(
+                onClick = {
+                    if (isSelectionMode) onToggleSelect() else onClick()
+                },
+                onLongClick = onToggleSelect
+            ),
         shape = RoundedCornerShape(24.dp),
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         colors = CardDefaults.cardColors(
-            containerColor = if (isPlaying) MaterialTheme.colorScheme.surfaceVariant 
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+                            else if (isPlaying) MaterialTheme.colorScheme.surfaceVariant 
                             else MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -350,6 +451,26 @@ fun AudioListItem(
                     }
                 }
 
+                if (isLocked) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .size(22.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
+                }
+
                 Surface(
                     color = Color.Black.copy(alpha = 0.7f),
                     shape = RoundedCornerShape(10.dp),
@@ -383,6 +504,9 @@ fun AudioListItem(
                 }
             }
             
+            val truncation = LocalTextTruncationMode.current
+            val savePositionOnQuit = LocalSavePositionOnQuit.current
+            val playbackProgress = if (savePositionOnQuit) LocalPlaybackProgress.current[audio.uri.toString()] ?: 0f else 0f
             Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
                 Text(
                     text = audio.name,
@@ -390,32 +514,71 @@ fun AudioListItem(
                     fontWeight = FontWeight.ExtraBold,
                     color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Justify
+                    textAlign = TextAlign.Justify,
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
+                if (playbackProgress > 0f) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { playbackProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
             }
             
             Row(verticalAlignment = Alignment.CenterVertically) {
-                var showMenu by remember { mutableStateOf(false) }
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
+                if (isSelectionMode) {
+                    IconButton(onClick = onToggleSelect) {
                         Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.action_more),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(22.dp)
+                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    DropdownMenu(
+                } else {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.action_more),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_play)) },
+                            onClick = {
+                                showMenu = false
+                                onClick()
+                            },
+                            leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
+                            onClick = {
+                                showMenu = false
+                                onPlaylistClick()
+                            },
+                            leadingIcon = { Icon(if (isInPlaylistView) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.action_rename)) },
                             onClick = {
                                 showMenu = false
                                 showRenameDialog = true
                             },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.action_share)) },
@@ -423,7 +586,7 @@ fun AudioListItem(
                                 showMenu = false
                                 MediaUtils.shareMedia(context, listOf(audio.uri), "audio/*")
                             },
-                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.menu_information)) },
@@ -441,25 +604,26 @@ fun AudioListItem(
                                     showInfoDialog = true
                                 }
                             },
-                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                         )
                         DropdownMenuItem(
-                            text = { Text(if (isInPlaylistView) stringResource(R.string.menu_remove_from_playlist) else stringResource(R.string.menu_add_to_playlist)) },
+                            text = { Text(if (isLocked) stringResource(R.string.action_unlock_media) else stringResource(R.string.action_lock_media)) },
                             onClick = {
                                 showMenu = false
-                                onPlaylistClick()
+                                onToggleLock()
                             },
-                            leadingIcon = { Icon(if (isInPlaylistView) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
+                            leadingIcon = { Icon(if (isLocked) Icons.Default.LockOpen else Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                            text = { Text(stringResource(R.string.delete_from_device)) },
                             onClick = {
                                 showMenu = false
                                 onDeleteClick()
                             },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                         )
                     }
+                }
                 }
             }
         }

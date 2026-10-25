@@ -2,6 +2,8 @@ package com.arslandaim.omegaplayer.ui.feature.library.components
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -10,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.arslandaim.omegaplayer.R
 
@@ -39,9 +42,13 @@ fun MediaRenameDialog(
                     if (newName.isNotBlank()) {
                         onConfirm(newName)
                     }
-                }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
             ) {
-                Text(stringResource(R.string.action_apply))
+                Text(stringResource(R.string.action_apply), color = Color.White)
             }
         },
         dismissButton = {

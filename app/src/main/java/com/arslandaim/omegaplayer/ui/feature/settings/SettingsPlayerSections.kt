@@ -3,12 +3,14 @@ package com.arslandaim.omegaplayer.ui.feature.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FolderOff
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,8 +29,6 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
     val showPlayerVolume by videoViewModel.showPlayerVolume.collectAsStateWithLifecycle()
     val showPlayerBrightness by videoViewModel.showPlayerBrightness.collectAsStateWithLifecycle()
 
-    Text(stringResource(R.string.setting_player_hud), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -37,6 +37,7 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
         Column {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.hud_show_system_status_bar), fontWeight = FontWeight.Medium) },
+                leadingContent = { SettingIcon(Icons.Default.Fullscreen) },
                 trailingContent = {
                     Switch(
                         checked = showSystemStatusBar,
@@ -48,6 +49,7 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ListItem(
                 headlineContent = { Text(stringResource(R.string.hud_show_clock), fontWeight = FontWeight.Medium) },
+                leadingContent = { SettingIcon(Icons.Default.Schedule) },
                 trailingContent = {
                     Switch(
                         checked = showPlayerClock,
@@ -59,6 +61,7 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ListItem(
                 headlineContent = { Text(stringResource(R.string.hud_show_battery), fontWeight = FontWeight.Medium) },
+                leadingContent = { SettingIcon(Icons.Default.BatteryChargingFull) },
                 trailingContent = {
                     Switch(
                         checked = showPlayerBattery,
@@ -70,6 +73,7 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ListItem(
                 headlineContent = { Text(stringResource(R.string.hud_show_media_info), fontWeight = FontWeight.Medium) },
+                leadingContent = { SettingIcon(Icons.Default.Info) },
                 trailingContent = {
                     Switch(
                         checked = showPlayerMediaInfo,
@@ -81,6 +85,7 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ListItem(
                 headlineContent = { Text(stringResource(R.string.hud_show_volume), fontWeight = FontWeight.Medium) },
+                leadingContent = { SettingIcon(Icons.AutoMirrored.Filled.VolumeMute) },
                 trailingContent = {
                     Switch(
                         checked = showPlayerVolume,
@@ -92,10 +97,135 @@ fun SettingsPlayerHudSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ListItem(
                 headlineContent = { Text(stringResource(R.string.hud_show_brightness), fontWeight = FontWeight.Medium) },
+                leadingContent = { SettingIcon(Icons.Default.Brightness5) },
                 trailingContent = {
                     Switch(
                         checked = showPlayerBrightness,
                         onCheckedChange = { videoViewModel.togglePlayerBrightness(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsGesturesSection(videoViewModel: VideoViewModel) {
+    val gestureVolumeEnabled by videoViewModel.gestureVolumeEnabled.collectAsStateWithLifecycle()
+    val gestureBrightnessEnabled by videoViewModel.gestureBrightnessEnabled.collectAsStateWithLifecycle()
+    val gesturePinchToZoomEnabled by videoViewModel.gesturePinchToZoomEnabled.collectAsStateWithLifecycle()
+    val gestureSeekForwardEnabled by videoViewModel.gestureSeekForwardEnabled.collectAsStateWithLifecycle()
+    val gestureSeekBackwardEnabled by videoViewModel.gestureSeekBackwardEnabled.collectAsStateWithLifecycle()
+    val gesturePlayPauseEnabled by videoViewModel.gesturePlayPauseEnabled.collectAsStateWithLifecycle()
+    val gestureLongPressSpeedEnabled by videoViewModel.gestureLongPressSpeedEnabled.collectAsStateWithLifecycle()
+    val gestureTapControlsEnabled by videoViewModel.gestureTapControlsEnabled.collectAsStateWithLifecycle()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_volume), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_volume_sub)) },
+                leadingContent = { SettingIcon(Icons.AutoMirrored.Filled.VolumeUp) },
+                trailingContent = {
+                    Switch(
+                        checked = gestureVolumeEnabled,
+                        onCheckedChange = { videoViewModel.setGestureVolumeEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_brightness), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_brightness_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.Brightness6) },
+                trailingContent = {
+                    Switch(
+                        checked = gestureBrightnessEnabled,
+                        onCheckedChange = { videoViewModel.setGestureBrightnessEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_pinch_to_zoom), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_pinch_to_zoom_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.ZoomIn) },
+                trailingContent = {
+                    Switch(
+                        checked = gesturePinchToZoomEnabled,
+                        onCheckedChange = { videoViewModel.setGesturePinchToZoomEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_seek_forward), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_seek_forward_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.FastForward) },
+                trailingContent = {
+                    Switch(
+                        checked = gestureSeekForwardEnabled,
+                        onCheckedChange = { videoViewModel.setGestureSeekForwardEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_seek_backward), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_seek_backward_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.FastRewind) },
+                trailingContent = {
+                    Switch(
+                        checked = gestureSeekBackwardEnabled,
+                        onCheckedChange = { videoViewModel.setGestureSeekBackwardEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_play_pause), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_play_pause_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.PlayCircle) },
+                trailingContent = {
+                    Switch(
+                        checked = gesturePlayPauseEnabled,
+                        onCheckedChange = { videoViewModel.setGesturePlayPauseEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_long_press_speed), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_long_press_speed_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.TouchApp) },
+                trailingContent = {
+                    Switch(
+                        checked = gestureLongPressSpeedEnabled,
+                        onCheckedChange = { videoViewModel.setGestureLongPressSpeedEnabled(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.gesture_tap_controls), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.gesture_tap_controls_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.AdsClick) },
+                trailingContent = {
+                    Switch(
+                        checked = gestureTapControlsEnabled,
+                        onCheckedChange = { videoViewModel.setGestureTapControlsEnabled(it) }
                     )
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -111,15 +241,16 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
     val subtitleTextColor by videoViewModel.subtitleTextColor.collectAsStateWithLifecycle()
     val subtitleBgStyle by videoViewModel.subtitleBgStyle.collectAsStateWithLifecycle()
 
-    Text(stringResource(R.string.section_subtitles), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(stringResource(R.string.subtitle_size), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            SettingHeader(
+                title = stringResource(R.string.subtitle_size),
+                icon = Icons.Default.FormatSize
+            )
             Spacer(modifier = Modifier.height(8.dp))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val sizes = listOf(
@@ -134,7 +265,7 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                         selected = subtitleTextSize == size,
                         onClick = { videoViewModel.setSubtitleTextSize(size) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = sizes.size),
-                        label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+                        label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -143,7 +274,10 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(stringResource(R.string.subtitle_color), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            SettingHeader(
+                title = stringResource(R.string.subtitle_color),
+                icon = Icons.Default.FormatColorText
+            )
             Spacer(modifier = Modifier.height(8.dp))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val colors = listOf(
@@ -157,7 +291,7 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                         selected = subtitleTextColor == colorKey,
                         onClick = { videoViewModel.setSubtitleTextColor(colorKey) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = colors.size),
-                        label = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+                        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -166,7 +300,10 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(stringResource(R.string.subtitle_background), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            SettingHeader(
+                title = stringResource(R.string.subtitle_background),
+                icon = Icons.Default.FormatPaint
+            )
             Spacer(modifier = Modifier.height(8.dp))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val backgrounds = listOf(
@@ -180,7 +317,7 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                         selected = subtitleBgStyle == bgKey,
                         onClick = { videoViewModel.setSubtitleBgStyle(bgKey) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = backgrounds.size),
-                        label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+                        label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -192,18 +329,16 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
 fun SettingsExcludedFoldersSection(videoViewModel: VideoViewModel) {
     val excludedFolders by videoViewModel.excludedFolders.collectAsStateWithLifecycle()
 
-    Text(stringResource(R.string.section_excluded_folders), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                stringResource(R.string.excluded_folders_sub),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            SettingHeader(
+                title = stringResource(R.string.section_excluded_folders),
+                subtitle = stringResource(R.string.excluded_folders_sub),
+                icon = Icons.Default.FolderOff
             )
             Spacer(modifier = Modifier.height(12.dp))
             if (excludedFolders.isEmpty()) {
@@ -229,7 +364,7 @@ fun SettingsExcludedFoldersSection(videoViewModel: VideoViewModel) {
                             Icon(
                                 Icons.Default.FolderOff,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -278,7 +413,6 @@ fun SettingsNotificationSection(videoViewModel: VideoViewModel) {
     val notifShowShuffle by videoViewModel.notifShowShuffle.collectAsStateWithLifecycle()
     val activeNotifCount = listOf(notifShowPrev, notifShowRewind, notifShowForward, notifShowNext, notifShowSpeed, notifShowStop, notifShowClose, notifShowRepeat, notifShowShuffle).count { it }
 
-    Text(stringResource(R.string.section_notification_controls), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     Text(stringResource(R.string.notif_limit_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     Card(
@@ -291,54 +425,63 @@ fun SettingsNotificationSection(videoViewModel: VideoViewModel) {
                 title = stringResource(R.string.pref_notif_prev),
                 checked = notifShowPrev,
                 enabled = notifShowPrev || activeNotifCount < 5,
+                icon = Icons.Default.SkipPrevious,
                 onCheckedChange = { videoViewModel.setNotifShowPrevious(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_rewind),
                 checked = notifShowRewind,
                 enabled = notifShowRewind || activeNotifCount < 5,
+                icon = Icons.Default.FastRewind,
                 onCheckedChange = { videoViewModel.setNotifShowRewind(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_forward),
                 checked = notifShowForward,
                 enabled = notifShowForward || activeNotifCount < 5,
+                icon = Icons.Default.FastForward,
                 onCheckedChange = { videoViewModel.setNotifShowForward(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_next),
                 checked = notifShowNext,
                 enabled = notifShowNext || activeNotifCount < 5,
+                icon = Icons.Default.SkipNext,
                 onCheckedChange = { videoViewModel.setNotifShowNext(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_speed),
                 checked = notifShowSpeed,
                 enabled = notifShowSpeed || activeNotifCount < 5,
+                icon = Icons.Default.Speed,
                 onCheckedChange = { videoViewModel.setNotifShowSpeed(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_stop),
                 checked = notifShowStop,
                 enabled = notifShowStop || activeNotifCount < 5,
+                icon = Icons.Default.Stop,
                 onCheckedChange = { videoViewModel.setNotifShowStop(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_close),
                 checked = notifShowClose,
                 enabled = notifShowClose || activeNotifCount < 5,
+                icon = Icons.Default.Close,
                 onCheckedChange = { videoViewModel.setNotifShowClose(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_repeat),
                 checked = notifShowRepeat,
                 enabled = notifShowRepeat || activeNotifCount < 5,
+                icon = Icons.Default.Repeat,
                 onCheckedChange = { videoViewModel.setNotifShowRepeat(it) }
             )
             SwitchPreference(
                 title = stringResource(R.string.pref_notif_shuffle),
                 checked = notifShowShuffle,
                 enabled = notifShowShuffle || activeNotifCount < 5,
+                icon = Icons.Default.Shuffle,
                 onCheckedChange = { videoViewModel.setNotifShowShuffle(it) }
             )
         }
@@ -350,10 +493,12 @@ fun SwitchPreference(
     title: String,
     checked: Boolean,
     enabled: Boolean = true,
+    icon: ImageVector? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
     ListItem(
         headlineContent = { Text(title, fontWeight = FontWeight.Medium, color = if (enabled) Color.Unspecified else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+        leadingContent = icon?.let { { SettingIcon(it) } },
         trailingContent = {
             Switch(
                 checked = checked,

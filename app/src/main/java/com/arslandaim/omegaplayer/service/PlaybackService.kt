@@ -12,7 +12,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.common.Player
 import androidx.media3.session.CommandButton
+import androidx.core.app.NotificationCompat
 import androidx.media3.session.DefaultMediaNotificationProvider
+import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
@@ -61,10 +63,12 @@ class PlaybackService : MediaSessionService() {
     private var notifShowRepeat = false
     private var notifShowShuffle = false
     private var autoPlayNext = true
+    private var closeAfterQueueEnds = false
 
     companion object {
         const val ACTION_SPEED = "com.arslandaim.omegaplayer.CYCLE_SPEED"
         const val ACTION_CLOSE = "com.arslandaim.omegaplayer.ACTION_CLOSE"
+        const val ACTION_SET_SKIP_SILENCE = "com.arslandaim.omegaplayer.SET_SKIP_SILENCE"
     }
 
     override fun onCreate() {
@@ -72,6 +76,9 @@ class PlaybackService : MediaSessionService() {
         
         serviceScope.launch {
             themePreferences.autoPlayNext.collect { autoPlayNext = it }
+        }
+        serviceScope.launch {
+            themePreferences.closeAfterQueueEnds.collect { closeAfterQueueEnds = it }
         }
 
         val loadControl = DefaultLoadControl.Builder()
@@ -99,6 +106,12 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
+        serviceScope.launch {
+            themePreferences.skipSilenceEnabled.collect { enabled ->
+                player.skipSilenceEnabled = enabled
+            }
+        }
+
         player.addAnalyticsListener(object : AnalyticsListener {
             override fun onAudioSessionIdChanged(eventTime: EventTime, audioSessionId: Int) {
                 super.onAudioSessionIdChanged(eventTime, audioSessionId)
@@ -110,6 +123,14 @@ class PlaybackService : MediaSessionService() {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !autoPlayNext) {
                     player.pause()
+                }
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED && closeAfterQueueEnds) {
+                    player.stop()
+                    player.clearMediaItems()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
                 }
             }
         })
@@ -174,6 +195,7 @@ class PlaybackService : MediaSessionService() {
                 val availableCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                     .add(SessionCommand(ACTION_SPEED, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_CLOSE, Bundle.EMPTY))
+                    .add(SessionCommand(ACTION_SET_SKIP_SILENCE, Bundle.EMPTY))
                     .build()
 
                 val playerCommands = session.player.availableCommands.buildUpon()
@@ -183,6 +205,7 @@ class PlaybackService : MediaSessionService() {
                     .add(Player.COMMAND_SEEK_FORWARD)
                     .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                     .add(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+                    .add(Player.COMMAND_CHANGE_MEDIA_ITEMS)
                     .build()
 
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
@@ -217,6 +240,11 @@ class PlaybackService : MediaSessionService() {
                         stopSelf()
                         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                     }
+                    ACTION_SET_SKIP_SILENCE -> {
+                        val enabled = args.getBoolean("enabled", false)
+                        player.skipSilenceEnabled = enabled
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    }
                 }
                 return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
             }
@@ -233,26 +261,39 @@ class PlaybackService : MediaSessionService() {
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
                     .setIconResId(androidx.media3.ui.R.drawable.exo_notification_previous)
                     .setDisplayName(getString(R.string.action_previous))
+                    .setExtras(Bundle().apply { putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, 0) })
                     .build()
                 val rewindBtn = CommandButton.Builder()
                     .setPlayerCommand(Player.COMMAND_SEEK_BACK)
                     .setIconResId(R.drawable.ic_notif_replay_10)
                     .setDisplayName(getString(R.string.action_rewind_10))
+                    .apply {
+                        if (!notifShowPrev) {
+                            setExtras(Bundle().apply { putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, 0) })
+                        }
+                    }
                     .build()
                 val playPauseBtn = CommandButton.Builder()
                     .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
                     .setIconResId(if (session.player.isPlaying) androidx.media3.ui.R.drawable.exo_notification_pause else androidx.media3.ui.R.drawable.exo_notification_play)
                     .setDisplayName(if (session.player.isPlaying) getString(R.string.action_pause) else getString(R.string.action_play))
+                    .setExtras(Bundle().apply { putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, 1) })
                     .build()
                 val fwdBtn = CommandButton.Builder()
                     .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
                     .setIconResId(R.drawable.ic_notif_forward_10)
                     .setDisplayName(getString(R.string.action_forward_10))
+                    .apply {
+                        if (!notifShowNext) {
+                            setExtras(Bundle().apply { putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, 2) })
+                        }
+                    }
                     .build()
                 val nextBtn = CommandButton.Builder()
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                     .setIconResId(androidx.media3.ui.R.drawable.exo_notification_next)
                     .setDisplayName(getString(R.string.action_next))
+                    .setExtras(Bundle().apply { putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, 2) })
                     .build()
 
                 val buttons = mutableListOf<CommandButton>()
@@ -270,6 +311,30 @@ class PlaybackService : MediaSessionService() {
                 if (notifShowClose) buttons.add(closeButton)
                 
                 return ImmutableList.copyOf(buttons)
+            }
+
+            override fun addNotificationActions(
+                mediaSession: MediaSession,
+                mediaButtons: ImmutableList<CommandButton>,
+                builder: NotificationCompat.Builder,
+                actionFactory: MediaNotification.ActionFactory
+            ): IntArray {
+                super.addNotificationActions(mediaSession, mediaButtons, builder, actionFactory)
+                val prevIdx = mediaButtons.indexOfFirst { it.playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS || it.playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM }
+                val rewindIdx = mediaButtons.indexOfFirst { it.playerCommand == Player.COMMAND_SEEK_BACK }
+                val playPauseIdx = mediaButtons.indexOfFirst { it.playerCommand == Player.COMMAND_PLAY_PAUSE }
+                val nextIdx = mediaButtons.indexOfFirst { it.playerCommand == Player.COMMAND_SEEK_TO_NEXT || it.playerCommand == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM }
+                val fwdIdx = mediaButtons.indexOfFirst { it.playerCommand == Player.COMMAND_SEEK_FORWARD }
+
+                val backIdx = if (prevIdx != -1) prevIdx else rewindIdx
+                val forwardIdx = if (nextIdx != -1) nextIdx else fwdIdx
+
+                val compactIndices = mutableListOf<Int>()
+                if (backIdx != -1) compactIndices.add(backIdx)
+                if (playPauseIdx != -1) compactIndices.add(playPauseIdx)
+                if (forwardIdx != -1) compactIndices.add(forwardIdx)
+
+                return compactIndices.toIntArray()
             }
         }
         setMediaNotificationProvider(notificationProvider)

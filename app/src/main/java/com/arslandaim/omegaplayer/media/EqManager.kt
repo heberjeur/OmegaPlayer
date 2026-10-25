@@ -2,18 +2,30 @@ package com.arslandaim.omegaplayer.media
 
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
+import android.util.Log
+import com.arslandaim.omegaplayer.data.ThemePreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class EqManager @Inject constructor() {
+class EqManager @Inject constructor(
+    private val themePreferences: ThemePreferences
+) {
+    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var equalizer: Equalizer? = null
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var currentBoostScale: Float = 1.0f
-    
+    private var isNormalizationEnabled: Boolean = false
+    private var normalizationGainDb: Float = 6.0f
+
     private val _enabled = MutableStateFlow(false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
 
@@ -23,39 +35,70 @@ class EqManager @Inject constructor() {
     private val _presets = MutableStateFlow<List<String>>(emptyList())
     val presets: StateFlow<List<String>> = _presets.asStateFlow()
 
-    fun setupEqualizer(audioSessionId: Int) {
-        if (audioSessionId == 0) return
-        val previousBands = _bands.value
-        equalizer?.release()
-        equalizer = Equalizer(0, audioSessionId).apply {
-            enabled = _enabled.value
-        }
-        if (previousBands.isNotEmpty()) {
-            previousBands.forEach { band ->
-                equalizer?.setBandLevel(band.id, band.level)
+    init {
+        scope.launch {
+            combine(
+                themePreferences.audioNormalizationEnabled,
+                themePreferences.audioNormalizationDb
+            ) { enabled, db ->
+                enabled to db
+            }.collect { (enabled, db) ->
+                isNormalizationEnabled = enabled
+                normalizationGainDb = db
+                updateLoudnessEnhancer()
             }
-        }
-        loadBands()
-        loadPresets()
-
-        loudnessEnhancer?.release()
-        loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
-            setTargetGain(calculateGainMb(currentBoostScale))
-            enabled = true
         }
     }
 
-    private fun calculateGainMb(scale: Float): Int {
-        return if (scale > 1.0f) {
-            ((scale - 1.0f) * 1000f).toInt()
-        } else {
-            0
+    fun setupEqualizer(audioSessionId: Int) {
+        if (audioSessionId == 0) return
+        val previousBands = _bands.value
+        try {
+            equalizer?.release()
+            equalizer = Equalizer(0, audioSessionId).apply {
+                enabled = _enabled.value
+            }
+            if (previousBands.isNotEmpty()) {
+                previousBands.forEach { band ->
+                    equalizer?.setBandLevel(band.id, band.level)
+                }
+            }
+            loadBands()
+            loadPresets()
+        } catch (e: Exception) {
+            Log.e("EqManager", "Failed to setup Equalizer", e)
+        }
+
+        try {
+            loudnessEnhancer?.release()
+            loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+                applyGain(this)
+            }
+        } catch (e: Exception) {
+            Log.e("EqManager", "Failed to setup LoudnessEnhancer", e)
+        }
+    }
+
+    private fun applyGain(enhancer: LoudnessEnhancer) {
+        val normGainMb = if (isNormalizationEnabled) (normalizationGainDb * 100f).toInt() else 0
+        val boostGainMb = if (currentBoostScale > 1.0f) ((currentBoostScale - 1.0f) * 1000f).toInt() else 0
+        val totalGainMb = normGainMb + boostGainMb
+        enhancer.setTargetGain(totalGainMb)
+        enhancer.enabled = totalGainMb > 0
+    }
+
+    private fun updateLoudnessEnhancer() {
+        val enhancer = loudnessEnhancer ?: return
+        try {
+            applyGain(enhancer)
+        } catch (e: Exception) {
+            Log.e("EqManager", "Failed to update LoudnessEnhancer", e)
         }
     }
 
     fun setVolumeBoostScale(scale: Float) {
         currentBoostScale = scale.coerceIn(1.0f, 2.0f)
-        loudnessEnhancer?.setTargetGain(calculateGainMb(currentBoostScale))
+        updateLoudnessEnhancer()
     }
 
     fun release() {

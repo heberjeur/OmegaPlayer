@@ -86,15 +86,21 @@ fun SleepTimerDialog(
                         onConfirm(0)
                         onStopAfterCurrentToggle(false)
                     }) {
-                        Text(stringResource(R.string.action_turn_off), color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.action_turn_off), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
         },
         confirmButton = {
             if (!stopAfterCurrent) {
-                Button(onClick = { onConfirm(minutes) }) {
-                    Text(stringResource(R.string.action_set))
+                Button(
+                    onClick = { onConfirm(minutes) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(stringResource(R.string.action_set), color = Color.White)
                 }
             }
         },
@@ -129,12 +135,18 @@ fun AddToPlaylistDialog(
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    if (newPlaylistName.isNotBlank()) {
-                        onCreatePlaylist(newPlaylistName)
-                        showCreateDialog = false
-                    }
-                }) { Text(stringResource(R.string.action_create)) }
+                Button(
+                    onClick = {
+                        if (newPlaylistName.isNotBlank()) {
+                            onCreatePlaylist(newPlaylistName)
+                            showCreateDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
+                ) { Text(stringResource(R.string.action_create), color = Color.White) }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) { Text(stringResource(R.string.action_cancel)) }
@@ -253,13 +265,19 @@ fun AudioEqualizerDialog(
                         )
                     }
                 } else {
-                    Text(stringResource(R.string.error_not_supported), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.error_not_supported), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
         },
         confirmButton = {
-            Button(onClick = onDismiss) {
-                Text(stringResource(R.string.action_apply))
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(stringResource(R.string.action_apply), color = Color.White)
             }
         },
         dismissButton = {

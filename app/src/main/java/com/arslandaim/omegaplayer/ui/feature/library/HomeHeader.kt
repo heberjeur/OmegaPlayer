@@ -27,8 +27,10 @@ import androidx.compose.ui.unit.sp
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.viewmodel.VideoViewModel
 import com.arslandaim.omegaplayer.data.MediaSortOrder
+import com.arslandaim.omegaplayer.data.SearchScope
 import com.arslandaim.omegaplayer.ui.feature.library.components.*
 import androidx.compose.foundation.pager.PagerState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +41,8 @@ fun HomeHeader(
     showHistoryTab: Boolean,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
+    searchScope: SearchScope = SearchScope.CURRENT_TYPE,
+    onSearchScopeChange: (SearchScope) -> Unit = {},
     isCurrentFolderOpen: Boolean,
     isNavPathOpen: Boolean,
     showFullHistoryScreen: Boolean,
@@ -52,10 +56,53 @@ fun HomeHeader(
     itemCount: Int,
     onBackClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    viewModel: VideoViewModel
+    viewModel: VideoViewModel,
+    isSelectionMode: Boolean = false,
+    selectedCount: Int = 0,
+    totalCount: Int = 0,
+    onClearSelection: () -> Unit = {},
+    onSelectAllToggle: () -> Unit = {},
+    isAllSelected: Boolean = false
 ) {
     var showFilterMenu by remember { mutableStateOf(false) }
     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)).statusBarsPadding()) {
+        if (isSelectionMode) {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onClearSelection) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.action_close),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                title = {
+                    Text(
+                        text = "$selectedCount/$totalCount",
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                actions = {
+                    TextButton(onClick = onSelectAllToggle) {
+                        Icon(
+                            imageVector = if (isAllSelected) Icons.Default.Deselect else Icons.Default.SelectAll,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(if (isAllSelected) R.string.action_deselect_all else R.string.action_select_all),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        } else {
         TopAppBar(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
@@ -113,6 +160,84 @@ fun HomeHeader(
         }
         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(value = searchQuery, onValueChange = { onSearchQueryChange(it) }, modifier = Modifier.weight(1f), placeholder = { Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.primary) }, trailingIcon = { if (searchQuery.isNotEmpty()) { IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Close, null) } } }, shape = RoundedCornerShape(20.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = Color.Transparent, focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge)
+            if ((selectedTab == MediaTab.VIDEOS || selectedTab == MediaTab.AUDIOS) && !showFullHistoryScreen) {
+                Spacer(modifier = Modifier.width(8.dp))
+                val defaultSearchScope by viewModel.defaultSearchScope.collectAsStateWithLifecycle()
+                val isCustomSearchFilter = searchScope != defaultSearchScope
+                var showSearchScopeMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { showSearchScopeMenu = true },
+                        modifier = Modifier.background(
+                            if (isCustomSearchFilter) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            CircleShape
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = stringResource(R.string.search_scope_title),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showSearchScopeMenu,
+                        onDismissRequest = { showSearchScopeMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.search_scope_current_folder)) },
+                            onClick = {
+                                showSearchScopeMenu = false
+                                onSearchScopeChange(SearchScope.CURRENT_FOLDER)
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            trailingIcon = {
+                                if (searchScope == SearchScope.CURRENT_FOLDER) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        )
+                        val tabMediaTitle = if (selectedTab == MediaTab.VIDEOS) {
+                            stringResource(R.string.search_scope_all_videos)
+                        } else {
+                            stringResource(R.string.search_scope_all_audios)
+                        }
+                        val tabMediaIcon = if (selectedTab == MediaTab.VIDEOS) Icons.Default.Movie else Icons.Default.MusicNote
+                        DropdownMenuItem(
+                            text = { Text(tabMediaTitle) },
+                            onClick = {
+                                showSearchScopeMenu = false
+                                onSearchScopeChange(SearchScope.CURRENT_TYPE)
+                            },
+                            leadingIcon = {
+                                Icon(tabMediaIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            trailingIcon = {
+                                if (searchScope == SearchScope.CURRENT_TYPE) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.search_scope_all_media)) },
+                            onClick = {
+                                showSearchScopeMenu = false
+                                onSearchScopeChange(SearchScope.ALL_MEDIA)
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.PermMedia, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            trailingIcon = {
+                                if (searchScope == SearchScope.ALL_MEDIA) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Box {
                 IconButton(
@@ -175,10 +300,16 @@ fun HomeHeader(
                         title = { Text(stringResource(R.string.clear_all)) },
                         text = { Text(stringResource(R.string.clear_history_msg)) },
                         confirmButton = {
-                            TextButton(onClick = {
-                                viewModel.clearAllHistory()
-                                showClearConfirm = false
-                            }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
+                            Button(
+                                onClick = {
+                                    viewModel.clearAllHistory()
+                                    showClearConfirm = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = Color.White
+                                )
+                            ) { Text(stringResource(R.string.action_delete), color = Color.White) }
                         },
                         dismissButton = {
                             TextButton(onClick = { showClearConfirm = false }) { Text(stringResource(android.R.string.cancel)) }
@@ -200,6 +331,7 @@ fun HomeHeader(
             } else if (selectedPlaylistForDetails != null) stringResource(R.string.tab_playlists) else if (selectedTab == MediaTab.VIDEOS) stringResource(R.string.tab_videos) else stringResource(R.string.tab_audios)
             Text(text = sectionLabel, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface))
             Text(text = stringResource(R.string.items_count, itemCount), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         }
     }
 }

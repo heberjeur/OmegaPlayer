@@ -19,4 +19,5 @@ interface PlaybackRepository {
     suspend fun saveRecentPlayback(recent: RecentPlayback)
     suspend fun deleteRecentPlayback(uri: String)
     suspend fun clearAllRecentPlayback()
+    suspend fun resetAllPlaybackPositions()
 }

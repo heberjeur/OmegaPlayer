@@ -1,7 +1,10 @@
 package com.arslandaim.omegaplayer.data.model
 
 import com.arslandaim.omegaplayer.data.AppTheme
+import com.arslandaim.omegaplayer.data.BrightnessScope
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
+import com.arslandaim.omegaplayer.data.SearchScope
+import com.arslandaim.omegaplayer.data.TextTruncationMode
 
 data class AppSettings(
     val theme: AppTheme = AppTheme.SYSTEM,
@@ -33,9 +36,28 @@ data class AppSettings(
     val defaultPlaybackSpeed: Float = 1.0f,
     val defaultViewMode: Int = 0,
     val defaultSortOrder: String = "DATE_DESC",
+    val defaultSearchScope: SearchScope = SearchScope.CURRENT_TYPE,
     val subtitleTextSize: Int = 18,
     val subtitleTextColor: Int = -1,
     val subtitleBgStyle: Int = 0,
     val controlsTimeout: Int = 3000,
-    val playerOrientation: Int = 2
+    val playerOrientation: Int = 2,
+    val seekIncrement: Int = 10,
+    val textTruncationMode: TextTruncationMode = TextTruncationMode.TWO_LINES,
+    val savePositionOnQuit: Boolean = true,
+    val closeAfterQueueEnds: Boolean = false,
+    val brightnessScope: BrightnessScope = BrightnessScope.NONE,
+    val globalBrightness: Float = -1f,
+    val keepScreenOnWhenPaused: Boolean = false,
+    val gestureVolumeEnabled: Boolean = true,
+    val gestureBrightnessEnabled: Boolean = true,
+    val gesturePinchToZoomEnabled: Boolean = true,
+    val gestureSeekForwardEnabled: Boolean = true,
+    val gestureSeekBackwardEnabled: Boolean = true,
+    val gesturePlayPauseEnabled: Boolean = true,
+    val gestureLongPressSpeedEnabled: Boolean = true,
+    val gestureTapControlsEnabled: Boolean = true,
+    val audioNormalizationEnabled: Boolean = false,
+    val audioNormalizationDb: Float = 6.0f,
+    val skipSilenceEnabled: Boolean = false
 )

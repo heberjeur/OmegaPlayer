@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.arslandaim.omegaplayer.data.RecentPlayback
 import com.arslandaim.omegaplayer.ui.feature.library.MediaTab
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -36,6 +37,7 @@ fun HomeDashboard(
     val availableTabs = remember(showHistoryTab) {
         if (showHistoryTab) MediaTab.entries else MediaTab.entries.filter { it != MediaTab.HISTORY }
     }
+    val tabHeight = 56.dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -44,8 +46,8 @@ fun HomeDashboard(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(28.dp),
+                .height(tabHeight),
+            shape = RoundedCornerShape(tabHeight / 2),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ) {
             BoxWithConstraints(
@@ -64,7 +66,7 @@ fun HomeDashboard(
                         }
                         .background(
                             color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(24.dp)
+                            shape = RoundedCornerShape((tabHeight - 8.dp) / 2)
                         )
                 )
 
@@ -101,7 +103,10 @@ fun HomeDashboard(
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 color = contentColor,
-                                fontSize = if (availableTabs.size > 3) 12.sp else 14.sp
+                                fontSize = if (availableTabs.size > 3) 12.sp else 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }

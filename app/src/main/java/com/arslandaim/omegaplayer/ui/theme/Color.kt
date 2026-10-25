@@ -8,7 +8,7 @@ val OmegaBlack = Color(0xFF09090B)
 val OmegaDarkGrey = Color(0xFF18181B)
 
 val PrimaryDark = OmegaOrange
-val OnPrimaryDark = Color.Black
+val OnPrimaryDark = Color.White
 val PrimaryContainerDark = Color(0xFF421500)
 val OnPrimaryContainerDark = Color(0xFFFFDBCF)
 
@@ -37,5 +37,25 @@ val OnSurfaceLight = Color(0xFF1C1B1F)
 val SurfaceVariantLight = Color(0xFFE7E0EC)
 val OnSurfaceVariantLight = Color(0xFF49454F)
 
-val Error = Color(0xFFBA1A1A)
+val Error = OmegaOrange
 val OnError = Color.White
+
+const val DefaultDarkPrimaryInt = 0xFFFF5500.toInt()
+const val DefaultDarkSecondaryInt = 0xFF38BDF8.toInt()
+const val DefaultLightPrimaryInt = 0xFFFF5500.toInt()
+const val DefaultLightSecondaryInt = 0xFF006685.toInt()
+
+val PresetThemeColors = listOf(
+    Color(0xFFFF5500),
+    Color(0xFF0284C7),
+    Color(0xFF38BDF8),
+    Color(0xFF10B981),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF59E0B),
+    Color(0xFF14B8A6),
+    Color(0xFF6366F1),
+    Color(0xFFEF4444),
+    Color(0xFF84CC16),
+    Color(0xFF64748B)
+)

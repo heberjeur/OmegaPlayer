@@ -9,6 +9,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.PlaybackSpeedScope
+import com.arslandaim.omegaplayer.data.BrightnessScope
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.data.Playlist
 import com.arslandaim.omegaplayer.data.PlaylistItem
@@ -20,10 +21,11 @@ import com.arslandaim.omegaplayer.domain.usecase.playback.GetRecentPlaybackUseCa
 import com.arslandaim.omegaplayer.domain.usecase.playback.PlaylistUseCases
 import com.arslandaim.omegaplayer.media.PlaybackConnection
 import com.arslandaim.omegaplayer.media.PlaybackQueueItem
+import com.arslandaim.omegaplayer.media.PlaybackSource
+import com.arslandaim.omegaplayer.media.PlayerRepeatMode
 import com.arslandaim.omegaplayer.media.SleepTimerController
 import com.arslandaim.omegaplayer.util.MediaUtils
 import com.arslandaim.omegaplayer.util.Resource
-import com.arslandaim.omegaplayer.util.StartupTrace
 import android.content.Context
 import com.arslandaim.omegaplayer.data.MediaSortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -63,9 +65,15 @@ class AudioViewModel @Inject constructor(
     val volumeBoostEnabled: StateFlow<Boolean> = themePreferences.volumeBoostEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val skipSilenceEnabled: StateFlow<Boolean> = playbackConnection.skipSilenceEnabled
+
     val isPlaying: StateFlow<Boolean> = playbackConnection.isPlaying
     val mediaController: StateFlow<MediaController?> = playbackConnection.mediaController
+    val repeatMode: StateFlow<PlayerRepeatMode> = playbackConnection.repeatMode
     val activeQueue: StateFlow<List<PlaybackQueueItem>> = playbackConnection.currentQueue
+    val playbackSource: StateFlow<PlaybackSource> = playbackConnection.playbackSource
+
+    fun cycleRepeatMode() = playbackConnection.cycleRepeatMode()
 
     private val _audioError = MutableStateFlow<String?>(null)
     val audioError: StateFlow<String?> = _audioError.asStateFlow()
@@ -80,7 +88,7 @@ class AudioViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val upNextFullyExpanded: StateFlow<Boolean> = themePreferences.upNextFullyExpanded
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawAudios: Flow<List<AudioModel>> = getAudiosUseCase()
@@ -105,8 +113,7 @@ class AudioViewModel @Inject constructor(
             val folder = File(it.path).parentFile?.name ?: "Internal"
             !excluded.contains(folder)
         }
-    }.onEach { list -> StartupTrace.markOnce("audios.firstEmission") { "audios flow first emission (${list.size} items)" } }
-        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val audiosByUri: StateFlow<Map<String, AudioModel>> = audios
         .map { list -> list.associateBy { it.uri.toString() } }
@@ -125,6 +132,50 @@ class AudioViewModel @Inject constructor(
 
     fun setSortOrder(order: MediaSortOrder) {
         _sortOrder.value = order
+    }
+
+    val savePositionOnQuit: StateFlow<Boolean> = themePreferences.savePositionOnQuit
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val closeAfterQueueEnds: StateFlow<Boolean> = themePreferences.closeAfterQueueEnds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val brightnessScope: StateFlow<BrightnessScope> = themePreferences.brightnessScope
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BrightnessScope.NONE)
+
+    val globalBrightness: StateFlow<Float> = themePreferences.globalBrightness
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), -1f)
+
+    val keepScreenOnWhenPaused: StateFlow<Boolean> = themePreferences.keepScreenOnWhenPaused
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val seekIncrement: StateFlow<Int> = themePreferences.seekIncrement
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+
+    val gestureVolumeEnabled: StateFlow<Boolean> = themePreferences.gestureVolumeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureBrightnessEnabled: StateFlow<Boolean> = themePreferences.gestureBrightnessEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureSeekForwardEnabled: StateFlow<Boolean> = themePreferences.gestureSeekForwardEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureSeekBackwardEnabled: StateFlow<Boolean> = themePreferences.gestureSeekBackwardEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gesturePlayPauseEnabled: StateFlow<Boolean> = themePreferences.gesturePlayPauseEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val gestureTapControlsEnabled: StateFlow<Boolean> = themePreferences.gestureTapControlsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setSavePositionOnQuit(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveSavePositionOnQuit(enabled) }
+    }
+
+    fun setCloseAfterQueueEnds(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveCloseAfterQueueEnds(enabled) }
     }
 
     val filteredAudios: StateFlow<List<AudioModel>> = combine(audios, searchQuery, sortOrder) { audioList, query, sort ->
@@ -190,6 +241,12 @@ class AudioViewModel @Inject constructor(
     fun deleteHistoryItem(uri: String) {
         viewModelScope.launch {
             playbackRepository.deleteRecentPlayback(uri)
+        }
+    }
+
+    fun resetAllPlaybackPositions() {
+        viewModelScope.launch {
+            playbackRepository.resetAllPlaybackPositions()
         }
     }
 
@@ -328,6 +385,14 @@ class AudioViewModel @Inject constructor(
         playbackConnection.setQueue(queueItems)
     }
 
+    fun moveQueueItem(from: Int, to: Int, fallbackItems: List<PlaybackQueueItem>? = null) {
+        playbackConnection.moveQueueItem(from, to, fallbackItems)
+    }
+
+    fun removeQueueItem(index: Int, fallbackItems: List<PlaybackQueueItem>? = null) {
+        playbackConnection.removeQueueItem(index, fallbackItems)
+    }
+
     fun excludeFolder(folderName: String) {
         viewModelScope.launch {
             themePreferences.addExcludedFolder(folderName)
@@ -419,6 +484,7 @@ class AudioViewModel @Inject constructor(
         val artist = audio.artist
 
         viewModelScope.launch(Dispatchers.IO) {
+            if (!themePreferences.savePositionOnQuit.first()) return@launch
             if (themePreferences.isHistoryPaused.first()) return@launch
             
             playbackRepository.saveRecentPlayback(
@@ -456,8 +522,15 @@ class AudioViewModel @Inject constructor(
     val showPlayerBrightness: StateFlow<Boolean> = themePreferences.showPlayerBrightness
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val showSystemStatusBar: StateFlow<Boolean> = themePreferences.showSystemStatusBar
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     suspend fun getSavedPosition(uri: String): Long {
-        return playbackRepository.getRecentPlayback(uri)?.position ?: 0L
+        val recent = playbackRepository.getRecentPlayback(uri) ?: return 0L
+        if (recent.duration > 0L && recent.position >= recent.duration - 2000L) {
+            return 0L
+        }
+        return recent.position
     }
 
     fun setSpeedScope(scope: PlaybackSpeedScope) {
@@ -472,6 +545,40 @@ class AudioViewModel @Inject constructor(
 
     fun setFolderPlaybackSpeed(folderName: String, speed: Float) {
         viewModelScope.launch { themePreferences.saveFolderPlaybackSpeed(folderName, speed) }
+    }
+
+    fun getHistorySpeed(): Flow<Float?> = themePreferences.getHistorySpeed()
+
+    fun setHistoryPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { themePreferences.saveHistoryPlaybackSpeed(speed) }
+    }
+
+    fun getPlaylistSpeed(playlistId: Int): Flow<Float?> = themePreferences.getPlaylistSpeed(playlistId)
+
+    fun setPlaylistPlaybackSpeed(playlistId: Int, speed: Float) {
+        viewModelScope.launch { themePreferences.savePlaylistPlaybackSpeed(playlistId, speed) }
+    }
+
+    fun setSkipSilenceEnabled(enabled: Boolean, persist: Boolean = true) {
+        playbackConnection.setSkipSilenceEnabled(enabled, persist)
+    }
+
+    fun setBrightnessScope(scope: BrightnessScope) {
+        viewModelScope.launch { themePreferences.saveBrightnessScope(scope) }
+    }
+
+    fun saveGlobalBrightness(brightness: Float) {
+        viewModelScope.launch { themePreferences.saveGlobalBrightness(brightness) }
+    }
+
+    fun getFolderBrightness(folderName: String): Flow<Float?> = themePreferences.getFolderBrightness(folderName)
+
+    fun saveFolderBrightness(folderName: String, brightness: Float) {
+        viewModelScope.launch { themePreferences.saveFolderBrightness(folderName, brightness) }
+    }
+
+    fun setKeepScreenOnWhenPaused(enabled: Boolean) {
+        viewModelScope.launch { themePreferences.saveKeepScreenOnWhenPaused(enabled) }
     }
 
     fun getFolderViewMode(folderKey: String, defaultMode: Int? = null): Flow<Int> =
@@ -518,7 +625,7 @@ class AudioViewModel @Inject constructor(
     fun setUpNextFullyExpanded(expanded: Boolean) = viewModelScope.launch { themePreferences.saveUpNextFullyExpanded(expanded) }
 
     val folderTree: StateFlow<com.arslandaim.omegaplayer.data.model.FolderNode?> = combine(audios, folderFlattenThreshold) { audioList, threshold ->
-        StartupTrace.trace("folder tree rebuilt (${audioList.size} items)") { buildAudioTree(audioList, threshold) }
+        buildAudioTree(audioList, threshold)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val currentVisibleFolders: StateFlow<List<com.arslandaim.omegaplayer.data.model.FolderNode>> = combine(folderTree, _currentNavPath) { tree, path ->
@@ -552,7 +659,23 @@ class AudioViewModel @Inject constructor(
     }
 
     fun playAudios(folderAudios: List<AudioModel>, startIndex: Int) {
-        playbackConnection.playAudios(folderAudios, startIndex)
+        viewModelScope.launch {
+            val savePosition = themePreferences.savePositionOnQuit.first()
+            val startPos = if (savePosition && startIndex in folderAudios.indices) {
+                getSavedPosition(folderAudios[startIndex].uri.toString())
+            } else 0L
+            playbackConnection.playAudios(folderAudios, startIndex, startPos)
+        }
+    }
+
+    fun playMixedMedia(items: List<com.arslandaim.omegaplayer.data.SearchMediaItem>, startIndex: Int) {
+        viewModelScope.launch {
+            val savePosition = themePreferences.savePositionOnQuit.first()
+            val startPos = if (savePosition && startIndex in items.indices) {
+                getSavedPosition(items[startIndex].uri.toString())
+            } else 0L
+            playbackConnection.playMixedMedia(items, startIndex, startPos)
+        }
     }
 
     private fun buildAudioTree(audios: List<AudioModel>, threshold: Int): com.arslandaim.omegaplayer.data.model.FolderNode {

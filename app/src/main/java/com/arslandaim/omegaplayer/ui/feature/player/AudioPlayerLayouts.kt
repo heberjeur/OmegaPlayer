@@ -32,6 +32,10 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.media3.session.MediaController
 import com.arslandaim.omegaplayer.data.AudioModel
+import com.arslandaim.omegaplayer.media.PlayerRepeatMode
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +79,7 @@ fun AudioPlayerTopBar(
                         onMoreOptionsChange(false)
                         onAddToPlaylist()
                     },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 )
                 DropdownMenuItem(
                     text = {
@@ -88,7 +92,7 @@ fun AudioPlayerTopBar(
                         onMoreOptionsChange(false)
                         onSleepTimer()
                     },
-                    leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = if (sleepTimerActive) MaterialTheme.colorScheme.primary else Color.White) }
+                    leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.playback_speed_format, String.format(java.util.Locale.US, "%.2f", playbackSpeed))) },
@@ -96,7 +100,7 @@ fun AudioPlayerTopBar(
                         onMoreOptionsChange(false)
                         onPlaybackSpeed()
                     },
-                    leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.equalizer)) },
@@ -104,7 +108,7 @@ fun AudioPlayerTopBar(
                         onMoreOptionsChange(false)
                         onEqualizer()
                     },
-                    leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.menu_information)) },
@@ -112,15 +116,15 @@ fun AudioPlayerTopBar(
                         onMoreOptionsChange(false)
                         onInfo()
                     },
-                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                    text = { Text(stringResource(R.string.delete_from_device)) },
                     onClick = {
                         onMoreOptionsChange(false)
                         onDeleteRequested()
                     },
-                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 )
             }
         },
@@ -139,7 +143,7 @@ fun AudioPlayerContent(
     currentPosition: Long,
     duration: Long,
     pendingSeekPosition: Long,
-    repeatMode: Int,
+    repeatMode: PlayerRepeatMode,
     isShuffle: Boolean,
     hasPrevious: Boolean,
     hasNext: Boolean,
@@ -149,16 +153,40 @@ fun AudioPlayerContent(
     onSeekFinished: () -> Unit,
     onPlayPauseClick: () -> Unit,
     onCycleRepeatClick: () -> Unit,
-    onToggleShuffleClick: () -> Unit
+    onToggleShuffleClick: () -> Unit,
+    activeCenterAction: CenterActionType = CenterActionType.NONE,
+    playPausePulse: Int = 0,
+    seekBackwardPulse: Int = 0,
+    seekForwardPulse: Int = 0,
+    consumedSeekBackwardPulse: Int = 0,
+    consumedSeekForwardPulse: Int = 0,
+    onConsumeSeekBackward: (Int) -> Unit = {},
+    onConsumeSeekForward: (Int) -> Unit = {},
+    lastSeekAmountSeconds: Int = 10,
+    onRewindClick: () -> Unit = {},
+    onForwardClick: () -> Unit = {},
+    onPlayPauseCenterClick: () -> Unit = {},
+    controlsTimeout: Int = 3,
+    gestureTapControlsEnabled: Boolean = true
 ) {
     if (controller == null) {
         Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
     } else {
-        val player = controller!!
+        val player = controller
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
         val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+        var isCenterControlsVisible by remember { mutableStateOf(false) }
+        var lastInteractionTime by remember { mutableLongStateOf(0L) }
+
+        LaunchedEffect(lastInteractionTime, isCenterControlsVisible) {
+            if (isCenterControlsVisible && controlsTimeout > 0) {
+                delay(controlsTimeout * 1000L)
+                isCenterControlsVisible = false
+            }
+        }
 
         val mediaInfo: @Composable () -> Unit = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -173,11 +201,75 @@ fun AudioPlayerContent(
         }
 
         val visualizer: @Composable () -> Unit = {
-            WaveformVisualizer(
-                isPlaying = isPlaying,
-                modifier = Modifier.padding(vertical = if (isLandscape) 8.dp else 24.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
+            if (isLandscape) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = {
+                                    if (gestureTapControlsEnabled) {
+                                        isCenterControlsVisible = !isCenterControlsVisible
+                                        lastInteractionTime = System.currentTimeMillis()
+                                    }
+                                },
+                                onDoubleTap = { offset ->
+                                    if (offset.x < size.width * 0.35f) {
+                                        onRewindClick()
+                                    } else if (offset.x > size.width * 0.65f) {
+                                        onForwardClick()
+                                    } else {
+                                        onPlayPauseCenterClick()
+                                    }
+                                    lastInteractionTime = System.currentTimeMillis()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    WaveformVisualizer(
+                        isPlaying = isPlaying,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    CenterPlaybackControlsRow(
+                        isPlaying = isPlaying,
+                        activeCenterAction = activeCenterAction,
+                        isCenterControlsVisible = isCenterControlsVisible,
+                        playPausePulse = playPausePulse,
+                        seekBackwardPulse = seekBackwardPulse,
+                        seekForwardPulse = seekForwardPulse,
+                        consumedSeekBackwardPulse = consumedSeekBackwardPulse,
+                        consumedSeekForwardPulse = consumedSeekForwardPulse,
+                        onConsumeSeekBackward = onConsumeSeekBackward,
+                        onConsumeSeekForward = onConsumeSeekForward,
+                        lastSeekAmountSeconds = lastSeekAmountSeconds,
+                        onRewindClick = {
+                            onRewindClick()
+                            lastInteractionTime = System.currentTimeMillis()
+                        },
+                        onForwardClick = {
+                            onForwardClick()
+                            lastInteractionTime = System.currentTimeMillis()
+                        },
+                        onPlayPauseClick = {
+                            onPlayPauseCenterClick()
+                            lastInteractionTime = System.currentTimeMillis()
+                        },
+                        modifier = Modifier.align(Alignment.Center),
+                        spacing = 56.dp
+                    )
+                }
+            } else {
+                WaveformVisualizer(
+                    isPlaying = isPlaying,
+                    modifier = Modifier.padding(vertical = 24.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         val seekBar: @Composable () -> Unit = {
@@ -235,16 +327,10 @@ fun AudioPlayerContent(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onCycleRepeatClick) {
-                    Icon(
-                        when (repeatMode) {
-                            Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
-                            else -> Icons.Default.Repeat
-                        },
-                        contentDescription = stringResource(R.string.action_repeat),
-                        tint = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
-                    )
-                }
+                RepeatControlButton(
+                    repeatMode = repeatMode,
+                    onClick = onCycleRepeatClick
+                )
 
                 IconButton(onClick = { player.seekToPrevious() }, enabled = hasPrevious) {
                     Icon(
@@ -322,7 +408,27 @@ fun AudioPlayerContent(
                             scaleY = artScale
                         }
                         .clip(RoundedCornerShape(32.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = {
+                                    if (gestureTapControlsEnabled) {
+                                        isCenterControlsVisible = !isCenterControlsVisible
+                                        lastInteractionTime = System.currentTimeMillis()
+                                    }
+                                },
+                                onDoubleTap = { offset ->
+                                    if (offset.x < size.width * 0.35f) {
+                                        onRewindClick()
+                                    } else if (offset.x > size.width * 0.65f) {
+                                        onForwardClick()
+                                    } else {
+                                        onPlayPauseCenterClick()
+                                    }
+                                    lastInteractionTime = System.currentTimeMillis()
+                                }
+                            )
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     AsyncImage(
@@ -332,6 +438,33 @@ fun AudioPlayerContent(
                         contentScale = ContentScale.Crop,
                         error = rememberVectorPainter(Icons.Default.MusicNote),
                         fallback = rememberVectorPainter(Icons.Default.MusicNote)
+                    )
+                    CenterPlaybackControlsRow(
+                        isPlaying = isPlaying,
+                        activeCenterAction = activeCenterAction,
+                        isCenterControlsVisible = isCenterControlsVisible,
+                        playPausePulse = playPausePulse,
+                        seekBackwardPulse = seekBackwardPulse,
+                        seekForwardPulse = seekForwardPulse,
+                        consumedSeekBackwardPulse = consumedSeekBackwardPulse,
+                        consumedSeekForwardPulse = consumedSeekForwardPulse,
+                        onConsumeSeekBackward = onConsumeSeekBackward,
+                        onConsumeSeekForward = onConsumeSeekForward,
+                        lastSeekAmountSeconds = lastSeekAmountSeconds,
+                        onRewindClick = {
+                            onRewindClick()
+                            lastInteractionTime = System.currentTimeMillis()
+                        },
+                        onForwardClick = {
+                            onForwardClick()
+                            lastInteractionTime = System.currentTimeMillis()
+                        },
+                        onPlayPauseClick = {
+                            onPlayPauseCenterClick()
+                            lastInteractionTime = System.currentTimeMillis()
+                        },
+                        modifier = Modifier.align(Alignment.Center),
+                        spacing = 24.dp
                     )
                 }
                 mediaInfo()

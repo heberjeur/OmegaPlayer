@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -34,16 +35,27 @@ import com.arslandaim.omegaplayer.R
 import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.abs
+import kotlin.math.round
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaybackSpeedDialog(
     currentSpeed: Float,
+    skipSilenceEnabled: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirm: (Float, Boolean) -> Unit
+    onConfirm: (Float, Boolean, Boolean) -> Unit
 ) {
-    var speed by remember { mutableFloatStateOf(currentSpeed) }
+    var speed by remember {
+        mutableFloatStateOf(round(currentSpeed.coerceIn(MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED) * 100f) / 100f)
+    }
     var applyTemporarily by remember { mutableStateOf(false) }
+    var skipSilence by remember { mutableStateOf(skipSilenceEnabled) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -55,27 +67,10 @@ fun PlaybackSpeedDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Slider(
-                    value = speed,
-                    onValueChange = { speed = it },
-                    valueRange = MIN_PLAYBACK_SPEED..MAX_PLAYBACK_SPEED,
-                    thumb = {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        )
-                    },
-                    track = { sliderState ->
-                        SliderDefaults.Track(
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = Color.Gray.copy(alpha = 0.5f)
-                            ),
-                            sliderState = sliderState,
-                            modifier = Modifier.height(2.dp)
-                        )
-                    }
+                PlaybackSpeedSlider(
+                    speed = speed,
+                    onSpeedChange = { speed = it },
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -84,7 +79,17 @@ fun PlaybackSpeedDialog(
                     Text(stringResource(R.string.speed_multiplier_format, MIN_PLAYBACK_SPEED.toString()), color = Color.Gray)
                     Text(stringResource(R.string.speed_multiplier_format, MAX_PLAYBACK_SPEED.toString()), color = Color.Gray)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { skipSilence = !skipSilence }
+                ) {
+                    Checkbox(
+                        checked = skipSilence,
+                        onCheckedChange = { skipSilence = it }
+                    )
+                    Text(stringResource(R.string.skip_silence), style = MaterialTheme.typography.bodyMedium)
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { applyTemporarily = !applyTemporarily }
@@ -98,14 +103,115 @@ fun PlaybackSpeedDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(speed, applyTemporarily) }) {
-                Text(stringResource(R.string.action_set))
+            Button(
+                onClick = { onConfirm(speed, applyTemporarily, skipSilence) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(stringResource(R.string.action_set), color = Color.White)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.action_cancel))
             }
+        }
+    )
+}
+
+fun snapPlaybackSpeed(rawSpeed: Float, threshold: Float = 0.02f): Float {
+    val roundedTwoDecimals = round(rawSpeed * 100f) / 100f
+    val nearestTenth = round(roundedTwoDecimals * 10f) / 10f
+    return if (abs(roundedTwoDecimals - nearestTenth) <= threshold) {
+        nearestTenth
+    } else {
+        roundedTwoDecimals
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlaybackSpeedSlider(
+    speed: Float,
+    onSpeedChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    var lastSnappedTenth by remember { mutableFloatStateOf(round(speed * 10f) / 10f) }
+
+    Slider(
+        value = speed,
+        onValueChange = {
+            val snapped = snapPlaybackSpeed(it)
+            val tenth = round(snapped * 10f) / 10f
+            if (abs(snapped - tenth) < 0.001f && tenth != lastSnappedTenth) {
+                lastSnappedTenth = tenth
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            } else if (abs(snapped - tenth) >= 0.001f) {
+                lastSnappedTenth = -1f
+            }
+            onSpeedChange(snapped)
+        },
+        valueRange = MIN_PLAYBACK_SPEED..MAX_PLAYBACK_SPEED,
+        modifier = modifier,
+        thumb = {
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+            )
+        },
+        track = { sliderState ->
+            val activeTrackColor = MaterialTheme.colorScheme.primary
+            val inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            val activeDotColor = MaterialTheme.colorScheme.onPrimary
+            val inactiveDotColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+            SliderDefaults.Track(
+                colors = SliderDefaults.colors(
+                    activeTrackColor = activeTrackColor,
+                    inactiveTrackColor = inactiveTrackColor
+                ),
+                sliderState = sliderState,
+                modifier = Modifier
+                    .height(4.dp)
+                    .drawWithContent {
+                        drawContent()
+                        val range = MAX_PLAYBACK_SPEED - MIN_PLAYBACK_SPEED
+                        if (range > 0f) {
+                            val isRtl = layoutDirection == LayoutDirection.Rtl
+                            val startX = if (isRtl) size.width else 0f
+                            val endX = if (isRtl) 0f else size.width
+                            val activeFraction = ((sliderState.value - MIN_PLAYBACK_SPEED) / range).coerceIn(0f, 1f)
+
+                            val minStep = round(MIN_PLAYBACK_SPEED * 10f).toInt()
+                            val maxStep = round(MAX_PLAYBACK_SPEED * 10f).toInt()
+
+                            for (step in minStep..maxStep) {
+                                val pointSpeed = step / 10f
+                                val fraction = (pointSpeed - MIN_PLAYBACK_SPEED) / range
+                                val x = startX + (endX - startX) * fraction
+                                val isPassed = fraction <= activeFraction + 0.001f
+                                val isMajor = step % 10 == 0
+                                val isHalf = step % 5 == 0
+                                val dotRadius = when {
+                                    isMajor -> 3.dp.toPx()
+                                    isHalf -> 2.25.dp.toPx()
+                                    else -> 1.75.dp.toPx()
+                                }
+                                val dotColor = if (isPassed) activeDotColor else inactiveDotColor
+
+                                drawCircle(
+                                    color = dotColor,
+                                    radius = dotRadius,
+                                    center = Offset(x, center.y)
+                                )
+                            }
+                        }
+                    }
+            )
         }
     )
 }

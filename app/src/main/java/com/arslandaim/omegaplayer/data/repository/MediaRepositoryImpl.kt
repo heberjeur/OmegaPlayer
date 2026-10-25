@@ -2,28 +2,75 @@ package com.arslandaim.omegaplayer.data.repository
 
 import android.content.ContentUris
 import android.content.Context
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
+import android.util.Log
 import androidx.room.withTransaction
 import com.arslandaim.omegaplayer.data.AppDatabase
 import com.arslandaim.omegaplayer.data.AudioModel
 import com.arslandaim.omegaplayer.data.VideoModel
 import com.arslandaim.omegaplayer.util.Resource
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(FlowPreview::class)
 @Singleton
 class MediaRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appDao: com.arslandaim.omegaplayer.data.AppDao,
     private val database: AppDatabase
 ) : MediaRepository {
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mediaChangeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private val mediaContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            mediaChangeEvents.tryEmit(Unit)
+        }
+    }
+
+    init {
+        repositoryScope.launch {
+            mediaChangeEvents
+                .debounce(1500L)
+                .collectLatest {
+                    syncMediaWithSystem()
+                }
+        }
+
+        try {
+            context.contentResolver.registerContentObserver(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                true,
+                mediaContentObserver
+            )
+            context.contentResolver.registerContentObserver(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                true,
+                mediaContentObserver
+            )
+        } catch (e: SecurityException) {
+            Log.w("MediaRepository", "Failed to register content observer", e)
+        }
+    }
 
     override fun getAudios(): Flow<Resource<List<AudioModel>>> {
         return appDao.getAllAudios().map { Resource.Success(it) }
@@ -65,14 +112,14 @@ class MediaRepositoryImpl @Inject constructor(
                 val videoResource = fetchVideos()
 
                 database.withTransaction {
-                    if (audioResource is Resource.Success) {
-                        audioResource.data?.let { applyAudiosDelta(it) }
-                    }
-                    if (videoResource is Resource.Success) {
-                        videoResource.data?.let { applyVideosDelta(it) }
-                    }
-                    appDao.deleteCachedTree("audio")
-                    appDao.deleteCachedTree("video")
+                    val audioChanged = if (audioResource is Resource.Success) {
+                        applyAudiosDelta(audioResource.data)
+                    } else false
+                    val videoChanged = if (videoResource is Resource.Success) {
+                        applyVideosDelta(videoResource.data)
+                    } else false
+                    if (audioChanged) appDao.deleteCachedTree("audio")
+                    if (videoChanged) appDao.deleteCachedTree("video")
                 }
             }
         }
@@ -92,10 +139,10 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun applyAudiosDelta(newList: List<AudioModel>) {
+    private suspend fun applyAudiosDelta(newList: List<AudioModel>): Boolean {
         val currentById = appDao.getAudiosOnce().associateBy { it.id }
         val newById = newList.associateBy { it.id }
-        if (currentById == newById) return
+        if (currentById == newById) return false
         val removed = currentById.values.filter { newById[it.id] == null }
         if (removed.isNotEmpty()) appDao.deleteAudios(removed)
         val added = newById.values.filter { currentById[it.id] == null }
@@ -105,12 +152,13 @@ class MediaRepositoryImpl @Inject constructor(
             old != null && old != model
         }
         if (updated.isNotEmpty()) appDao.updateAudios(updated)
+        return true
     }
 
-    private suspend fun applyVideosDelta(newList: List<VideoModel>) {
+    private suspend fun applyVideosDelta(newList: List<VideoModel>): Boolean {
         val currentById = appDao.getVideosOnce().associateBy { it.id }
         val newById = newList.associateBy { it.id }
-        if (currentById == newById) return
+        if (currentById == newById) return false
         val removed = currentById.values.filter { newById[it.id] == null }
         if (removed.isNotEmpty()) appDao.deleteVideos(removed)
         val added = newById.values.filter { currentById[it.id] == null }
@@ -120,6 +168,7 @@ class MediaRepositoryImpl @Inject constructor(
             old != null && old != model
         }
         if (updated.isNotEmpty()) appDao.updateVideos(updated)
+        return true
     }
 
     private fun fetchAudios(): Resource<List<AudioModel>> {

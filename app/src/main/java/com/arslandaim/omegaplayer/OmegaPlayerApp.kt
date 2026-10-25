@@ -8,17 +8,12 @@ import coil.disk.DiskCache
 import coil.imageLoader
 import coil.memory.MemoryCache
 import com.arslandaim.omegaplayer.util.SmartVideoThumbFetcher
-import com.arslandaim.omegaplayer.util.StartupTrace
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
 class OmegaPlayerApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
-        StartupTrace.start(this)
-        StartupTrace.installStrictMode()
         super.onCreate()
-        StartupTrace.mark("Application.onCreate body done (Hilt component ready)")
-        StartupTrace.startWatchdog()
         warmApplicationInfoCache()
         warmImageLoader()
     }
@@ -40,7 +35,6 @@ class OmegaPlayerApp : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader {
-        StartupTrace.mark("Coil ImageLoader created")
         return ImageLoader.Builder(this)
             .components {
                 add(SmartVideoThumbFetcher.Factory(this@OmegaPlayerApp))
