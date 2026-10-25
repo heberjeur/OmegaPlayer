@@ -1,7 +1,7 @@
 -keep class * extends androidx.room.RoomDatabase
--keep class com.arslandaim.omegaplayer.data.** { *; }
+-keep class com.mohamedaminelouati.oplayer.data.** { *; }
 
--keep class com.arslandaim.omegaplayer.service.PlaybackService { *; }
+-keep class com.mohamedaminelouati.oplayer.service.PlaybackService { *; }
 -keep class androidx.media3.session.MediaSessionService { *; }
 -keep class androidx.media3.session.MediaSession { *; }
 -keep class androidx.media3.exoplayer.ExoPlayer { *; }
@@ -10,7 +10,7 @@
 
 -keep class * extends dagger.hilt.internal.UnsafeCasts
 -keep class **_HiltModules* { *; }
--keep class com.arslandaim.omegaplayer.di.** { *; }
+-keep class com.mohamedaminelouati.oplayer.di.** { *; }
 -keepclassmembers class * {
     @javax.inject.Inject <init>(...);
     @dagger.Provides *;

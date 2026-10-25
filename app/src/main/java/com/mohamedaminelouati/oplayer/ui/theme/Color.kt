@@ -1,0 +1,61 @@
+package com.mohamedaminelouati.oplayer.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val OmegaOrange = Color(0xFFFF5500)
+val OmegaBlue = Color(0xFF38BDF8)
+val OmegaBlack = Color(0xFF09090B)
+val OmegaDarkGrey = Color(0xFF18181B)
+
+val PrimaryDark = OmegaOrange
+val OnPrimaryDark = Color.White
+val PrimaryContainerDark = Color(0xFF421500)
+val OnPrimaryContainerDark = Color(0xFFFFDBCF)
+
+val SecondaryDark = OmegaBlue
+val OnSecondaryDark = Color.Black
+val SecondaryContainerDark = Color(0xFF02364D)
+val OnSecondaryContainerDark = Color(0xFFBAE6FD)
+
+val SurfaceDark = OmegaBlack
+val OnSurfaceDark = Color(0xFFF4F4F5)
+val SurfaceVariantDark = Color(0xFF27272A)
+val OnSurfaceVariantDark = Color(0xFFA1A1AA)
+
+val PrimaryLight = OmegaOrange
+val OnPrimaryLight = Color.White
+val PrimaryContainerLight = Color(0xFFFFDBCF)
+val OnPrimaryContainerLight = Color(0xFF330B00)
+
+val SecondaryLight = Color(0xFF006685)
+val OnSecondaryLight = Color.White
+val SecondaryContainerLight = Color(0xFFBFE9FF)
+val OnSecondaryContainerLight = Color(0xFF001F2A)
+
+val SurfaceLight = Color(0xFFFFFBFE)
+val OnSurfaceLight = Color(0xFF1C1B1F)
+val SurfaceVariantLight = Color(0xFFE7E0EC)
+val OnSurfaceVariantLight = Color(0xFF49454F)
+
+val Error = OmegaOrange
+val OnError = Color.White
+
+const val DefaultDarkPrimaryInt = 0xFFFF5500.toInt()
+const val DefaultDarkSecondaryInt = 0xFF38BDF8.toInt()
+const val DefaultLightPrimaryInt = 0xFFFF5500.toInt()
+const val DefaultLightSecondaryInt = 0xFF006685.toInt()
+
+val PresetThemeColors = listOf(
+    Color(0xFFFF5500),
+    Color(0xFF0284C7),
+    Color(0xFF38BDF8),
+    Color(0xFF10B981),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF59E0B),
+    Color(0xFF14B8A6),
+    Color(0xFF6366F1),
+    Color(0xFFEF4444),
+    Color(0xFF84CC16),
+    Color(0xFF64748B)
+)

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.arslandaim.omegaplayer.baselineprofile"
+    namespace = "com.mohamedaminelouati.oplayer.baselineprofile"
     compileSdk = 37
 
     defaultConfig {

@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.arslandaim.omegaplayer"
+    namespace = "com.mohamedaminelouati.oplayer"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.arslandaim.omegaplayer"
+        applicationId = "com.mohamedaminelouati.oplayer"
         minSdk = 25
         targetSdk = 37
         versionCode = 6

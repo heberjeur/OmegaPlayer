@@ -1,0 +1,265 @@
+package com.mohamedaminelouati.oplayer.ui.feature.library.components
+
+import androidx.compose.animation.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.mohamedaminelouati.oplayer.R
+import com.mohamedaminelouati.oplayer.data.AudioModel
+import com.mohamedaminelouati.oplayer.data.Playlist
+import com.mohamedaminelouati.oplayer.data.PlaylistItem
+import com.mohamedaminelouati.oplayer.data.VideoModel
+import com.mohamedaminelouati.oplayer.viewmodel.AudioViewModel
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun MediaListItemInPlaylist(
+    item: PlaylistItem,
+    videosByUri: Map<String, VideoModel>,
+    audiosByUri: Map<String, AudioModel>,
+    audioViewModel: AudioViewModel,
+    isPlaying: Boolean = false,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onPlayItem: (PlaylistItem) -> Unit,
+    playlist: Playlist,
+    onVideoDelete: (VideoModel) -> Unit,
+    onAudioDelete: (AudioModel) -> Unit,
+    onVideoRename: (VideoModel, String) -> Unit = { _, _ -> },
+    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> },
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
+) {
+    if (item.mediaType == "video") {
+        val video = videosByUri[item.mediaUri]
+        if (video != null) {
+            VideoListItem(
+                video = video,
+                isPlaying = isPlaying,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onClick = { onPlayItem(item) },
+                onDeleteClick = { onVideoDelete(video) },
+                onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, video.uri.toString()) },
+                onRename = { onVideoRename(video, it) },
+                isInPlaylistView = true,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
+            )
+        }
+    } else {
+        val audio = audiosByUri[item.mediaUri]
+        if (audio != null) {
+            AudioListItem(
+                audio = audio,
+                isPlaying = isPlaying,
+                onClick = { onPlayItem(item) },
+                onDeleteClick = { onAudioDelete(audio) },
+                onPlaylistClick = { audioViewModel.removeFromPlaylist(playlist.id, audio.uri.toString()) },
+                onRename = { onAudioRename(audio, it) },
+                isInPlaylistView = true,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun PlaylistGridItem(
+    item: PlaylistItem,
+    videosByUri: Map<String, VideoModel>,
+    audiosByUri: Map<String, AudioModel>,
+    isPlaying: Boolean = false,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onPlayItem: (PlaylistItem) -> Unit,
+    playlist: Playlist,
+    audioViewModel: AudioViewModel? = null,
+    onVideoDelete: ((VideoModel) -> Unit)? = null,
+    onAudioDelete: ((AudioModel) -> Unit)? = null,
+    onVideoRename: (VideoModel, String) -> Unit = { _, _ -> },
+    onAudioRename: (AudioModel, String) -> Unit = { _, _ -> },
+    aspectRatio: Float = 1f,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {}
+) {
+    if (item.mediaType == "video") {
+        val video = videosByUri[item.mediaUri]
+        if (video != null) {
+            VideoGridItem(
+                video = video,
+                isPlaying = isPlaying,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                onClick = { onPlayItem(item) },
+                onDelete = { onVideoDelete?.invoke(video) },
+                onPlaylist = { audioViewModel?.removeFromPlaylist(playlist.id, video.uri.toString()) },
+                onRename = { onVideoRename(video, it) },
+                isInPlaylistView = true,
+                aspectRatio = aspectRatio,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
+            )
+        }
+    } else {
+        val audio = audiosByUri[item.mediaUri]
+        if (audio != null) {
+            AudioGridItem(
+                audio = audio,
+                isPlaying = isPlaying,
+                onClick = { onPlayItem(item) },
+                onDelete = { onAudioDelete?.invoke(audio) },
+                onPlaylist = { audioViewModel?.removeFromPlaylist(playlist.id, audio.uri.toString()) },
+                onRename = { onAudioRename(audio, it) },
+                isInPlaylistView = true,
+                aspectRatio = aspectRatio,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected,
+                onToggleSelect = onToggleSelect
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyState(isSearching: Boolean, isFolderView: Boolean) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(
+                modifier = Modifier.size(100.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isSearching) Icons.Default.SearchOff else if (isFolderView) Icons.Default.FolderOff else Icons.Default.PlayCircleOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = if (isSearching) stringResource(R.string.no_results_found) else if (isFolderView) stringResource(R.string.no_folders_found) else stringResource(R.string.no_media_items),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = if (isSearching) stringResource(R.string.try_different_search) else stringResource(R.string.library_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun AddToPlaylistFromHomeDialog(
+    playlists: List<Playlist>,
+    onDismiss: () -> Unit,
+    onPlaylistSelected: (Int) -> Unit,
+    onCreatePlaylist: (String) -> Unit
+) {
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+
+    if (showCreateDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text(stringResource(R.string.menu_new_playlist)) },
+            text = {
+                OutlinedTextField(
+                    value = newPlaylistName,
+                    onValueChange = { newPlaylistName = it },
+                    label = { Text(stringResource(R.string.playlist_name_label)) },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPlaylistName.isNotBlank()) {
+                            onCreatePlaylist(newPlaylistName)
+                            showCreateDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
+                ) { Text(stringResource(R.string.action_create), color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.menu_add_to_playlist)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp)) {
+                Button(
+                    onClick = { showCreateDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.menu_new_playlist), color = Color.White)
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (playlists.isEmpty()) {
+                    Text(stringResource(R.string.no_playlists_yet), modifier = Modifier.align(Alignment.CenterHorizontally))
+                } else {
+                    LazyColumn {
+                        items(playlists) { playlist ->
+                            ListItem(
+                                headlineContent = { Text(playlist.name) },
+                                leadingContent = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null) },
+                                modifier = Modifier.clickable { onPlaylistSelected(playlist.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        }
+    )
+}

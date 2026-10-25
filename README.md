@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" width="120" alt="OmegaPlayer Logo">
+  <img src="fastlane/metadata/android/en-US/images/icon.png" width="120" alt="O Player Logo">
 </p>
 
-<h1 align="center">OmegaPlayer</h1>
+<h1 align="center">O Player</h1>
 
 <p align="center">
   A modern, offline multimedia player for Android featuring a powerful video player,
@@ -14,10 +14,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/arslandaim-hub/OmegaPlayer/releases/latest">
+  <i>Fork of OmegaPlayer, originally created by Arsalan Daim Shar &bull; Licensed under GNU GPL v3.0</i>
+</p>
+
+<p align="center">
+  <a href="https://github.com/heberjeur/OmegaPlayer/releases/latest">
     <img src="https://img.shields.io/badge/Get%20it%20on-GitHub-181717?style=for-the-badge&logo=github" alt="GitHub">
   </a>
-  <a href="https://f-droid.org/packages/com.arslandaim.omegaplayer/">
+  <a href="https://f-droid.org/packages/com.mohamedaminelouati.oplayer/">
     <img src="https://img.shields.io/badge/Get%20it%20on-F--Droid-1976D2?style=for-the-badge&logo=f-droid" alt="F-Droid">
   </a>
 </p>
