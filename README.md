@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" width="120" alt="O Player Logo">
+  <img src="fastlane/metadata/android/en-US/images/icon.png" width="120" alt="O Media Player Logo">
 </p>
 
-<h1 align="center">O Player</h1>
+<h1 align="center">O Media Player</h1>
 
 <p align="center">
   A modern, offline multimedia player for Android featuring a powerful video player,

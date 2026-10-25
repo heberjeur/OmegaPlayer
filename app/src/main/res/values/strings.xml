@@ -49,7 +49,7 @@
     <string name="added_folder_to_playlist">Added folder to playlist</string>
     <string name="added_to_playlist">Added to playlist</string>
     <string name="album_art">Album Art</string>
-    <string name="app_name">O Player</string>
+    <string name="app_name">O Media Player</string>
     <string name="app_theme">App Theme</string>
     <string name="apply_speed_temporarily">Apply temporarily for this media</string>
     <string name="skip_silence">Skip silence</string>
@@ -287,7 +287,7 @@
     <string name="unknown_track">Unknown Track</string>
     <string name="unlock_player_prompt">Unlock the player to exit</string>
     <string name="up_next">Up Next</string>
-    <string name="version_format">O Player v:%1$s</string>
+    <string name="version_format">O Media Player v:%1$s</string>
     <string name="video_badge">VIDEO</string>
     <string name="video_info">Video Information</string>
     <string name="video_playback_default_title">Video Playback</string>
@@ -376,7 +376,7 @@
     <string name="no_locked_items">No locked items found</string>
     <string name="action_unlock_all">Unlock All</string>
     <string name="app_locked_title">Application Locked</string>
-    <string name="app_locked_subtitle">Authenticate to access O Player</string>
+    <string name="app_locked_subtitle">Authenticate to access O Media Player</string>
     <string name="locked_item_prompt">Authentication required to access this item</string>
     <string name="security_setup_required">Please set a PIN code or pattern in Settings first</string>
     <string name="search_settings">Search settings…</string>

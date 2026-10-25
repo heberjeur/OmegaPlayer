@@ -1,4 +1,4 @@
-O Player is a multimedia player for Android. It combines a high-performance video engine with a sophisticated music player and a secure private vault to protect your personal media. 
+O Media Player is a multimedia player for Android. It combines a high-performance video engine with a sophisticated music player and a secure private vault to protect your personal media. 
 Application has no internet connectivity at all, everything is ad free and no trackers whatsoever.
 
 Key Features:
@@ -21,5 +21,5 @@ SILKY SMOOTH VIDEO PLAYBACK
   Material 3 Design: A clean, beautiful interface that supports Light and Dark modes.
   Optimized Performance: Lightweight and battery-efficient architecture.
 
-O Player is a fork of OmegaPlayer, originally created by Arsalan Daim Shar, and is licensed under the GNU General Public License v3.0 (GPLv3).
+O Media Player is a fork of OmegaPlayer, originally created by Arsalan Daim Shar, and is licensed under the GNU General Public License v3.0 (GPLv3).
 
