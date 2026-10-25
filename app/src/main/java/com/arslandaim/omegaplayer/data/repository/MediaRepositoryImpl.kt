@@ -21,6 +21,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -39,37 +40,57 @@ class MediaRepositoryImpl @Inject constructor(
 ) : MediaRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val mediaChangeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val mediaChangeEvents = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
 
     private val mediaContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            mediaChangeEvents.tryEmit(Unit)
+        }
+
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             mediaChangeEvents.tryEmit(Unit)
+        }
+    }
+
+    @Volatile
+    private var isObserverRegistered = false
+
+    private fun registerObserverIfNeeded() {
+        if (isObserverRegistered || !hasPermission()) return
+        synchronized(this) {
+            if (isObserverRegistered || !hasPermission()) return
+            val resolver = context.contentResolver
+            val targets = buildList {
+                add(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+                add(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                add(MediaStore.Files.getContentUri("external"))
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    add(MediaStore.Downloads.EXTERNAL_CONTENT_URI)
+                }
+            }
+            for (uri in targets) {
+                try {
+                    resolver.registerContentObserver(uri, true, mediaContentObserver)
+                } catch (e: Exception) {
+                    Log.w("MediaRepository", "Failed to register content observer for $uri", e)
+                }
+            }
+            isObserverRegistered = true
         }
     }
 
     init {
         repositoryScope.launch {
             mediaChangeEvents
-                .debounce(1500L)
+                .debounce(800L)
                 .collectLatest {
                     syncMediaWithSystem()
                 }
         }
-
-        try {
-            context.contentResolver.registerContentObserver(
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                true,
-                mediaContentObserver
-            )
-            context.contentResolver.registerContentObserver(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                true,
-                mediaContentObserver
-            )
-        } catch (e: SecurityException) {
-            Log.w("MediaRepository", "Failed to register content observer", e)
-        }
+        registerObserverIfNeeded()
     }
 
     override fun getAudios(): Flow<Resource<List<AudioModel>>> {
@@ -92,24 +113,35 @@ class MediaRepositoryImpl @Inject constructor(
         appDao.deleteCachedTree(id)
     }
 
-    private fun hasPermission(): Boolean {
+    private fun hasVideoPermission(): Boolean {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_MEDIA_VIDEO) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_MEDIA_VIDEO) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+        } else {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun hasAudioPermission(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_MEDIA_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else {
             androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
     }
 
+    private fun hasPermission(): Boolean = hasVideoPermission() || hasAudioPermission()
+
     private val syncMutex = Mutex()
 
     override suspend fun syncMediaWithSystem() {
         if (!hasPermission()) return
+        registerObserverIfNeeded()
 
         syncMutex.withLock {
             withContext(Dispatchers.IO) {
-                val audioResource = fetchAudios()
-                val videoResource = fetchVideos()
+                val audioResource = if (hasAudioPermission()) fetchAudios() else null
+                val videoResource = if (hasVideoPermission()) fetchVideos() else null
 
                 database.withTransaction {
                     val audioChanged = if (audioResource is Resource.Success) {

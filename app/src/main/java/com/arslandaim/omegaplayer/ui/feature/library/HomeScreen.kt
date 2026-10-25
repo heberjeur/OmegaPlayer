@@ -1040,6 +1040,12 @@ fun HomeScreen(
         if (hasPermission) { viewModel.fetchVideos(context); audioViewModel.fetchAudios(context) }
     }
 
+    LaunchedEffect(hasPermission) {
+        if (hasPermission) {
+            viewModel.autoSync()
+        }
+    }
+
     var selectedVideoForDelete by remember { mutableStateOf<VideoModel?>(null) }
     var selectedAudioForDelete by remember { mutableStateOf<AudioModel?>(null) }
     var selectedHistoryForDelete by remember { mutableStateOf<RecentPlayback?>(null) }

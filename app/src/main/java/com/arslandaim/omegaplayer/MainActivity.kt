@@ -73,6 +73,9 @@ class MainActivity : FragmentActivity() {
                     if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && securityAppLockEnabled && securityLockType != SecurityLockType.NONE) {
                         isAppUnlocked = false
                     }
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                        mainVideoViewModel.autoSync()
+                    }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
                 onDispose {

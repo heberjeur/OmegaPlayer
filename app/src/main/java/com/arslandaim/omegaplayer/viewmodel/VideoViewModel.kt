@@ -560,6 +560,12 @@ class VideoViewModel @Inject constructor(
         }
     }
 
+    fun autoSync() {
+        viewModelScope.launch(Dispatchers.IO) {
+            syncMediaUseCase()
+        }
+    }
+
     fun fetchVideos(context: Context) {
         manualRefresh()
     }
