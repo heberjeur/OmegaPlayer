@@ -1,6 +1,8 @@
 package com.mohamedaminelouati.oplayer.ui.feature.settings
 
 import android.os.Build
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -157,6 +159,10 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
 
     Spacer(modifier = Modifier.height(16.dp))
 
+    AppLanguageCard()
+
+    Spacer(modifier = Modifier.height(16.dp))
+
     ThemeColorsCard(themeViewModel = themeViewModel)
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -239,6 +245,114 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun AppLanguageCard() {
+    var showDialog by remember { mutableStateOf(false) }
+    val currentLocales = AppCompatDelegate.getApplicationLocales()
+    val currentTag = if (!currentLocales.isEmpty) currentLocales[0]?.language ?: "" else ""
+
+    val currentLabel = when (currentTag) {
+        "en" -> stringResource(R.string.language_en)
+        "fr" -> stringResource(R.string.language_fr)
+        "ar" -> stringResource(R.string.language_ar)
+        "es" -> stringResource(R.string.language_es)
+        else -> stringResource(R.string.language_system_default)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            SettingHeader(
+                title = stringResource(R.string.setting_language),
+                subtitle = stringResource(R.string.setting_language_sub),
+                icon = Icons.Default.Language
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ListItem(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { showDialog = true },
+                headlineContent = {
+                    Text(
+                        text = currentLabel,
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = stringResource(R.string.setting_language_sub)
+                    )
+                },
+                leadingContent = {
+                    SettingIcon(Icons.Default.Translate)
+                },
+                trailingContent = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+            )
+        }
+    }
+
+    if (showDialog) {
+        val languages = listOf(
+            "" to stringResource(R.string.language_system_default),
+            "en" to stringResource(R.string.language_en),
+            "fr" to stringResource(R.string.language_fr),
+            "ar" to stringResource(R.string.language_ar),
+            "es" to stringResource(R.string.language_es)
+        )
+
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(stringResource(R.string.setting_language)) },
+            text = {
+                Column {
+                    languages.forEach { (tag, name) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    showDialog = false
+                                    val locales = if (tag.isEmpty()) {
+                                        LocaleListCompat.getEmptyLocaleList()
+                                    } else {
+                                        LocaleListCompat.forLanguageTags(tag)
+                                    }
+                                    AppCompatDelegate.setApplicationLocales(locales)
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (currentTag == tag) || (tag.isEmpty() && currentTag.isEmpty()),
+                                onClick = null
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 }
 

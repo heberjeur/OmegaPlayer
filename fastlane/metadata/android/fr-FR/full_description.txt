@@ -1,0 +1,24 @@
+O Media Player est un lecteur multimédia complet pour Android. Il associe un moteur vidéo haute performance à un lecteur audio sophistiqué et un coffre-fort privé sécurisé pour protéger vos médias personnels.
+L'application ne requiert aucun accès à Internet, ne contient aucune publicité et aucun traceur.
+
+Fonctionnalités clés :
+
+LECTURE VIDÉO FLUIDE ET OPTIMISÉE
+  Optimisé pour les gros fichiers : lisez les vidéos 4K et Ultra HD sans ralentissement.
+  Mise en mémoire tampon avancée : lecture fluide sans saccades.
+  Commandes gestuelles : glissez à gauche pour la luminosité, à droite pour le volume et horizontalement pour avancer/reculer.
+  Lecture en arrière-plan : continuez à écouter vos vidéos même avec l'écran éteint.
+
+EXPÉRIENCE AUDIO DE QUALITÉ
+  Lecture haute fidélité : prend en charge tous les formats audio populaires (MP3, FLAC, WAV, etc.).
+  Navigation par dossiers et pochettes dynamiques.
+  Contrôles intelligents : modes de répétition, égaliseur et lecture enchaînée.
+
+COFFRE-FORT PRIVÉ
+  Protection par code PIN et schéma : verrouillez vos dossiers et vidéos sensibles pour une sécurité maximale.
+
+INTERFACE MODERNE ET RÉACTIVE
+  Design Material 3 : interface claire et élégante compatible avec les thèmes clair et sombre.
+  Performances optimisées : léger et économe en batterie.
+
+O Media Player est un fork d'OmegaPlayer, créé à l'origine par Arsalan Daim Shar, et est sous licence GNU General Public License v3.0 (GPLv3).

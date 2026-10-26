@@ -62,6 +62,7 @@ data class SearchableSettingItem(
 )
 
 private val allSearchableSettings = listOf(
+    SearchableSettingItem(R.string.setting_language, R.string.setting_language_sub, SettingsPage.APPEARANCE),
     SearchableSettingItem(R.string.app_theme, R.string.theme_system, SettingsPage.APPEARANCE),
     SearchableSettingItem(R.string.dynamic_color, R.string.dynamic_color_sub, SettingsPage.APPEARANCE),
     SearchableSettingItem(R.string.theme_colors, R.string.theme_colors_sub, SettingsPage.APPEARANCE),

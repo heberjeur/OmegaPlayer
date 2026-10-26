@@ -1,0 +1,2 @@
+Reproductor de video y audio avanzado
+Bóveda privada con PIN y patrón de bloqueo

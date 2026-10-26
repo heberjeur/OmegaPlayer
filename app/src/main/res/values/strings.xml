@@ -410,4 +410,11 @@
     <string name="reset_defaults_title">Reset Default Preferences</string>
     <string name="reset_defaults_message">Restore default preferences for playback speed (1.00x), presentation mode (List), sort order (Date descending), and search scope (Current tab)?</string>
     <string name="reset_defaults_clear_folders">Also clear folder-specific customizations</string>
+    <string name="setting_language">App Language</string>
+    <string name="setting_language_sub">Choose the display language for the application</string>
+    <string name="language_system_default">System Default</string>
+    <string name="language_en">English</string>
+    <string name="language_fr">Français</string>
+    <string name="language_ar">العربية</string>
+    <string name="language_es">Español</string>
 </resources>
