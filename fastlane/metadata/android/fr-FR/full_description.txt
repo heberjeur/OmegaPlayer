@@ -22,3 +22,4 @@ INTERFACE MODERNE ET RÉACTIVE
   Performances optimisées : léger et économe en batterie.
 
 O Media Player est un fork d'OmegaPlayer, créé à l'origine par Arsalan Daim Shar, et est sous licence GNU General Public License v3.0 (GPLv3).
+

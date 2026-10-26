@@ -21,3 +21,4 @@ O Media Player هو مشغل وسائط متعددة متكامل لنظام أ�
   أداء محسّن: تطبيق خفيف وسريع وموفر لاستهلاك البطارية.
 
 O Media Player هو مشروع متفرع من OmegaPlayer، تم إنشاؤه في الأصل بواسطة Arsalan Daim Shar، وهو مرخص بموجب GNU General Public License v3.0 (GPLv3).
+
