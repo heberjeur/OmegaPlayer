@@ -11,7 +11,7 @@ import com.mohamedaminelouati.oplayer.util.SmartVideoThumbFetcher
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class OmegaPlayerApp : Application(), ImageLoaderFactory {
+class OMediaPlayerApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         warmApplicationInfoCache()
@@ -37,7 +37,7 @@ class OmegaPlayerApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {
-                add(SmartVideoThumbFetcher.Factory(this@OmegaPlayerApp))
+                add(SmartVideoThumbFetcher.Factory(this@OMediaPlayerApp))
                 add(VideoFrameDecoder.Factory())
             }
             .memoryCache {

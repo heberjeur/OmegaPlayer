@@ -450,7 +450,7 @@ fun ColorDegreePaletteDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "OmegaPlayer",
+                            text = stringResource(R.string.app_name),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (currentColor.luminance() > 0.5f) Color.Black else Color.White

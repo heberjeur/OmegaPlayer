@@ -136,7 +136,7 @@ class PlaybackService : MediaSessionService() {
         })
 
         val intent = Intent(this, MainActivity::class.java).apply {
-            data = Uri.parse("omegaplayer://main?tab=audios")
+            data = Uri.parse("omediaplayer://main?tab=audios")
         }
         val pendingIntent = PendingIntent.getActivity(
             this,

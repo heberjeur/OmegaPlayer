@@ -3,7 +3,7 @@ package com.mohamedaminelouati.oplayer.util
 import java.security.MessageDigest
 
 object SecurityUtils {
-    private const val HASH_SALT = "OmegaPlayer_Lock_Salt_2026"
+    private const val HASH_SALT = "OMediaPlayer_Lock_Salt_2026"
 
     fun hashSecret(secret: String): String {
         val input = secret + HASH_SALT

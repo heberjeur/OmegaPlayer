@@ -78,7 +78,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun OmegaPlayerTheme(
+fun OMediaPlayerTheme(
     appTheme: AppTheme = AppTheme.SYSTEM,
     dynamicColor: Boolean = true,
     textTruncationMode: TextTruncationMode = TextTruncationMode.TWO_LINES,

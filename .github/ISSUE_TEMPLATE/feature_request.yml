@@ -1,12 +1,12 @@
 name: Feature Request
-description: Suggest an idea for OmegaPlayer
+description: Suggest an idea for O Media Player
 title: "[FEATURE] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for suggesting a new feature for OmegaPlayer!
+        Thanks for suggesting a new feature for O Media Player!
   - type: textarea
     id: problem
     attributes:

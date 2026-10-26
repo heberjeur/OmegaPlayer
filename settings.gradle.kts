@@ -19,7 +19,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "OmegaPlayer"
+rootProject.name = "OMediaPlayer"
 include(":app")
 include(":baselineprofile")
  

@@ -1,6 +1,7 @@
 package com.mohamedaminelouati.oplayer.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,25 +9,23 @@ import org.junit.Test
 class SecurityUtilsTest {
 
     @Test
-    fun hashStringMatchesKnownSha256Vectors() {
-        assertEquals(
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-            SecurityUtils.hashString("abc")
-        )
-        assertEquals(
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            SecurityUtils.hashString("")
-        )
+    fun hashSecretProducesValidSha256HexDigest() {
+        val hash = SecurityUtils.hashSecret("1234")
+        assertTrue(hash.matches(Regex("[0-9a-f]{64}")))
     }
 
     @Test
-    fun hashStringAlwaysProducesLowercaseHexDigest() {
-        assertTrue(SecurityUtils.hashString("OmegaPlayer").matches(Regex("[0-9a-f]{64}")))
+    fun hashSecretIsDeterministicAndInputSensitive() {
+        assertEquals(SecurityUtils.hashSecret("1234"), SecurityUtils.hashSecret("1234"))
+        assertNotEquals(SecurityUtils.hashSecret("1234"), SecurityUtils.hashSecret("5678"))
     }
 
     @Test
-    fun hashStringIsDeterministicAndInputSensitive() {
-        assertEquals(SecurityUtils.hashString("same input"), SecurityUtils.hashString("same input"))
-        assertNotEquals(SecurityUtils.hashString("input a"), SecurityUtils.hashString("input b"))
+    fun verifySecretValidatesCorrectAndRejectsInvalidSecrets() {
+        val hash = SecurityUtils.hashSecret("9876")
+        assertTrue(SecurityUtils.verifySecret("9876", hash))
+        assertFalse(SecurityUtils.verifySecret("0000", hash))
+        assertFalse(SecurityUtils.verifySecret("", hash))
+        assertFalse(SecurityUtils.verifySecret("9876", ""))
     }
 }

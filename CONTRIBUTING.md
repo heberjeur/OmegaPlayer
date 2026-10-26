@@ -1,6 +1,6 @@
-# Contributing to OmegaPlayer
+# Contributing to O Media Player
 
-First off, thank you for considering contributing to OmegaPlayer!
+First off, thank you for considering contributing to O Media Player!
 
 ## How to Contribute
 1. Fork the repository and create your branch from `master`.

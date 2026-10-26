@@ -29,7 +29,7 @@ import com.mohamedaminelouati.oplayer.ui.feature.library.HomeScreen
 import com.mohamedaminelouati.oplayer.ui.navigation.Screen
 import com.mohamedaminelouati.oplayer.ui.feature.player.VideoPlayerScreen
 import com.mohamedaminelouati.oplayer.ui.feature.settings.SettingsScreen
-import com.mohamedaminelouati.oplayer.ui.theme.OmegaPlayerTheme
+import com.mohamedaminelouati.oplayer.ui.theme.OMediaPlayerTheme
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.mohamedaminelouati.oplayer.data.SecurityLockType
 import com.mohamedaminelouati.oplayer.ui.feature.security.AppLockScreen
@@ -98,7 +98,7 @@ class MainActivity : FragmentActivity() {
                 com.mohamedaminelouati.oplayer.data.AppTheme.DARK -> true
             }
 
-            OmegaPlayerTheme(
+            OMediaPlayerTheme(
                 appTheme = appTheme,
                 dynamicColor = dynamicColor,
                 textTruncationMode = textTruncationMode,
@@ -136,7 +136,7 @@ class MainActivity : FragmentActivity() {
                                     defaultValue = null
                                 }),
                                 deepLinks = listOf(
-                                    navDeepLink { uriPattern = "omegaplayer://main?tab={tab}" }
+                                    navDeepLink { uriPattern = "omediaplayer://main?tab={tab}" }
                                 )
                             ) { backStackEntry ->
                                 val tab = backStackEntry.arguments?.getString("tab")
