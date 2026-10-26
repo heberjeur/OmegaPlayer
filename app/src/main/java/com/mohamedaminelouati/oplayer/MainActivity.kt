@@ -51,6 +51,7 @@ class MainActivity : FragmentActivity() {
     private var isPlayerActive = false
     private var isInPictureInPictureModeState by mutableStateOf(false)
     private var videoViewModel: VideoViewModel? = null
+    private var audioViewModel: AudioViewModel? = null
 
     @Inject
     lateinit var playbackConnection: PlaybackConnection
@@ -152,6 +153,7 @@ class MainActivity : FragmentActivity() {
                                 val videoVM: VideoViewModel = hiltViewModel(activity)
                                 val audioVM: AudioViewModel = hiltViewModel(activity)
                                 videoViewModel = videoVM
+                                audioViewModel = audioVM
 
                                 MainScreen(
                                     videoVM, 
@@ -213,6 +215,7 @@ class MainActivity : FragmentActivity() {
                                     initialPosition = initialPos,
                                     isInPiPMode = isInPictureInPictureModeState,
                                     onBack = { 
+                                        videoViewModel?.setSelectedFolder(null)
                                         if (!navController.popBackStack()) {
                                             navController.navigate(Screen.Main.createRoute("videos")) {
                                                 popUpTo(Screen.Main.route) { inclusive = false }
@@ -256,6 +259,7 @@ class MainActivity : FragmentActivity() {
                                     viewModel = hiltViewModel(androidx.compose.ui.platform.LocalContext.current as MainActivity),
                                     initialPosition = initialPos,
                                     onBack = { 
+                                        audioViewModel?.setSelectedFolder(null)
                                         if (!navController.popBackStack()) {
                                             navController.navigate(Screen.Main.createRoute("audios")) {
                                                 popUpTo(Screen.Main.route) { inclusive = false }

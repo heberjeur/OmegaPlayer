@@ -2,6 +2,7 @@ package com.mohamedaminelouati.oplayer.media
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -157,15 +158,9 @@ class PlaybackConnection @Inject constructor(
                     val syncedQueue = (0 until count).mapNotNull { i ->
                         val item = controller.getMediaItemAt(i)
                         val uriStr = item.localConfiguration?.uri?.toString() ?: item.mediaId
-                        uriMap[uriStr] ?: PlaybackQueueItem(
-                            uri = uriStr,
-                            title = item.mediaMetadata.title?.toString() ?: "",
-                            duration = 0L,
-                            isVideo = item.mediaMetadata.mediaType != androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC,
-                            artist = item.mediaMetadata.artist?.toString()
-                        )
+                        uriMap[uriStr] ?: currentList.find { Uri.decode(it.uri) == Uri.decode(uriStr) }
                     }
-                    if (syncedQueue != currentList) {
+                    if (syncedQueue.isNotEmpty() && syncedQueue != currentList) {
                         _currentQueue.value = syncedQueue
                     }
                 }
@@ -378,9 +373,9 @@ class PlaybackConnection @Inject constructor(
         _mediaController.value?.removeMediaItem(index)
     }
 
-    fun removeQueueItems(uris: Collection<String>) {
+    fun removeQueueItems(uris: Collection<String>, fallbackItems: List<PlaybackQueueItem>? = null) {
         if (uris.isEmpty()) return
-        val uriSet = uris.toSet()
+        val uriSet = uris.map { it.trim() }.toSet()
         val controller = _mediaController.value
         if (controller != null) {
             val count = controller.mediaItemCount
@@ -388,7 +383,7 @@ class PlaybackConnection @Inject constructor(
             for (i in 0 until count) {
                 val item = controller.getMediaItemAt(i)
                 val uriStr = item.localConfiguration?.uri?.toString() ?: item.mediaId
-                if (uriSet.contains(uriStr)) {
+                if (uriSet.any { u -> u == uriStr || Uri.decode(u) == Uri.decode(uriStr) }) {
                     indicesToRemove.add(i)
                 }
             }
@@ -398,7 +393,10 @@ class PlaybackConnection @Inject constructor(
                 }
             }
         }
-        _currentQueue.value = _currentQueue.value.filterNot { uriSet.contains(it.uri) }
+        val current = (_currentQueue.value.ifEmpty { fallbackItems ?: emptyList() })
+        _currentQueue.value = current.filterNot { qItem ->
+            uriSet.any { u -> u == qItem.uri || Uri.decode(u) == Uri.decode(qItem.uri) }
+        }
     }
 
     fun playPlaylist(

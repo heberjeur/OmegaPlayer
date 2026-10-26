@@ -309,14 +309,14 @@ fun AudioPlayerScreen(
             if (isCurrent) {
                 val autoPlayNext = viewModel.autoPlayNext.value
                 if (hasRemainingItems && autoPlayNext) {
-                    viewModel.removeQueueItems(deletedUriStrings)
+                    viewModel.removeQueueItems(deletedUriStrings, queueItems)
                 } else {
                     currentAudio?.let { viewModel.stopIfPlaying(it.uri) }
-                    viewModel.removeQueueItems(deletedUriStrings)
+                    viewModel.removeQueueItems(deletedUriStrings, queueItems)
                     onBack()
                 }
             } else {
-                viewModel.removeQueueItems(deletedUriStrings)
+                viewModel.removeQueueItems(deletedUriStrings, queueItems)
             }
             if (pendingUrisToDelete.isNotEmpty()) viewModel.onAudiosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
@@ -863,7 +863,7 @@ fun AudioPlayerScreen(
                 viewModel.removeQueueItem(index, queueItems)
             },
             onItemsRemove = { items ->
-                viewModel.removeQueueItems(items.map { it.uri })
+                viewModel.removeQueueItems(items.map { it.uri }, queueItems)
             },
             onItemMove = { from, to ->
                 viewModel.moveQueueItem(from, to, queueItems)

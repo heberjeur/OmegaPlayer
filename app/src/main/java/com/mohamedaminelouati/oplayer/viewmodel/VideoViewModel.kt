@@ -459,7 +459,10 @@ class VideoViewModel @Inject constructor(
 
     val videosInSelectedFolder: StateFlow<List<VideoModel>> = combine(videos, _selectedFolder) { videoList, folder ->
         if (folder == null) emptyList()
-        else videoList.filter { File(it.path).parentFile?.absolutePath == folder }
+        else videoList.filter {
+            val parent = File(it.path).parentFile?.absolutePath ?: ""
+            parent == folder || parent.startsWith("$folder/")
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     @androidx.annotation.OptIn(UnstableApi::class)
@@ -549,7 +552,10 @@ class VideoViewModel @Inject constructor(
     }
 
     fun getVideosInFolder(folderPath: String): List<VideoModel> {
-        return videos.value.filter { File(it.path).parentFile?.absolutePath == folderPath }
+        return videos.value.filter {
+            val parent = File(it.path).parentFile?.absolutePath ?: ""
+            parent == folderPath || parent.startsWith("$folderPath/")
+        }
     }
 
     fun manualRefresh() {
@@ -829,8 +835,8 @@ class VideoViewModel @Inject constructor(
         playbackConnection.removeQueueItem(index, fallbackItems)
     }
 
-    fun removeQueueItems(uris: Collection<String>) {
-        playbackConnection.removeQueueItems(uris)
+    fun removeQueueItems(uris: Collection<String>, fallbackItems: List<PlaybackQueueItem>? = null) {
+        playbackConnection.removeQueueItems(uris, fallbackItems)
     }
 
     val showSystemStatusBar: StateFlow<Boolean> = themePreferences.showSystemStatusBar.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)

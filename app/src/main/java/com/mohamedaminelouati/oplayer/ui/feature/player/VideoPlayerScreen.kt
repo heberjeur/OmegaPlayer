@@ -276,14 +276,14 @@ fun VideoPlayerScreen(
             if (isCurrentDeleted) {
                 val autoPlayNext = viewModel.autoPlayNext.value
                 if (hasRemainingItems && autoPlayNext) {
-                    viewModel.removeQueueItems(deletedUriStrings)
+                    viewModel.removeQueueItems(deletedUriStrings, queueItems)
                 } else {
                     mediaController?.currentMediaItem?.localConfiguration?.uri?.let { viewModel.stopIfPlaying(it) }
-                    viewModel.removeQueueItems(deletedUriStrings)
+                    viewModel.removeQueueItems(deletedUriStrings, queueItems)
                     onBack()
                 }
             } else {
-                viewModel.removeQueueItems(deletedUriStrings)
+                viewModel.removeQueueItems(deletedUriStrings, queueItems)
             }
             if (pendingUrisToDelete.isNotEmpty()) viewModel.onVideosDeleted(pendingUrisToDelete)
             pendingUrisToDelete = emptyList()
@@ -1765,13 +1765,13 @@ fun VideoPlayerScreen(
                                 if (isCurrentDeleted) {
                                     val autoPlayNext = viewModel.autoPlayNext.value
                                     if (hasRemainingItems && autoPlayNext) {
-                                        viewModel.removeQueueItems(deletedUriStrings)
+                                        viewModel.removeQueueItems(deletedUriStrings, queueItems)
                                     } else {
-                                        viewModel.removeQueueItems(deletedUriStrings)
+                                        viewModel.removeQueueItems(deletedUriStrings, queueItems)
                                         onBack()
                                     }
                                 } else {
-                                    viewModel.removeQueueItems(deletedUriStrings)
+                                    viewModel.removeQueueItems(deletedUriStrings, queueItems)
                                 }
                                 viewModel.onVideosDeleted(urisToDelete)
                             }
@@ -1857,7 +1857,7 @@ fun VideoPlayerScreen(
                     viewModel.removeQueueItem(index, queueItems)
                 },
                 onItemsRemove = { items ->
-                    viewModel.removeQueueItems(items.map { it.uri })
+                    viewModel.removeQueueItems(items.map { it.uri }, queueItems)
                 },
                 onItemMove = { from, to ->
                     viewModel.moveQueueItem(from, to, queueItems)

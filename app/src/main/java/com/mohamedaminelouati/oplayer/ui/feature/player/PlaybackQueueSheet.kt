@@ -673,12 +673,22 @@ fun PlaybackQueueSheet(
                     onDelete = if (onItemDeleteFromDevice != null || onItemsDeleteFromDevice != null) {
                         {
                             val items = mutableQueue.filter { selectedInstanceIds.contains(it.instanceId) }.map { it.item }
+                            val indicesToRemove = mutableQueue.mapIndexedNotNull { idx, entry ->
+                                if (selectedInstanceIds.contains(entry.instanceId)) idx else null
+                            }
+                            val updated = mutableQueue.toMutableList()
+                            indicesToRemove.sortedDescending().forEach { idx ->
+                                if (idx in updated.indices) {
+                                    updated.removeAt(idx)
+                                }
+                            }
+                            mutableQueue = updated
+                            selectedInstanceIds = emptySet()
                             if (onItemsDeleteFromDevice != null) {
                                 onItemsDeleteFromDevice(items)
                             } else if (onItemDeleteFromDevice != null) {
                                 items.forEach { onItemDeleteFromDevice(it) }
                             }
-                            selectedInstanceIds = emptySet()
                         }
                     } else null,
                     deleteLabel = stringResource(R.string.delete_from_device),

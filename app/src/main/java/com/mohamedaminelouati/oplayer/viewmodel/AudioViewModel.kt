@@ -281,7 +281,10 @@ class AudioViewModel @Inject constructor(
 
     val audiosInSelectedFolder: StateFlow<List<AudioModel>> = combine(audios, _selectedFolder) { audioList, folder ->
         if (folder == null) emptyList()
-        else audioList.filter { File(it.path).parentFile?.absolutePath == folder }
+        else audioList.filter {
+            val parent = File(it.path).parentFile?.absolutePath ?: ""
+            parent == folder || parent.startsWith("$folder/")
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun createPlaylist(name: String) {
@@ -393,8 +396,8 @@ class AudioViewModel @Inject constructor(
         playbackConnection.removeQueueItem(index, fallbackItems)
     }
 
-    fun removeQueueItems(uris: Collection<String>) {
-        playbackConnection.removeQueueItems(uris)
+    fun removeQueueItems(uris: Collection<String>, fallbackItems: List<PlaybackQueueItem>? = null) {
+        playbackConnection.removeQueueItems(uris, fallbackItems)
     }
 
     fun excludeFolder(folderName: String) {
@@ -450,7 +453,10 @@ class AudioViewModel @Inject constructor(
     }
 
     fun getAudiosInFolder(folderPath: String): List<AudioModel> {
-        return audios.value.filter { File(it.path).parentFile?.absolutePath == folderPath }
+        return audios.value.filter {
+            val parent = File(it.path).parentFile?.absolutePath ?: ""
+            parent == folderPath || parent.startsWith("$folderPath/")
+        }
     }
 
     fun manualRefresh() {
