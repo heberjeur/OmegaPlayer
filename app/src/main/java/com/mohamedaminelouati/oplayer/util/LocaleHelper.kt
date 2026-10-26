@@ -27,6 +27,44 @@ class LocalizedContextWrapper(
 object LocaleHelper {
     private const val PREFS_NAME = "locale_pref"
     private const val KEY_LANGUAGE = "app_language"
+    private const val KEY_INDIAN_NUMERALS = "use_indian_numerals"
+
+    var useIndianNumerals: Boolean = false
+
+    fun getSavedIndianNumerals(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_INDIAN_NUMERALS, false)
+    }
+
+    fun saveIndianNumerals(context: Context, enabled: Boolean) {
+        useIndianNumerals = enabled
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_INDIAN_NUMERALS, enabled)
+            .apply()
+    }
+
+    fun formatDigits(text: String, useIndian: Boolean = useIndianNumerals): String {
+        if (!useIndian) return text
+        val sb = StringBuilder(text.length)
+        for (i in 0 until text.length) {
+            val ch = text[i]
+            when (ch) {
+                '0' -> sb.append('٠')
+                '1' -> sb.append('١')
+                '2' -> sb.append('٢')
+                '3' -> sb.append('٣')
+                '4' -> sb.append('٤')
+                '5' -> sb.append('٥')
+                '6' -> sb.append('٦')
+                '7' -> sb.append('٧')
+                '8' -> sb.append('٨')
+                '9' -> sb.append('٩')
+                else -> sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
 
     fun getSavedLanguage(context: Context): String {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -40,11 +78,21 @@ object LocaleHelper {
             .apply()
     }
 
+    fun resolveLocale(languageTag: String): Locale {
+        if (languageTag.isEmpty()) return Locale.getDefault()
+        val tag = if (languageTag == "ar") {
+            if (useIndianNumerals) "ar-u-nu-arab" else "ar-u-nu-latn"
+        } else {
+            languageTag
+        }
+        return Locale.forLanguageTag(tag)
+    }
+
     fun createConfigurationContext(context: Context, languageTag: String): Context {
         if (languageTag.isEmpty()) {
             return context
         }
-        val locale = Locale.forLanguageTag(languageTag)
+        val locale = resolveLocale(languageTag)
         Locale.setDefault(locale)
         val config = Configuration(context.resources.configuration)
         config.setLocale(locale)
@@ -56,7 +104,7 @@ object LocaleHelper {
         if (languageTag.isEmpty()) {
             return baseContext
         }
-        val locale = Locale.forLanguageTag(languageTag)
+        val locale = resolveLocale(languageTag)
         Locale.setDefault(locale)
         val config = Configuration(baseContext.resources.configuration)
         config.setLocale(locale)
@@ -67,7 +115,7 @@ object LocaleHelper {
     fun getLocalizedConfiguration(baseContext: Context, languageTag: String): Configuration {
         val config = Configuration(baseContext.resources.configuration)
         if (languageTag.isNotEmpty()) {
-            val locale = Locale.forLanguageTag(languageTag)
+            val locale = resolveLocale(languageTag)
             config.setLocale(locale)
             config.setLayoutDirection(locale)
         }

@@ -58,6 +58,7 @@ class MainActivity : FragmentActivity() {
 
     override fun attachBaseContext(newBase: android.content.Context) {
         val lang = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedLanguage(newBase)
+        com.mohamedaminelouati.oplayer.util.LocaleHelper.useIndianNumerals = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedIndianNumerals(newBase)
         super.attachBaseContext(com.mohamedaminelouati.oplayer.util.LocaleHelper.createConfigurationContext(newBase, lang))
     }
 
@@ -105,11 +106,15 @@ class MainActivity : FragmentActivity() {
             }
 
             val appLanguage by themeViewModel.appLanguage.collectAsState()
+            val useIndianNumerals by themeViewModel.useIndianNumerals.collectAsState()
+            LaunchedEffect(useIndianNumerals) {
+                com.mohamedaminelouati.oplayer.util.LocaleHelper.useIndianNumerals = useIndianNumerals
+            }
             val baseActivityContext = androidx.compose.ui.platform.LocalContext.current
-            val localizedContext = remember(appLanguage, baseActivityContext) {
+            val localizedContext = remember(appLanguage, useIndianNumerals, baseActivityContext) {
                 com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedContext(baseActivityContext, appLanguage)
             }
-            val localizedConfiguration = remember(appLanguage, baseActivityContext) {
+            val localizedConfiguration = remember(appLanguage, useIndianNumerals, baseActivityContext) {
                 com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedConfiguration(baseActivityContext, appLanguage)
             }
             val layoutDirection = remember(appLanguage) {

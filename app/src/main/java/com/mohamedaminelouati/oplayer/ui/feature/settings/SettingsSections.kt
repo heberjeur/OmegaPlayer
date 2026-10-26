@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -163,6 +166,10 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
 
     Spacer(modifier = Modifier.height(16.dp))
 
+    NumeralSystemCard(themeViewModel = themeViewModel)
+
+    Spacer(modifier = Modifier.height(16.dp))
+
     ThemeColorsCard(themeViewModel = themeViewModel)
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -248,18 +255,29 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
     }
 }
 
+private data class LanguageItem(
+    val tag: String,
+    val nameRes: Int,
+    val iconRes: Int
+)
+
+private val AppLanguages = listOf(
+    LanguageItem("", R.string.language_system_default, R.drawable.ic_lang_system),
+    LanguageItem("en", R.string.language_en, R.drawable.ic_flag_en),
+    LanguageItem("fr", R.string.language_fr, R.drawable.ic_flag_fr),
+    LanguageItem("ar", R.string.language_ar, R.drawable.ic_flag_ar),
+    LanguageItem("es", R.string.language_es, R.drawable.ic_flag_es),
+    LanguageItem("pt", R.string.language_pt, R.drawable.ic_flag_pt),
+    LanguageItem("de", R.string.language_de, R.drawable.ic_flag_de),
+    LanguageItem("ru", R.string.language_ru, R.drawable.ic_flag_ru),
+    LanguageItem("zh", R.string.language_zh, R.drawable.ic_flag_zh)
+)
+
 @Composable
 fun AppLanguageCard(themeViewModel: ThemeViewModel) {
     var showDialog by remember { mutableStateOf(false) }
     val currentTag by themeViewModel.appLanguage.collectAsState()
-
-    val currentLabel = when (currentTag) {
-        "en" -> stringResource(R.string.language_en)
-        "fr" -> stringResource(R.string.language_fr)
-        "ar" -> stringResource(R.string.language_ar)
-        "es" -> stringResource(R.string.language_es)
-        else -> stringResource(R.string.language_system_default)
-    }
+    val currentItem = AppLanguages.firstOrNull { it.tag == currentTag } ?: AppLanguages[0]
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -279,7 +297,7 @@ fun AppLanguageCard(themeViewModel: ThemeViewModel) {
                     .clickable { showDialog = true },
                 headlineContent = {
                     Text(
-                        text = currentLabel,
+                        text = stringResource(currentItem.nameRes),
                         fontWeight = FontWeight.Medium
                     )
                 },
@@ -289,7 +307,15 @@ fun AppLanguageCard(themeViewModel: ThemeViewModel) {
                     )
                 },
                 leadingContent = {
-                    SettingIcon(Icons.Default.Translate)
+                    Image(
+                        painter = painterResource(currentItem.iconRes),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(width = 30.dp, height = 22.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                        contentScale = ContentScale.Crop
+                    )
                 },
                 trailingContent = {
                     Icon(
@@ -303,44 +329,46 @@ fun AppLanguageCard(themeViewModel: ThemeViewModel) {
     }
 
     if (showDialog) {
-        val languages = listOf(
-            "" to stringResource(R.string.language_system_default),
-            "en" to stringResource(R.string.language_en),
-            "fr" to stringResource(R.string.language_fr),
-            "ar" to stringResource(R.string.language_ar),
-            "es" to stringResource(R.string.language_es)
-        )
-
         AlertDialog(
             onDismissRequest = { showDialog = false },
             title = { Text(stringResource(R.string.setting_language)) },
             text = {
                 Column {
-                    languages.forEach { (tag, name) ->
+                    AppLanguages.forEach { item ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     showDialog = false
-                                    themeViewModel.setAppLanguage(tag)
-                                    val locales = if (tag.isEmpty()) {
+                                    themeViewModel.setAppLanguage(item.tag)
+                                    val locales = if (item.tag.isEmpty()) {
                                         LocaleListCompat.getEmptyLocaleList()
                                     } else {
-                                        LocaleListCompat.forLanguageTags(tag)
+                                        LocaleListCompat.forLanguageTags(item.tag)
                                     }
                                     AppCompatDelegate.setApplicationLocales(locales)
                                 }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = (currentTag == tag) || (tag.isEmpty() && currentTag.isEmpty()),
+                                selected = (currentTag == item.tag) || (item.tag.isEmpty() && currentTag.isEmpty()),
                                 onClick = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Image(
+                                painter = painterResource(item.iconRes),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(width = 28.dp, height = 20.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                                contentScale = ContentScale.Crop
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = name,
+                                text = stringResource(item.nameRes),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -353,6 +381,43 @@ fun AppLanguageCard(themeViewModel: ThemeViewModel) {
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NumeralSystemCard(themeViewModel: ThemeViewModel) {
+    val useIndianNumerals by themeViewModel.useIndianNumerals.collectAsState()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            SettingHeader(
+                title = stringResource(R.string.setting_numeral_system),
+                subtitle = stringResource(R.string.setting_numeral_system_sub),
+                icon = Icons.Default.FormatListNumbered
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    onClick = { themeViewModel.setUseIndianNumerals(false) },
+                    selected = !useIndianNumerals
+                ) {
+                    Text(stringResource(R.string.numeral_arabic))
+                }
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    onClick = { themeViewModel.setUseIndianNumerals(true) },
+                    selected = useIndianNumerals
+                ) {
+                    Text(stringResource(R.string.numeral_indian))
+                }
+            }
+        }
     }
 }
 

@@ -101,9 +101,21 @@ class ThemeViewModel @Inject constructor(
         initialValue = ""
     )
 
+    val useIndianNumerals: StateFlow<Boolean> = themePreferences.useIndianNumerals.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     fun setAppLanguage(language: String) {
         viewModelScope.launch {
             themePreferences.saveAppLanguage(language)
+        }
+    }
+
+    fun setUseIndianNumerals(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.saveUseIndianNumerals(enabled)
         }
     }
 

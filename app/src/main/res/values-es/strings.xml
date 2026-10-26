@@ -417,4 +417,12 @@
     <string name="language_fr">Français</string>
     <string name="language_ar">العربية</string>
     <string name="language_es">Español</string>
+    <string name="language_pt">Português</string>
+    <string name="language_de">Deutsch</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_zh">中文 (简体)</string>
+    <string name="setting_numeral_system">Sistema numérico</string>
+    <string name="setting_numeral_system_sub">Elegir entre dígitos arábigos occidentales (0, 1, 2) e índicos (٠, ١, ٢)</string>
+    <string name="numeral_arabic">Árabes (0, 1, 2…)</string>
+    <string name="numeral_indian">Índicos (٠, ١, ٢…)</string>
 </resources>

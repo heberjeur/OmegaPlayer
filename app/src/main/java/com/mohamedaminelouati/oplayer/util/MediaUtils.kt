@@ -92,13 +92,14 @@ object MediaUtils {
     fun albumArtUri(albumId: Long): Uri = ContentUris.withAppendedId(Uri.parse(ALBUM_ART_BASE_URI), albumId)
 
     fun formatDuration(durationMs: Long): String {
-        if (durationMs == -9223372036854775807L) return "00:00"
+        if (durationMs == -9223372036854775807L) return LocaleHelper.formatDigits("00:00")
         val totalSeconds = Math.abs(durationMs) / 1000
         val seconds = totalSeconds % 60
         val minutes = (totalSeconds / 60) % 60
         val hours = totalSeconds / 3600
-        return if (hours > 0) String.format(java.util.Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
-        else String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds)
+        val formatted = if (hours > 0) String.format(java.util.Locale.ENGLISH, "%d:%02d:%02d", hours, minutes, seconds)
+        else String.format(java.util.Locale.ENGLISH, "%02d:%02d", minutes, seconds)
+        return LocaleHelper.formatDigits(formatted)
     }
 
     fun requestMediaDelete(
