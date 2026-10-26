@@ -328,13 +328,6 @@ fun AudioPlayerScreen(
     }
 
     LaunchedEffect(globalAudios, audioUri) {
-        if (selectedFolder == null && globalAudios.isNotEmpty()) {
-            val audio = globalAudios.find { it.uri.toString() == audioUri }
-            audio?.let {
-                val folderName = java.io.File(it.path).parentFile?.name ?: "Internal"
-                viewModel.setSelectedFolder(folderName)
-            }
-        }
         if (currentAudio == null) {
             currentAudio = globalAudios.find { it.uri.toString() == audioUri }
         }
