@@ -63,7 +63,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.google.code.gson:gson:2.14.0")
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.media3.exoplayer)
