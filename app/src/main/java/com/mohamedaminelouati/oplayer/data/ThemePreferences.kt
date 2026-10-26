@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.mohamedaminelouati.oplayer.util.LocaleHelper
 
 enum class AppTheme {
     SYSTEM, LIGHT, DARK
@@ -104,6 +105,11 @@ class ThemePreferences(private val context: Context) {
     private val DARK_SECONDARY_COLOR_KEY = intPreferencesKey("dark_secondary_color")
     private val LIGHT_PRIMARY_COLOR_KEY = intPreferencesKey("light_primary_color")
     private val LIGHT_SECONDARY_COLOR_KEY = intPreferencesKey("light_secondary_color")
+    private val APP_LANGUAGE_KEY = stringPreferencesKey("app_language")
+
+    val appLanguage: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[APP_LANGUAGE_KEY] ?: LocaleHelper.getSavedLanguage(context)
+    }
 
     val darkPrimaryColor: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[DARK_PRIMARY_COLOR_KEY] ?: com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkPrimaryInt
@@ -236,6 +242,13 @@ class ThemePreferences(private val context: Context) {
 
     val showPlayerBrightness: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[SHOW_PLAYER_BRIGHTNESS_KEY] ?: false
+    }
+
+    suspend fun saveAppLanguage(language: String) {
+        LocaleHelper.saveLanguage(context, language)
+        context.dataStore.edit { preferences ->
+            preferences[APP_LANGUAGE_KEY] = language
+        }
     }
 
     suspend fun saveTheme(theme: AppTheme) {

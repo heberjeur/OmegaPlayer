@@ -159,7 +159,7 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    AppLanguageCard()
+    AppLanguageCard(themeViewModel = themeViewModel)
 
     Spacer(modifier = Modifier.height(16.dp))
 
@@ -249,10 +249,9 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
 }
 
 @Composable
-fun AppLanguageCard() {
+fun AppLanguageCard(themeViewModel: ThemeViewModel) {
     var showDialog by remember { mutableStateOf(false) }
-    val currentLocales = AppCompatDelegate.getApplicationLocales()
-    val currentTag = if (!currentLocales.isEmpty) currentLocales[0]?.language ?: "" else ""
+    val currentTag by themeViewModel.appLanguage.collectAsState()
 
     val currentLabel = when (currentTag) {
         "en" -> stringResource(R.string.language_en)
@@ -324,6 +323,7 @@ fun AppLanguageCard() {
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     showDialog = false
+                                    themeViewModel.setAppLanguage(tag)
                                     val locales = if (tag.isEmpty()) {
                                         LocaleListCompat.getEmptyLocaleList()
                                     } else {

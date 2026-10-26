@@ -56,6 +56,11 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var playbackConnection: PlaybackConnection
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val lang = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedLanguage(newBase)
+        super.attachBaseContext(com.mohamedaminelouati.oplayer.util.LocaleHelper.createConfigurationContext(newBase, lang))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -99,16 +104,33 @@ class MainActivity : FragmentActivity() {
                 com.mohamedaminelouati.oplayer.data.AppTheme.DARK -> true
             }
 
-            OMediaPlayerTheme(
-                appTheme = appTheme,
-                dynamicColor = dynamicColor,
-                textTruncationMode = textTruncationMode,
-                savePositionOnQuit = savePositionOnQuit,
-                darkPrimaryColor = androidx.compose.ui.graphics.Color(darkPrimaryColor),
-                darkSecondaryColor = androidx.compose.ui.graphics.Color(darkSecondaryColor),
-                lightPrimaryColor = androidx.compose.ui.graphics.Color(lightPrimaryColor),
-                lightSecondaryColor = androidx.compose.ui.graphics.Color(lightSecondaryColor)
+            val appLanguage by themeViewModel.appLanguage.collectAsState()
+            val baseActivityContext = androidx.compose.ui.platform.LocalContext.current
+            val localizedContext = remember(appLanguage, baseActivityContext) {
+                com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedContext(baseActivityContext, appLanguage)
+            }
+            val localizedConfiguration = remember(appLanguage, baseActivityContext) {
+                com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedConfiguration(baseActivityContext, appLanguage)
+            }
+            val layoutDirection = remember(appLanguage) {
+                com.mohamedaminelouati.oplayer.util.LocaleHelper.getLayoutDirection(appLanguage)
+            }
+
+            CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalContext provides localizedContext,
+                androidx.compose.ui.platform.LocalConfiguration provides localizedConfiguration,
+                androidx.compose.ui.platform.LocalLayoutDirection provides layoutDirection
             ) {
+                OMediaPlayerTheme(
+                    appTheme = appTheme,
+                    dynamicColor = dynamicColor,
+                    textTruncationMode = textTruncationMode,
+                    savePositionOnQuit = savePositionOnQuit,
+                    darkPrimaryColor = androidx.compose.ui.graphics.Color(darkPrimaryColor),
+                    darkSecondaryColor = androidx.compose.ui.graphics.Color(darkSecondaryColor),
+                    lightPrimaryColor = androidx.compose.ui.graphics.Color(lightPrimaryColor),
+                    lightSecondaryColor = androidx.compose.ui.graphics.Color(lightSecondaryColor)
+                ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -149,7 +171,7 @@ class MainActivity : FragmentActivity() {
                                     else -> null
                                 }
 
-                                val activity = androidx.compose.ui.platform.LocalContext.current as MainActivity
+                                val activity = this@MainActivity
                                 val videoVM: VideoViewModel = hiltViewModel(activity)
                                 val audioVM: AudioViewModel = hiltViewModel(activity)
                                 videoViewModel = videoVM
@@ -256,7 +278,7 @@ class MainActivity : FragmentActivity() {
                                 AudioPlayerScreen(
                                     audioUri = decodedUri,
                                     from = fromParam,
-                                    viewModel = hiltViewModel(androidx.compose.ui.platform.LocalContext.current as MainActivity),
+                                    viewModel = hiltViewModel(this@MainActivity),
                                     initialPosition = initialPos,
                                     onBack = { 
                                         audioViewModel?.setSelectedFolder(null)
@@ -316,6 +338,7 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+}
 }
 
     override fun onNewIntent(intent: Intent) {

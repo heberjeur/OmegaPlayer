@@ -95,6 +95,18 @@ class ThemeViewModel @Inject constructor(
         initialValue = true
     )
 
+    val appLanguage: StateFlow<String> = themePreferences.appLanguage.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ""
+    )
+
+    fun setAppLanguage(language: String) {
+        viewModelScope.launch {
+            themePreferences.saveAppLanguage(language)
+        }
+    }
+
     fun setTheme(theme: AppTheme) {
         viewModelScope.launch {
             themePreferences.saveTheme(theme)

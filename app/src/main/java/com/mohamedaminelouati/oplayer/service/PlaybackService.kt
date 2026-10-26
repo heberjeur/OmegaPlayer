@@ -50,6 +50,11 @@ class PlaybackService : MediaSessionService() {
     @Inject
     lateinit var themePreferences: ThemePreferences
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val lang = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedLanguage(newBase)
+        super.attachBaseContext(com.mohamedaminelouati.oplayer.util.LocaleHelper.createConfigurationContext(newBase, lang))
+    }
+
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
