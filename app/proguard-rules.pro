@@ -22,3 +22,7 @@
 
 
 -keep class androidx.datastore.preferences.** { *; }
+
+-keep class com.mohamedaminelouati.oplayer.OMediaPlayerApp { *; }
+-keep class com.mohamedaminelouati.oplayer.MainActivity { *; }
+
