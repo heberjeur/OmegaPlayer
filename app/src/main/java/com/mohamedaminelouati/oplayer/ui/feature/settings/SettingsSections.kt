@@ -164,9 +164,11 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
 
     AppLanguageCard(themeViewModel = themeViewModel)
 
-    Spacer(modifier = Modifier.height(16.dp))
-
-    NumeralSystemCard(themeViewModel = themeViewModel)
+    val currentTag by themeViewModel.appLanguage.collectAsState()
+    if (com.mohamedaminelouati.oplayer.util.LocaleHelper.isArabic(currentTag)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        NumeralSystemCard(themeViewModel = themeViewModel)
+    }
 
     Spacer(modifier = Modifier.height(16.dp))
 
@@ -403,19 +405,31 @@ fun NumeralSystemCard(themeViewModel: ThemeViewModel) {
             Spacer(modifier = Modifier.height(12.dp))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
+                    modifier = Modifier.weight(1f),
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                     onClick = { themeViewModel.setUseIndianNumerals(false) },
-                    selected = !useIndianNumerals
-                ) {
-                    Text(stringResource(R.string.numeral_arabic))
-                }
+                    selected = !useIndianNumerals,
+                    label = {
+                        Text(
+                            text = stringResource(R.string.numeral_arabic),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
                 SegmentedButton(
+                    modifier = Modifier.weight(1f),
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                     onClick = { themeViewModel.setUseIndianNumerals(true) },
-                    selected = useIndianNumerals
-                ) {
-                    Text(stringResource(R.string.numeral_indian))
-                }
+                    selected = useIndianNumerals,
+                    label = {
+                        Text(
+                            text = stringResource(R.string.numeral_indian),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
             }
         }
     }

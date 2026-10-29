@@ -78,21 +78,41 @@ object LocaleHelper {
             .apply()
     }
 
+    val systemLocale: Locale by lazy {
+        val sysConfig = Resources.getSystem().configuration
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            sysConfig.locales[0]
+        } else {
+            @Suppress("DEPRECATION")
+            sysConfig.locale
+        }
+    }
+
     fun resolveLocale(languageTag: String): Locale {
-        if (languageTag.isEmpty()) return Locale.getDefault()
-        val tag = if (languageTag == "ar") {
+        val baseLocale = if (languageTag.isNotEmpty()) {
+            Locale.forLanguageTag(languageTag)
+        } else {
+            systemLocale
+        }
+        val lang = baseLocale.language
+        val tag = if (lang == "ar") {
             if (useIndianNumerals) "ar-u-nu-arab" else "ar-u-nu-latn"
         } else {
-            languageTag
+            baseLocale.toLanguageTag()
         }
         return Locale.forLanguageTag(tag)
     }
 
+    fun getEffectiveLocale(languageTag: String): Locale {
+        return resolveLocale(languageTag)
+    }
+
+    fun isArabic(languageTag: String): Boolean {
+        return getEffectiveLocale(languageTag).language == "ar"
+    }
+
     fun createConfigurationContext(context: Context, languageTag: String): Context {
-        if (languageTag.isEmpty()) {
-            return context
-        }
-        val locale = resolveLocale(languageTag)
+        val locale = getEffectiveLocale(languageTag)
         Locale.setDefault(locale)
         val config = Configuration(context.resources.configuration)
         config.setLocale(locale)
@@ -101,10 +121,7 @@ object LocaleHelper {
     }
 
     fun getLocalizedContext(baseContext: Context, languageTag: String): Context {
-        if (languageTag.isEmpty()) {
-            return baseContext
-        }
-        val locale = resolveLocale(languageTag)
+        val locale = getEffectiveLocale(languageTag)
         Locale.setDefault(locale)
         val config = Configuration(baseContext.resources.configuration)
         config.setLocale(locale)
@@ -113,21 +130,15 @@ object LocaleHelper {
     }
 
     fun getLocalizedConfiguration(baseContext: Context, languageTag: String): Configuration {
+        val locale = getEffectiveLocale(languageTag)
         val config = Configuration(baseContext.resources.configuration)
-        if (languageTag.isNotEmpty()) {
-            val locale = resolveLocale(languageTag)
-            config.setLocale(locale)
-            config.setLayoutDirection(locale)
-        }
+        config.setLocale(locale)
+        config.setLayoutDirection(locale)
         return config
     }
 
     fun getLayoutDirection(languageTag: String): LayoutDirection {
-        val locale = if (languageTag.isNotEmpty()) {
-            Locale.forLanguageTag(languageTag)
-        } else {
-            Locale.getDefault()
-        }
+        val locale = getEffectiveLocale(languageTag)
         val direction = TextUtilsCompat.getLayoutDirectionFromLocale(locale)
         return if (direction == View.LAYOUT_DIRECTION_RTL) {
             LayoutDirection.Rtl

@@ -423,6 +423,6 @@
     <string name="language_zh">中文 (简体)</string>
     <string name="setting_numeral_system">نظام الأرقام</string>
     <string name="setting_numeral_system_sub">الاختيار بين الأرقام العربية (0، 1، 2) والأرقام الهندية (٠، ١، ٢)</string>
-    <string name="numeral_arabic">أرقام عربية (0، 1، 2…)</string>
-    <string name="numeral_indian">أرقام هندية (٠، ١، ٢…)</string>
+    <string name="numeral_arabic">عربية (0، 1، 2)</string>
+    <string name="numeral_indian">هندية (٠، ١، ٢)</string>
 </resources>
