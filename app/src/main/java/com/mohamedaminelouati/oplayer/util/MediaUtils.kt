@@ -102,6 +102,15 @@ object MediaUtils {
         return LocaleHelper.formatDigits(formatted)
     }
 
+    fun formatPlaybackDate(timestampMs: Long, context: Context): String {
+        if (timestampMs <= 0L) return ""
+        val date = java.util.Date(timestampMs)
+        val dateFormat = android.text.format.DateFormat.getDateFormat(context)
+        val timeFormat = android.text.format.DateFormat.getTimeFormat(context)
+        val formatted = "${dateFormat.format(date)} ${timeFormat.format(date)}"
+        return LocaleHelper.formatDigits(formatted)
+    }
+
     fun requestMediaDelete(
         context: Context,
         uris: List<Uri>,

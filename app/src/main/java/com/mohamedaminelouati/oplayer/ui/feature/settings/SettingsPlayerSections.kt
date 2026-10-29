@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -264,8 +265,9 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                         modifier = Modifier.weight(1f),
                         selected = subtitleTextSize == size,
                         onClick = { videoViewModel.setSubtitleTextSize(size) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = sizes.size),
-                        label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        shape = segmentedItemShape(index = index, count = sizes.size),
+                        icon = {},
+                        label = { Text(label, fontSize = 11.sp, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -290,8 +292,9 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                         modifier = Modifier.weight(1f),
                         selected = subtitleTextColor == colorKey,
                         onClick = { videoViewModel.setSubtitleTextColor(colorKey) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = colors.size),
-                        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        shape = segmentedItemShape(index = index, count = colors.size),
+                        icon = {},
+                        label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -316,8 +319,9 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                         modifier = Modifier.weight(1f),
                         selected = subtitleBgStyle == bgKey,
                         onClick = { videoViewModel.setSubtitleBgStyle(bgKey) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = backgrounds.size),
-                        label = { Text(label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        shape = segmentedItemShape(index = index, count = backgrounds.size),
+                        icon = {},
+                        label = { Text(label, fontSize = 11.sp, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }

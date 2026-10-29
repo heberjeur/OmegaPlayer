@@ -34,7 +34,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedaminelouati.oplayer.R
@@ -52,6 +55,14 @@ import com.mohamedaminelouati.oplayer.viewmodel.ThemeViewModel
 import com.mohamedaminelouati.oplayer.viewmodel.VideoViewModel
 import kotlin.math.abs
 import kotlin.math.round
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun segmentedItemShape(index: Int, count: Int): androidx.compose.ui.graphics.Shape {
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val adjustedIndex = if (isRtl) count - 1 - index else index
+    return SegmentedButtonDefaults.itemShape(index = adjustedIndex, count = count)
+}
 
 @Composable
 fun SettingIcon(
@@ -134,8 +145,9 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
                         modifier = Modifier.weight(1f),
                         selected = currentTheme == theme,
                         onClick = { themeViewModel.setTheme(theme) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = AppTheme.entries.size),
-                        label = { Text(themeLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        shape = segmentedItemShape(index = index, count = AppTheme.entries.size),
+                        icon = {},
+                        label = { Text(themeLabel, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -199,8 +211,9 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
                         modifier = Modifier.weight(1f),
                         selected = textTruncationMode == mode,
                         onClick = { themeViewModel.setTextTruncationMode(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = truncationOptions.size),
-                        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        shape = segmentedItemShape(index = index, count = truncationOptions.size),
+                        icon = {},
+                        label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -406,26 +419,30 @@ fun NumeralSystemCard(themeViewModel: ThemeViewModel) {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
                     modifier = Modifier.weight(1f),
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    shape = segmentedItemShape(index = 0, count = 2),
                     onClick = { themeViewModel.setUseIndianNumerals(false) },
                     selected = !useIndianNumerals,
+                    icon = {},
                     label = {
                         Text(
                             text = stringResource(R.string.numeral_arabic),
-                            maxLines = 1,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                 )
                 SegmentedButton(
                     modifier = Modifier.weight(1f),
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    shape = segmentedItemShape(index = 1, count = 2),
                     onClick = { themeViewModel.setUseIndianNumerals(true) },
                     selected = useIndianNumerals,
+                    icon = {},
                     label = {
                         Text(
                             text = stringResource(R.string.numeral_indian),
-                            maxLines = 1,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -499,8 +516,9 @@ fun ThemeColorsCard(themeViewModel: ThemeViewModel) {
                         modifier = Modifier.weight(1f),
                         selected = selectedModeIndex == index,
                         onClick = { selectedModeIndex = index },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                        label = { Text(title, maxLines = 1) }
+                        shape = segmentedItemShape(index = index, count = modes.size),
+                        icon = {},
+                        label = { Text(title, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -1006,8 +1024,9 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                             modifier = Modifier.weight(1f),
                             selected = playerOrientation == index,
                             onClick = { themeViewModel.setPlayerOrientation(index) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                            label = { Text(option, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            shape = segmentedItemShape(index = index, count = options.size),
+                            icon = {},
+                            label = { Text(option, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                         )
                     }
                 }
@@ -1249,8 +1268,9 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                             modifier = Modifier.weight(1f),
                             selected = speedScope == scope,
                             onClick = { videoViewModel.setSpeedScope(scope) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = PlaybackSpeedScope.entries.size),
-                            label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            shape = segmentedItemShape(index = index, count = PlaybackSpeedScope.entries.size),
+                            icon = {},
+                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                         )
                     }
                 }
@@ -1276,8 +1296,9 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                             modifier = Modifier.weight(1f),
                             selected = brightnessScope == scope,
                             onClick = { videoViewModel.setBrightnessScope(scope) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = BrightnessScope.entries.size),
-                            label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            shape = segmentedItemShape(index = index, count = BrightnessScope.entries.size),
+                            icon = {},
+                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                         )
                     }
                 }
@@ -1300,8 +1321,9 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                             modifier = Modifier.weight(1f),
                             selected = controlsTimeout == option,
                             onClick = { themeViewModel.setControlsTimeout(option) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = timeoutOptions.size),
-                            label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            shape = segmentedItemShape(index = index, count = timeoutOptions.size),
+                            icon = {},
+                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                         )
                     }
                 }
@@ -1323,8 +1345,9 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                             modifier = Modifier.weight(1f),
                             selected = seekIncrement == option,
                             onClick = { themeViewModel.setSeekIncrement(option) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = seekOptions.size),
-                            label = { Text(stringResource(R.string.controls_sec, option), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            shape = segmentedItemShape(index = index, count = seekOptions.size),
+                            icon = {},
+                            label = { Text(stringResource(R.string.controls_sec, option), maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                         )
                     }
                 }
@@ -1431,8 +1454,9 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
                             modifier = Modifier.weight(1f),
                             selected = defaultViewMode == mode,
                             onClick = { videoViewModel.setDefaultViewMode(mode) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                            label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            shape = segmentedItemShape(index = index, count = modes.size),
+                            icon = {},
+                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
                         )
                     }
                 }
@@ -1501,8 +1525,9 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
                             modifier = Modifier.weight(1f),
                             selected = defaultSearchScope == scope,
                             onClick = { videoViewModel.setDefaultSearchScope(scope) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = scopes.size),
-                            label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall) }
+                            shape = segmentedItemShape(index = index, count = scopes.size),
+                            icon = {},
+                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }
