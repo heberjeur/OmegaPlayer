@@ -44,6 +44,7 @@ class ThemePreferences(private val context: Context) {
     private val EXCLUDED_FOLDERS_KEY = stringSetPreferencesKey("excluded_folders")
     private val SHOW_RECENT_HISTORY_HOME_KEY = booleanPreferencesKey("show_recent_history_home")
     private val SHOW_HISTORY_TAB_KEY = booleanPreferencesKey("show_history_tab")
+    private val SHOW_HISTORY_DATE_KEY = booleanPreferencesKey("show_history_date")
     private val SPEED_SCOPE_KEY = stringPreferencesKey("speed_scope")
     private val GLOBAL_SPEED_KEY = floatPreferencesKey("global_playback_speed")
     private val HISTORY_SPEED_KEY = floatPreferencesKey("history_playback_speed")
@@ -171,6 +172,10 @@ class ThemePreferences(private val context: Context) {
 
     val showHistoryTab: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[SHOW_HISTORY_TAB_KEY] ?: true
+    }
+
+    val showHistoryDate: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SHOW_HISTORY_DATE_KEY] ?: true
     }
 
     val speedScope: Flow<PlaybackSpeedScope> = context.dataStore.data.map { preferences ->
@@ -379,6 +384,12 @@ class ThemePreferences(private val context: Context) {
     suspend fun saveShowHistoryTab(show: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[SHOW_HISTORY_TAB_KEY] = show
+        }
+    }
+
+    suspend fun saveShowHistoryDate(show: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SHOW_HISTORY_DATE_KEY] = show
         }
     }
 

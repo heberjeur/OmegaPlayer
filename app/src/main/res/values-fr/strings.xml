@@ -234,6 +234,8 @@
     <string name="setting_player_orientation_sub">Comportement de rotation par défaut pour le lecteur</string>
     <string name="setting_show_history_tab">Onglet Historique</string>
     <string name="setting_show_history_tab_sub">Afficher l\'onglet Historique parmi les onglets de la bibliothèque</string>
+    <string name="setting_show_history_date">Date de lecture dans l\'historique</string>
+    <string name="setting_show_history_date_sub">Afficher la date et l\'heure de la dernière lecture pour chaque média</string>
     <string name="setting_show_recent_history">Historique récent à l\'accueil</string>
     <string name="setting_show_recent_history_sub">Afficher le carrousel de l\'historique sur l\'écran principal</string>
     <string name="setting_seek_increment">Incrément du saut de lecture</string>

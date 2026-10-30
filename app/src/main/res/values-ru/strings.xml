@@ -237,6 +237,8 @@
     <string name="setting_player_orientation_sub">Поведение поворота экрана при воспроизведении</string>
     <string name="setting_show_history_tab">Вкладка «История»</string>
     <string name="setting_show_history_tab_sub">Показывать вкладку истории в медиатеке</string>
+    <string name="setting_show_history_date">Дата воспроизведения в истории</string>
+    <string name="setting_show_history_date_sub">Показывать дату и время последнего воспроизведения для каждого файла</string>
     <string name="setting_show_recent_history">Недавняя история на главной</string>
     <string name="setting_show_recent_history_sub">Показывать карусель недавних файлов на главном экране</string>
     <string name="setting_seek_increment">Шаг перемотки</string>

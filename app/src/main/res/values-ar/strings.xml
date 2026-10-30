@@ -234,6 +234,8 @@
     <string name="setting_player_orientation_sub">سلوك التدوير الافتراضي لمشغل الوسائط</string>
     <string name="setting_show_history_tab">علامة تبويب السجل</string>
     <string name="setting_show_history_tab_sub">إظهار علامة تبويب السجل ضمن علامات تبويب المكتبة</string>
+    <string name="setting_show_history_date">تاريخ التشغيل في السجل</string>
+    <string name="setting_show_history_date_sub">عرض تاريخ ووقت آخر تشغيل لكل عنصر وسائط</string>
     <string name="setting_show_recent_history">السجل الأخير في الرئيسية</string>
     <string name="setting_show_recent_history_sub">عرض شريط سجل المشاهدة على الشاشة الرئيسية</string>
     <string name="setting_seek_increment">مقدار قفزة التقديم/الترجيع</string>

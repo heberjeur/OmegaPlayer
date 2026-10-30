@@ -234,6 +234,8 @@
     <string name="setting_player_orientation_sub">Comportamiento de rotación predeterminado para el reproductor</string>
     <string name="setting_show_history_tab">Pestaña de historial</string>
     <string name="setting_show_history_tab_sub">Mostrar pestaña de Historial entre las pestañas de la biblioteca</string>
+    <string name="setting_show_history_date">Fecha de reproducción en el historial</string>
+    <string name="setting_show_history_date_sub">Mostrar la fecha y hora de la última reproducción para cada elemento</string>
     <string name="setting_show_recent_history">Historial reciente en Inicio</string>
     <string name="setting_show_recent_history_sub">Mostrar carrusel de historial en la pantalla principal</string>
     <string name="setting_seek_increment">Incremento de salto de búsqueda</string>

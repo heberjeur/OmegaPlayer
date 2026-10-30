@@ -95,6 +95,12 @@ class ThemeViewModel @Inject constructor(
         initialValue = true
     )
 
+    val showHistoryDate: StateFlow<Boolean> = themePreferences.showHistoryDate.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
     val appLanguage: StateFlow<String> = themePreferences.appLanguage.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

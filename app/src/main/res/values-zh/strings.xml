@@ -237,6 +237,8 @@
     <string name="setting_player_orientation_sub">媒体播放器的默认屏幕旋转行为</string>
     <string name="setting_show_history_tab">历史记录标签页</string>
     <string name="setting_show_history_tab_sub">在媒体库标签页中显示「历史」标签</string>
+    <string name="setting_show_history_date">历史记录中的播放日期</string>
+    <string name="setting_show_history_date_sub">显示每个媒体项的上次播放日期和时间</string>
     <string name="setting_show_recent_history">主页显示最近历史</string>
     <string name="setting_show_recent_history_sub">在主屏幕上方显示最近观看历史走马灯</string>
     <string name="setting_seek_increment">快进/快退步长</string>

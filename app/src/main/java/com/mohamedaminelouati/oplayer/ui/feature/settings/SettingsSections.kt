@@ -922,6 +922,7 @@ fun SettingsPrivacySection(videoViewModel: VideoViewModel) {
     val isHistoryPaused by videoViewModel.isHistoryPaused.collectAsStateWithLifecycle()
     val showRecentHistoryOnHome by videoViewModel.showRecentHistoryOnHome.collectAsStateWithLifecycle()
     val showHistoryTab by videoViewModel.showHistoryTab.collectAsStateWithLifecycle()
+    val showHistoryDate by videoViewModel.showHistoryDate.collectAsStateWithLifecycle()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -963,6 +964,19 @@ fun SettingsPrivacySection(videoViewModel: VideoViewModel) {
                     Switch(
                         checked = showHistoryTab,
                         onCheckedChange = { videoViewModel.toggleShowHistoryTab(it) }
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.setting_show_history_date), fontWeight = FontWeight.Medium) },
+                supportingContent = { Text(stringResource(R.string.setting_show_history_date_sub)) },
+                leadingContent = { SettingIcon(Icons.Default.AccessTime) },
+                trailingContent = {
+                    Switch(
+                        checked = showHistoryDate,
+                        onCheckedChange = { videoViewModel.toggleShowHistoryDate(it) }
                     )
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)

@@ -37,6 +37,7 @@ import com.mohamedaminelouati.oplayer.data.RecentPlayback
 import com.mohamedaminelouati.oplayer.ui.common.videoThumbImageRequest
 import com.mohamedaminelouati.oplayer.util.MediaUtils.formatDuration
 import com.mohamedaminelouati.oplayer.ui.theme.LocalSavePositionOnQuit
+import com.mohamedaminelouati.oplayer.ui.theme.LocalShowHistoryDate
 import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
 import com.mohamedaminelouati.oplayer.ui.theme.maxLines
 import com.mohamedaminelouati.oplayer.ui.theme.overflow
@@ -118,7 +119,8 @@ fun RecentPlaybackItem(
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                if (item.lastPlayed > 0L) {
+                val showDate = LocalShowHistoryDate.current
+                if (showDate && item.lastPlayed > 0L) {
                     val context = LocalContext.current
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -377,7 +379,8 @@ fun HistoryGridCard(
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
                     .padding(8.dp)
             ) {
-                if (item.lastPlayed > 0L) {
+                val showDate = LocalShowHistoryDate.current
+                if (showDate && item.lastPlayed > 0L) {
                     val context = LocalContext.current
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -565,7 +568,8 @@ fun HistoryItem(
                     maxLines = truncation.maxLines,
                     overflow = truncation.overflow
                 )
-                if (item.lastPlayed > 0L) {
+                val showDate = LocalShowHistoryDate.current
+                if (showDate && item.lastPlayed > 0L) {
                     val context = LocalContext.current
                     Spacer(modifier = Modifier.height(3.dp))
                     Row(

@@ -94,6 +94,7 @@ class MainActivity : FragmentActivity() {
             val dynamicColor by themeViewModel.dynamicColor.collectAsState()
             val textTruncationMode by themeViewModel.textTruncationMode.collectAsState()
             val savePositionOnQuit by themeViewModel.savePositionOnQuit.collectAsState()
+            val showHistoryDate by themeViewModel.showHistoryDate.collectAsState()
             val darkPrimaryColor by themeViewModel.darkPrimaryColor.collectAsState()
             val darkSecondaryColor by themeViewModel.darkSecondaryColor.collectAsState()
             val lightPrimaryColor by themeViewModel.lightPrimaryColor.collectAsState()
@@ -131,6 +132,7 @@ class MainActivity : FragmentActivity() {
                     dynamicColor = dynamicColor,
                     textTruncationMode = textTruncationMode,
                     savePositionOnQuit = savePositionOnQuit,
+                    showHistoryDate = showHistoryDate,
                     darkPrimaryColor = androidx.compose.ui.graphics.Color(darkPrimaryColor),
                     darkSecondaryColor = androidx.compose.ui.graphics.Color(darkSecondaryColor),
                     lightPrimaryColor = androidx.compose.ui.graphics.Color(lightPrimaryColor),

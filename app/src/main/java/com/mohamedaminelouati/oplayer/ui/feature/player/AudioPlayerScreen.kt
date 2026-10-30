@@ -779,7 +779,16 @@ fun AudioPlayerScreen(
                     seekGracePeriod = System.currentTimeMillis() + SEEK_TOLERANCE_MS
                     controller?.seekTo(target)
                 },
-                onPlayPauseClick = { if (isPlaying) controller?.pause() else controller?.play() },
+                onPlayPauseClick = {
+                    if (isPlaying) {
+                        controller?.pause()
+                    } else {
+                        if (controller?.playbackState == Player.STATE_ENDED) {
+                            controller?.seekTo(0L)
+                        }
+                        controller?.play()
+                    }
+                },
                 onCycleRepeatClick = { viewModel.cycleRepeatMode() },
                 onToggleShuffleClick = {
                     isShuffle = !isShuffle

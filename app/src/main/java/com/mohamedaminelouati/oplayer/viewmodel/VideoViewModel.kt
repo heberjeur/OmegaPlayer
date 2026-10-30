@@ -111,6 +111,9 @@ class VideoViewModel @Inject constructor(
     val showHistoryTab: StateFlow<Boolean> = themePreferences.showHistoryTab
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val showHistoryDate: StateFlow<Boolean> = themePreferences.showHistoryDate
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val speedScope: StateFlow<PlaybackSpeedScope> = themePreferences.speedScope
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackSpeedScope.GLOBAL)
 
@@ -482,6 +485,10 @@ class VideoViewModel @Inject constructor(
 
     fun toggleShowHistoryTab(show: Boolean) {
         viewModelScope.launch { themePreferences.saveShowHistoryTab(show) }
+    }
+
+    fun toggleShowHistoryDate(show: Boolean) {
+        viewModelScope.launch { themePreferences.saveShowHistoryDate(show) }
     }
 
     fun setSelectedFolder(folderName: String?) {

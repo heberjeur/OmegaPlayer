@@ -234,6 +234,8 @@
     <string name="setting_player_orientation_sub">Default rotation behavior for the media player</string>
     <string name="setting_show_history_tab">History Tab</string>
     <string name="setting_show_history_tab_sub">Show History tab among media library tabs</string>
+    <string name="setting_show_history_date">Playback Date in History</string>
+    <string name="setting_show_history_date_sub">Show the date and time of the last playback for each media item</string>
     <string name="setting_show_recent_history">Recent History on Home</string>
     <string name="setting_show_recent_history_sub">Display watch history carousel on the main screen</string>
     <string name="setting_seek_increment">Seek Jump Increment</string>

@@ -237,6 +237,8 @@ Licenciado sob GNU GPL v3.0</string>
     <string name="setting_player_orientation_sub">Comportamento padrão de rotação para o player de mídia</string>
     <string name="setting_show_history_tab">Aba Histórico</string>
     <string name="setting_show_history_tab_sub">Exibir a aba Histórico entre as abas da biblioteca de mídia</string>
+    <string name="setting_show_history_date">Data de reprodução no histórico</string>
+    <string name="setting_show_history_date_sub">Mostrar a data e hora da última reprodução de cada item</string>
     <string name="setting_show_recent_history">Histórico Recente no Início</string>
     <string name="setting_show_recent_history_sub">Exibir carrossel de histórico de reprodução na tela principal</string>
     <string name="setting_seek_increment">Incremento de Salto no Avanço/Retrocesso</string>

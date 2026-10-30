@@ -225,7 +225,8 @@ fun VideoPlayerScreen(
     }
 
     val videosList by viewModel.videos.collectAsStateWithLifecycle()
-    val playingUri = mediaController?.currentMediaItem?.localConfiguration?.uri?.toString() ?: videoUri
+    var currentUriState by remember(videoUri) { mutableStateOf(videoUri) }
+    val playingUri = currentUriState
     val currentVideo = remember(playingUri, videosList) {
         viewModel.getCurrentVideo(playingUri) ?: videosList.find { it.uri.toString() == playingUri }
     }
@@ -585,10 +586,11 @@ fun VideoPlayerScreen(
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 currentMediaIndexState = player.currentMediaItemIndex
-                if (mediaItem != null) {
-                    val uri = mediaItem.localConfiguration?.uri?.toString() ?: ""
-                    if (uri.isNotEmpty() && uri != videoUri && MediaUtils.isAudioMediaItem(mediaItem)) {
-                        onAudioTransition(uri)
+                val currentUri = mediaItem?.localConfiguration?.uri?.toString()
+                if (currentUri != null && currentUri.isNotEmpty()) {
+                    currentUriState = currentUri
+                    if (currentUri != videoUri && MediaUtils.isAudioMediaItem(mediaItem)) {
+                        onAudioTransition(currentUri)
                     }
                 }
             }
@@ -768,13 +770,13 @@ fun VideoPlayerScreen(
         }
     }
 
-    val videoName = remember(videoUri, videosList, currentVideo) {
-        val foundName = currentVideo?.name ?: videosList.find { it.uri.toString() == videoUri }?.name
+    val videoName = remember(playingUri, videosList, currentVideo) {
+        val foundName = currentVideo?.name ?: videosList.find { it.uri.toString() == playingUri }?.name
         if (!foundName.isNullOrBlank()) {
             foundName
         } else {
             var queriedName: String? = null
-            val parsedUri = Uri.parse(videoUri)
+            val parsedUri = Uri.parse(playingUri)
             if (parsedUri.scheme == "content") {
                 context.contentResolver.query(parsedUri, arrayOf(MediaStore.Video.Media.DISPLAY_NAME), null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
@@ -785,7 +787,7 @@ fun VideoPlayerScreen(
                     }
                 }
             }
-            queriedName ?: videoUri.substringAfterLast("/").substringBeforeLast(".")
+            queriedName ?: playingUri.substringAfterLast("/").substringBeforeLast(".")
         }
     }
 
@@ -1123,6 +1125,9 @@ fun VideoPlayerScreen(
                                                     if (player.isPlaying) {
                                                         player.pause()
                                                     } else {
+                                                        if (player.playbackState == Player.STATE_ENDED) {
+                                                            player.seekTo(0L)
+                                                        }
                                                         player.play()
                                                     }
                                                     playPausePulse++
@@ -1440,7 +1445,14 @@ fun VideoPlayerScreen(
                                 }
                                 FilledIconButton(
                                     onClick = {
-                                        if (mediaController?.isPlaying == true) mediaController?.pause() else mediaController?.play()
+                                        if (mediaController?.isPlaying == true) {
+                                            mediaController?.pause()
+                                        } else {
+                                            if (mediaController?.playbackState == Player.STATE_ENDED) {
+                                                mediaController?.seekTo(0L)
+                                            }
+                                            mediaController?.play()
+                                        }
                                         controlsLastInteraction = System.currentTimeMillis()
                                     },
                                     modifier = Modifier.size(64.dp),
@@ -1522,7 +1534,14 @@ fun VideoPlayerScreen(
 
                             FilledIconButton(
                                 onClick = {
-                                    if (mediaController?.isPlaying == true) mediaController?.pause() else mediaController?.play()
+                                    if (mediaController?.isPlaying == true) {
+                                        mediaController?.pause()
+                                    } else {
+                                        if (mediaController?.playbackState == Player.STATE_ENDED) {
+                                            mediaController?.seekTo(0L)
+                                        }
+                                        mediaController?.play()
+                                    }
                                     controlsLastInteraction = System.currentTimeMillis()
                                 },
                                 modifier = Modifier.size(64.dp),
@@ -1615,7 +1634,14 @@ fun VideoPlayerScreen(
             onRewindClick = { performSeek(-1) },
             onForwardClick = { performSeek(1) },
             onPlayPauseClick = {
-                if (isPlaying) mediaController?.pause() else mediaController?.play()
+                if (isPlaying) {
+                    mediaController?.pause()
+                } else {
+                    if (mediaController?.playbackState == Player.STATE_ENDED) {
+                        mediaController?.seekTo(0L)
+                    }
+                    mediaController?.play()
+                }
                 playPausePulse++
                 activeCenterAction = CenterActionType.PLAY_PAUSE
                 centerActionTrigger = System.currentTimeMillis()

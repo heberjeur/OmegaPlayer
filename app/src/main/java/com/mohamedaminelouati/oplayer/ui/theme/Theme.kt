@@ -37,6 +37,7 @@ val TextTruncationMode.overflow: TextOverflow
 
 val LocalTextTruncationMode = compositionLocalOf { TextTruncationMode.TWO_LINES }
 val LocalSavePositionOnQuit = compositionLocalOf { true }
+val LocalShowHistoryDate = compositionLocalOf { true }
 val LocalPlaybackProgress = compositionLocalOf { emptyMap<String, Float>() }
 
 private val DarkColorScheme = darkColorScheme(
@@ -83,6 +84,7 @@ fun OMediaPlayerTheme(
     dynamicColor: Boolean = true,
     textTruncationMode: TextTruncationMode = TextTruncationMode.TWO_LINES,
     savePositionOnQuit: Boolean = true,
+    showHistoryDate: Boolean = true,
     playbackProgressMap: Map<String, Float> = emptyMap(),
     darkPrimaryColor: androidx.compose.ui.graphics.Color = PrimaryDark,
     darkSecondaryColor: androidx.compose.ui.graphics.Color = SecondaryDark,
@@ -134,6 +136,7 @@ fun OMediaPlayerTheme(
     CompositionLocalProvider(
         LocalTextTruncationMode provides textTruncationMode,
         LocalSavePositionOnQuit provides savePositionOnQuit,
+        LocalShowHistoryDate provides showHistoryDate,
         LocalPlaybackProgress provides playbackProgressMap
     ) {
         MaterialTheme(

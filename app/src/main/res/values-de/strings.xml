@@ -237,6 +237,8 @@ Lizenziert unter GNU GPL v3.0</string>
     <string name="setting_player_orientation_sub">Standardmäßiges Rotationsverhalten für den Mediaplayer</string>
     <string name="setting_show_history_tab">Verlaufs-Tab</string>
     <string name="setting_show_history_tab_sub">Verlaufs-Tab in der Medienbibliothek anzeigen</string>
+    <string name="setting_show_history_date">Wiedergabedatum im Verlauf</string>
+    <string name="setting_show_history_date_sub">Datum und Uhrzeit der letzten Wiedergabe für jedes Medium anzeigen</string>
     <string name="setting_show_recent_history">Letzter Verlauf auf Startseite</string>
     <string name="setting_show_recent_history_sub">Wiedergabeverlauf-Karussell auf dem Hauptbildschirm anzeigen</string>
     <string name="setting_seek_increment">Sprungintervall beim Spulen</string>

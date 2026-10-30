@@ -135,6 +135,12 @@ class PlaybackConnection @Inject constructor(
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
+                        val mode = _repeatMode.value
+                        if (mode.targetRepeats > 0 && repetitionCounter >= mode.targetRepeats) {
+                            _repeatMode.value = PlayerRepeatMode.OFF
+                            controller.repeatMode = Player.REPEAT_MODE_OFF
+                            repetitionCounter = 0
+                        }
                         val currentUri = _currentMediaItem.value?.localConfiguration?.uri?.toString()
                         if (currentUri != null) {
                             val dur = controller.duration.coerceAtLeast(0L)
@@ -192,6 +198,15 @@ class PlaybackConnection @Inject constructor(
                 if (repetitionCounter >= mode.targetRepeats) {
                     controller.repeatMode = Player.REPEAT_MODE_OFF
                 }
+            } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                if (repetitionCounter >= mode.targetRepeats) {
+                    _repeatMode.value = PlayerRepeatMode.OFF
+                    controller.repeatMode = Player.REPEAT_MODE_OFF
+                    repetitionCounter = 0
+                } else {
+                    repetitionCounter = 0
+                    controller.repeatMode = Player.REPEAT_MODE_ONE
+                }
             } else {
                 repetitionCounter = 0
                 controller.repeatMode = Player.REPEAT_MODE_ONE
@@ -213,9 +228,19 @@ class PlaybackConnection @Inject constructor(
         repetitionCounter = 0
         val controller = _mediaController.value ?: return
         applyExoRepeatMode(controller, mode)
+        if (mode.isActive && controller.playbackState == Player.STATE_ENDED) {
+            controller.seekTo(0L)
+            controller.play()
+        }
     }
 
-    fun play() = _mediaController.value?.play()
+    fun play() {
+        val controller = _mediaController.value ?: return
+        if (controller.playbackState == Player.STATE_ENDED) {
+            controller.seekTo(0L)
+        }
+        controller.play()
+    }
     fun pause() = _mediaController.value?.pause()
     fun stop() = _mediaController.value?.stop()
 
