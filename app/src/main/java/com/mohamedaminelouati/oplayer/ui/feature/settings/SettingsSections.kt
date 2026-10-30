@@ -58,10 +58,48 @@ import kotlin.math.round
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun segmentedItemShape(index: Int, count: Int): androidx.compose.ui.graphics.Shape {
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val adjustedIndex = if (isRtl) count - 1 - index else index
-    return SegmentedButtonDefaults.itemShape(index = adjustedIndex, count = count)
+fun SettingsSegmentedRow(
+    modifier: Modifier = Modifier,
+    content: @Composable SingleChoiceSegmentedButtonRowScope.() -> Unit
+) {
+    SingleChoiceSegmentedButtonRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        content = content
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SingleChoiceSegmentedButtonRowScope.SettingsSegmentedButton(
+    selected: Boolean,
+    onClick: () -> Unit,
+    index: Int,
+    count: Int,
+    label: String,
+    modifier: Modifier = Modifier,
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.labelMedium
+) {
+    SegmentedButton(
+        modifier = modifier
+            .weight(1f)
+            .fillMaxHeight(),
+        selected = selected,
+        onClick = onClick,
+        shape = SegmentedButtonDefaults.itemShape(index = index, count = count),
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+        icon = {},
+        label = {
+            Text(
+                text = label,
+                style = textStyle,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    )
 }
 
 @Composable
@@ -134,20 +172,19 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
                 icon = Icons.Default.Palette
             )
             Spacer(modifier = Modifier.height(12.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SettingsSegmentedRow {
                 AppTheme.entries.forEachIndexed { index, theme ->
                     val themeLabel = when (theme) {
                         AppTheme.SYSTEM -> stringResource(R.string.theme_system)
                         AppTheme.LIGHT -> stringResource(R.string.theme_light)
                         AppTheme.DARK -> stringResource(R.string.theme_dark)
                     }
-                    SegmentedButton(
-                        modifier = Modifier.weight(1f),
+                    SettingsSegmentedButton(
                         selected = currentTheme == theme,
                         onClick = { themeViewModel.setTheme(theme) },
-                        shape = segmentedItemShape(index = index, count = AppTheme.entries.size),
-                        icon = {},
-                        label = { Text(themeLabel, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                        index = index,
+                        count = AppTheme.entries.size,
+                        label = themeLabel
                     )
                 }
             }
@@ -200,20 +237,19 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
                 icon = Icons.AutoMirrored.Filled.ShortText
             )
             Spacer(modifier = Modifier.height(12.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SettingsSegmentedRow {
                 val truncationOptions = listOf(
                     TextTruncationMode.TWO_LINES to stringResource(R.string.text_truncation_two),
                     TextTruncationMode.THREE_LINES to stringResource(R.string.text_truncation_three),
                     TextTruncationMode.FULL_NAME to stringResource(R.string.text_truncation_full)
                 )
                 truncationOptions.forEachIndexed { index, (mode, label) ->
-                    SegmentedButton(
-                        modifier = Modifier.weight(1f),
+                    SettingsSegmentedButton(
                         selected = textTruncationMode == mode,
                         onClick = { themeViewModel.setTextTruncationMode(mode) },
-                        shape = segmentedItemShape(index = index, count = truncationOptions.size),
-                        icon = {},
-                        label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                        index = index,
+                        count = truncationOptions.size,
+                        label = label
                     )
                 }
             }
@@ -416,36 +452,20 @@ fun NumeralSystemCard(themeViewModel: ThemeViewModel) {
                 icon = Icons.Default.FormatListNumbered
             )
             Spacer(modifier = Modifier.height(12.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    modifier = Modifier.weight(1f),
-                    shape = segmentedItemShape(index = 0, count = 2),
-                    onClick = { themeViewModel.setUseIndianNumerals(false) },
+            SettingsSegmentedRow {
+                SettingsSegmentedButton(
                     selected = !useIndianNumerals,
-                    icon = {},
-                    label = {
-                        Text(
-                            text = stringResource(R.string.numeral_arabic),
-                            maxLines = 2,
-                            textAlign = TextAlign.Center,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    onClick = { themeViewModel.setUseIndianNumerals(false) },
+                    index = 0,
+                    count = 2,
+                    label = stringResource(R.string.numeral_arabic)
                 )
-                SegmentedButton(
-                    modifier = Modifier.weight(1f),
-                    shape = segmentedItemShape(index = 1, count = 2),
-                    onClick = { themeViewModel.setUseIndianNumerals(true) },
+                SettingsSegmentedButton(
                     selected = useIndianNumerals,
-                    icon = {},
-                    label = {
-                        Text(
-                            text = stringResource(R.string.numeral_indian),
-                            maxLines = 2,
-                            textAlign = TextAlign.Center,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    onClick = { themeViewModel.setUseIndianNumerals(true) },
+                    index = 1,
+                    count = 2,
+                    label = stringResource(R.string.numeral_indian)
                 )
             }
         }
@@ -506,19 +526,18 @@ fun ThemeColorsCard(themeViewModel: ThemeViewModel) {
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SettingsSegmentedRow {
                 val modes = listOf(
                     stringResource(R.string.mode_dark),
                     stringResource(R.string.mode_light)
                 )
                 modes.forEachIndexed { index, title ->
-                    SegmentedButton(
-                        modifier = Modifier.weight(1f),
+                    SettingsSegmentedButton(
                         selected = selectedModeIndex == index,
                         onClick = { selectedModeIndex = index },
-                        shape = segmentedItemShape(index = index, count = modes.size),
-                        icon = {},
-                        label = { Text(title, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                        index = index,
+                        count = modes.size,
+                        label = title
                     )
                 }
             }
@@ -1013,20 +1032,19 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                     icon = Icons.Default.ScreenRotation
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     val options = listOf(
                         stringResource(R.string.orientation_auto),
                         stringResource(R.string.orientation_sensor),
                         stringResource(R.string.orientation_fixed)
                     )
                     options.forEachIndexed { index, option ->
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = playerOrientation == index,
                             onClick = { themeViewModel.setPlayerOrientation(index) },
-                            shape = segmentedItemShape(index = index, count = options.size),
-                            icon = {},
-                            label = { Text(option, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                            index = index,
+                            count = options.size,
+                            label = option
                         )
                     }
                 }
@@ -1258,19 +1276,18 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                     icon = Icons.Default.Speed
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     PlaybackSpeedScope.entries.forEachIndexed { index, scope ->
                         val label = when (scope) {
                             PlaybackSpeedScope.GLOBAL -> stringResource(R.string.speed_scope_global)
                             PlaybackSpeedScope.PER_FOLDER -> stringResource(R.string.speed_scope_per_folder)
                         }
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = speedScope == scope,
                             onClick = { videoViewModel.setSpeedScope(scope) },
-                            shape = segmentedItemShape(index = index, count = PlaybackSpeedScope.entries.size),
-                            icon = {},
-                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                            index = index,
+                            count = PlaybackSpeedScope.entries.size,
+                            label = label
                         )
                     }
                 }
@@ -1285,20 +1302,19 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                     icon = Icons.Default.BrightnessMedium
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     BrightnessScope.entries.forEachIndexed { index, scope ->
                         val label = when (scope) {
                             BrightnessScope.NONE -> stringResource(R.string.brightness_scope_none)
                             BrightnessScope.GLOBAL -> stringResource(R.string.brightness_scope_global)
                             BrightnessScope.PER_FOLDER -> stringResource(R.string.brightness_scope_per_folder)
                         }
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = brightnessScope == scope,
                             onClick = { videoViewModel.setBrightnessScope(scope) },
-                            shape = segmentedItemShape(index = index, count = BrightnessScope.entries.size),
-                            icon = {},
-                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                            index = index,
+                            count = BrightnessScope.entries.size,
+                            label = label
                         )
                     }
                 }
@@ -1314,16 +1330,15 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 val timeoutOptions = listOf(0, 3, 5, 10)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     timeoutOptions.forEachIndexed { index, option ->
                         val label = if (option == 0) stringResource(R.string.controls_manual) else stringResource(R.string.controls_sec, option)
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = controlsTimeout == option,
                             onClick = { themeViewModel.setControlsTimeout(option) },
-                            shape = segmentedItemShape(index = index, count = timeoutOptions.size),
-                            icon = {},
-                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                            index = index,
+                            count = timeoutOptions.size,
+                            label = label
                         )
                     }
                 }
@@ -1339,15 +1354,14 @@ fun SettingsPlaybackSection(themeViewModel: ThemeViewModel, videoViewModel: Vide
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 val seekOptions = listOf(5, 10, 15, 30)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     seekOptions.forEachIndexed { index, option ->
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = seekIncrement == option,
                             onClick = { themeViewModel.setSeekIncrement(option) },
-                            shape = segmentedItemShape(index = index, count = seekOptions.size),
-                            icon = {},
-                            label = { Text(stringResource(R.string.controls_sec, option), maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                            index = index,
+                            count = seekOptions.size,
+                            label = stringResource(R.string.controls_sec, option)
                         )
                     }
                 }
@@ -1443,20 +1457,19 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
                     }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     val modes = listOf(
                         0 to stringResource(R.string.view_mode_list),
                         1 to stringResource(R.string.view_mode_grid),
                         2 to stringResource(R.string.view_mode_card)
                     )
                     modes.forEachIndexed { index, (mode, label) ->
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = defaultViewMode == mode,
                             onClick = { videoViewModel.setDefaultViewMode(mode) },
-                            shape = segmentedItemShape(index = index, count = modes.size),
-                            icon = {},
-                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                            index = index,
+                            count = modes.size,
+                            label = label
                         )
                     }
                 }
@@ -1514,20 +1527,20 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
                     }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SettingsSegmentedRow {
                     val scopes = listOf(
                         SearchScope.CURRENT_FOLDER to stringResource(R.string.search_scope_current_folder),
                         SearchScope.CURRENT_TYPE to stringResource(R.string.search_scope_all_tab),
                         SearchScope.ALL_MEDIA to stringResource(R.string.search_scope_all_media)
                     )
                     scopes.forEachIndexed { index, (scope, label) ->
-                        SegmentedButton(
-                            modifier = Modifier.weight(1f),
+                        SettingsSegmentedButton(
                             selected = defaultSearchScope == scope,
                             onClick = { videoViewModel.setDefaultSearchScope(scope) },
-                            shape = segmentedItemShape(index = index, count = scopes.size),
-                            icon = {},
-                            label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall) }
+                            index = index,
+                            count = scopes.size,
+                            label = label,
+                            textStyle = MaterialTheme.typography.labelSmall
                         )
                     }
                 }

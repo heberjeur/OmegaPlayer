@@ -63,11 +63,16 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
+import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
+import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -433,6 +438,8 @@ fun VideoPlayerScreen(
     var playbackSpeed by remember { mutableFloatStateOf(effectiveSpeed) }
     var isLandscape by rememberSaveable { mutableStateOf(false) }
     var aspectRatio by remember { mutableIntStateOf(0) }
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val truncation = LocalTextTruncationMode.current
 
     var isShuffle by remember { mutableStateOf(mediaController?.shuffleModeEnabled ?: false) }
     var currentMediaIndexState by remember { mutableIntStateOf(mediaController?.currentMediaItemIndex ?: 0) }
@@ -866,7 +873,7 @@ fun VideoPlayerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(isLocked) {
+                .pointerInput(isLocked, isRtl) {
                     if (isLocked) {
                         detectTapGestures(onTap = {
                             isControlsVisible = !isControlsVisible
@@ -886,11 +893,11 @@ fun VideoPlayerScreen(
                                 var hasMovedPastSlop = false
                                 var activeDragType = 0
 
-                                 val isLeftZone = downPos.x < size.width * 0.25f && gestureBrightnessEnabled
-                                val isRightZone = downPos.x > size.width * 0.75f && gestureVolumeEnabled
-                                val canAdjustVertical = (isLeftZone || isRightZone) && downPos.y < limitY && scale <= 1.05f
+                                val isBrightnessZone = if (isRtl) (downPos.x > size.width * 0.75f && gestureBrightnessEnabled) else (downPos.x < size.width * 0.25f && gestureBrightnessEnabled)
+                                val isVolumeZone = if (isRtl) (downPos.x < size.width * 0.25f && gestureVolumeEnabled) else (downPos.x > size.width * 0.75f && gestureVolumeEnabled)
+                                val canAdjustVertical = (isBrightnessZone || isVolumeZone) && downPos.y < limitY && scale <= 1.05f
                                 if (canAdjustVertical) {
-                                    activeDragType = if (isLeftZone) 1 else 2
+                                    activeDragType = if (isBrightnessZone) 1 else 2
                                 }
 
                                 var isLongPressTimedOut = false
@@ -902,7 +909,8 @@ fun VideoPlayerScreen(
                                     }
                                     if (event == null) {
                                         isLongPressTimedOut = true
-                                        if (gestureLongPressSpeedEnabled && scale <= 1.05f && downPos.y < limitY && downPos.x >= size.width * 0.5f) {
+                                        val isFastForwardZone = if (isRtl) (downPos.x <= size.width * 0.5f) else (downPos.x >= size.width * 0.5f)
+                                        if (gestureLongPressSpeedEnabled && scale <= 1.05f && downPos.y < limitY && isFastForwardZone) {
                                             isHoldingLongPress = true
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             val player = mediaController
@@ -1100,11 +1108,13 @@ fun VideoPlayerScreen(
                                         val player = mediaController
                                         if (player != null) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            if (downPos.x < size.width * 0.25f) {
+                                            val isRewindTap = if (isRtl) (downPos.x > size.width * 0.75f) else (downPos.x < size.width * 0.25f)
+                                            val isForwardTap = if (isRtl) (downPos.x < size.width * 0.25f) else (downPos.x > size.width * 0.75f)
+                                            if (isRewindTap) {
                                                 if (gestureSeekBackwardEnabled) {
                                                     performSeek(-1)
                                                 }
-                                            } else if (downPos.x > size.width * 0.75f) {
+                                            } else if (isForwardTap) {
                                                 if (gestureSeekForwardEnabled) {
                                                     performSeek(1)
                                                 }
@@ -1275,7 +1285,9 @@ fun VideoPlayerScreen(
                         .padding(horizontal = if (isLandscape) 24.dp else 8.dp, vertical = 4.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = {
@@ -1293,12 +1305,11 @@ fun VideoPlayerScreen(
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
+                            maxLines = truncation.maxLines,
+                            overflow = truncation.overflow,
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp)
-                                .basicMarquee()
                         )
                         IconButton(onClick = {
                             showQueueSheet = true

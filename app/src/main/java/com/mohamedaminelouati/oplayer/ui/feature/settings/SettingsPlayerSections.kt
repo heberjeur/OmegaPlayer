@@ -253,7 +253,7 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                 icon = Icons.Default.FormatSize
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SettingsSegmentedRow {
                 val sizes = listOf(
                     14 to stringResource(R.string.size_small),
                     18 to stringResource(R.string.size_normal),
@@ -261,13 +261,13 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                     26 to stringResource(R.string.size_extra_large)
                 )
                 sizes.forEachIndexed { index, (size, label) ->
-                    SegmentedButton(
-                        modifier = Modifier.weight(1f),
+                    SettingsSegmentedButton(
                         selected = subtitleTextSize == size,
                         onClick = { videoViewModel.setSubtitleTextSize(size) },
-                        shape = segmentedItemShape(index = index, count = sizes.size),
-                        icon = {},
-                        label = { Text(label, fontSize = 11.sp, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                        index = index,
+                        count = sizes.size,
+                        label = label,
+                        textStyle = MaterialTheme.typography.labelSmall
                     )
                 }
             }
@@ -281,20 +281,19 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                 icon = Icons.Default.FormatColorText
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SettingsSegmentedRow {
                 val colors = listOf(
                     0 to stringResource(R.string.color_white),
                     1 to stringResource(R.string.color_yellow),
                     2 to stringResource(R.string.color_cyan)
                 )
                 colors.forEachIndexed { index, (colorKey, label) ->
-                    SegmentedButton(
-                        modifier = Modifier.weight(1f),
+                    SettingsSegmentedButton(
                         selected = subtitleTextColor == colorKey,
                         onClick = { videoViewModel.setSubtitleTextColor(colorKey) },
-                        shape = segmentedItemShape(index = index, count = colors.size),
-                        icon = {},
-                        label = { Text(label, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                        index = index,
+                        count = colors.size,
+                        label = label
                     )
                 }
             }
@@ -308,20 +307,20 @@ fun SettingsSubtitlesSection(videoViewModel: VideoViewModel) {
                 icon = Icons.Default.FormatPaint
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SettingsSegmentedRow {
                 val backgrounds = listOf(
                     0 to stringResource(R.string.bg_transparent),
                     1 to stringResource(R.string.bg_semi_transparent),
                     2 to stringResource(R.string.bg_black)
                 )
                 backgrounds.forEachIndexed { index, (bgKey, label) ->
-                    SegmentedButton(
-                        modifier = Modifier.weight(1f),
+                    SettingsSegmentedButton(
                         selected = subtitleBgStyle == bgKey,
                         onClick = { videoViewModel.setSubtitleBgStyle(bgKey) },
-                        shape = segmentedItemShape(index = index, count = backgrounds.size),
-                        icon = {},
-                        label = { Text(label, fontSize = 11.sp, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
+                        index = index,
+                        count = backgrounds.size,
+                        label = label,
+                        textStyle = MaterialTheme.typography.labelSmall
                     )
                 }
             }
