@@ -113,11 +113,16 @@ class MainActivity : FragmentActivity() {
                 com.mohamedaminelouati.oplayer.util.LocaleHelper.useIndianNumerals = useIndianNumerals
             }
             val baseActivityContext = androidx.compose.ui.platform.LocalContext.current
-            val localizedContext = remember(appLanguage, useIndianNumerals, baseActivityContext) {
+            val currentSystemConfig = androidx.compose.ui.platform.LocalConfiguration.current
+            val localizedContext = remember(appLanguage, useIndianNumerals, baseActivityContext, currentSystemConfig) {
                 com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedContext(baseActivityContext, appLanguage)
             }
-            val localizedConfiguration = remember(appLanguage, useIndianNumerals, baseActivityContext) {
-                com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedConfiguration(baseActivityContext, appLanguage)
+            val localizedConfiguration = remember(appLanguage, useIndianNumerals, currentSystemConfig) {
+                val locale = com.mohamedaminelouati.oplayer.util.LocaleHelper.getEffectiveLocale(appLanguage)
+                val config = Configuration(currentSystemConfig)
+                config.setLocale(locale)
+                config.setLayoutDirection(locale)
+                config
             }
             val layoutDirection = remember(appLanguage) {
                 com.mohamedaminelouati.oplayer.util.LocaleHelper.getLayoutDirection(appLanguage)

@@ -472,7 +472,7 @@ fun VideoPlayerScreen(
         if (isLocked) {
             Toast.makeText(context, context.getString(R.string.unlock_player_prompt), Toast.LENGTH_SHORT).show()
         } else if (isLandscape) {
-            activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         } else {
             onBack()
         }
@@ -1304,7 +1304,7 @@ fun VideoPlayerScreen(
                     ) {
                         IconButton(onClick = {
                             if (isLandscape) {
-                                activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                             } else {
                                 onBack()
                             }
@@ -1508,7 +1508,7 @@ fun VideoPlayerScreen(
                                     Icon(Icons.Default.LockOpen, contentDescription = stringResource(R.string.action_lock), tint = Color.White)
                                 }
                                 IconButton(onClick = {
-                                    activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                                 }) {
                                     Icon(Icons.Default.FullscreenExit, contentDescription = stringResource(R.string.action_exit_fullscreen), tint = Color.White)
                                 }

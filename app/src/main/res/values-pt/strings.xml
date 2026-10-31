@@ -431,4 +431,15 @@ Licenciado sob GNU GPL v3.0</string>
     <string name="setting_numeral_system_sub">Escolha entre dígitos arábicos ocidentais (0, 1, 2) e índicos (٠, ١, ٢)</string>
     <string name="numeral_arabic">Arábicos (0, 1, 2…)</string>
     <string name="numeral_indian">Índicos (٠, ١, ٢…)</string>
+    <string name="section_app_icon">Ícone do Aplicativo</string>
+    <string name="settings_app_icon_desc">Personalizar o ícone do aplicativo na tela inicial</string>
+    <string name="app_icon_preview_title">Prévia da Tela Inicial</string>
+    <string name="app_icon_default">Padrão (Azul e Laranja)</string>
+    <string name="app_icon_blue">Azul Oceano</string>
+    <string name="app_icon_orange">Laranja Vibrante</string>
+    <string name="app_icon_green">Verde Esmeralda</string>
+    <string name="app_icon_purple">Roxo e Índigo</string>
+    <string name="app_icon_pink">Rosa e Framboesa</string>
+    <string name="app_icon_red">Vermelho Rubi</string>
+    <string name="app_icon_dark">Escuro Elegante</string>
 </resources>

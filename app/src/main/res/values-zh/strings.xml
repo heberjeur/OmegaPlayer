@@ -431,4 +431,15 @@
     <string name="setting_numeral_system_sub">在阿拉伯数字 (0, 1, 2) 和印度-阿拉伯数字 (٠, ١, ٢) 之间选择</string>
     <string name="numeral_arabic">阿拉伯数字 (0, 1, 2…)</string>
     <string name="numeral_indian">印度数字 (٠, ١, ٢…)</string>
+    <string name="section_app_icon">应用图标</string>
+    <string name="settings_app_icon_desc">自定义主屏幕上的应用图标颜色</string>
+    <string name="app_icon_preview_title">主屏幕预览</string>
+    <string name="app_icon_default">默认（蓝橙渐变）</string>
+    <string name="app_icon_blue">海洋蓝</string>
+    <string name="app_icon_orange">活力橙</string>
+    <string name="app_icon_green">翡翠绿</string>
+    <string name="app_icon_purple">紫罗兰</string>
+    <string name="app_icon_pink">莓粉</string>
+    <string name="app_icon_red">红宝石</string>
+    <string name="app_icon_dark">曜石黑</string>
 </resources>

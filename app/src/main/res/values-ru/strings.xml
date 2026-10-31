@@ -431,4 +431,15 @@
     <string name="setting_numeral_system_sub">Выбор между арабскими (0, 1, 2) и индо-арабскими (٠, ١, ٢) цифрами</string>
     <string name="numeral_arabic">Арабские (0, 1, 2…)</string>
     <string name="numeral_indian">Индийские (٠, ١, ٢…)</string>
+    <string name="section_app_icon">Значок приложения</string>
+    <string name="settings_app_icon_desc">Настроить значок приложения на главном экране</string>
+    <string name="app_icon_preview_title">Предпросмотр на главном экране</string>
+    <string name="app_icon_default">По умолчанию (Синий и Оранжевый)</string>
+    <string name="app_icon_blue">Океанский синий</string>
+    <string name="app_icon_orange">Яркий оранжевый</string>
+    <string name="app_icon_green">Изумрудно-зеленый</string>
+    <string name="app_icon_purple">Фиолетовый и индиго</string>
+    <string name="app_icon_pink">Розовый и малиновый</string>
+    <string name="app_icon_red">Рубиново-красный</string>
+    <string name="app_icon_dark">Элегантный темный</string>
 </resources>

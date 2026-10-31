@@ -428,4 +428,15 @@
     <string name="setting_numeral_system_sub">Elegir entre dígitos arábigos occidentales (0, 1, 2) e índicos (٠, ١, ٢)</string>
     <string name="numeral_arabic">Árabes (0, 1, 2…)</string>
     <string name="numeral_indian">Índicos (٠, ١, ٢…)</string>
+    <string name="section_app_icon">Icono de la aplicación</string>
+    <string name="settings_app_icon_desc">Personalizar el icono de la aplicación en la pantalla de inicio</string>
+    <string name="app_icon_preview_title">Vista previa de la pantalla de inicio</string>
+    <string name="app_icon_default">Predeterminado (Azul y Naranja)</string>
+    <string name="app_icon_blue">Azul Océano</string>
+    <string name="app_icon_orange">Naranja Vibrante</string>
+    <string name="app_icon_green">Verde Esmeralda</string>
+    <string name="app_icon_purple">Púrpura e Índigo</string>
+    <string name="app_icon_pink">Rosa y Frambuesa</string>
+    <string name="app_icon_red">Rojo Rubí</string>
+    <string name="app_icon_dark">Oscuro Elegante</string>
 </resources>

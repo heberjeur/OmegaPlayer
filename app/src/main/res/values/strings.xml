@@ -428,4 +428,15 @@
     <string name="setting_numeral_system_sub">Choose between Western Arabic (0, 1, 2) and Indic (٠, ١, ٢) digits</string>
     <string name="numeral_arabic">Arabic (0, 1, 2…)</string>
     <string name="numeral_indian">Indic (٠, ١, ٢…)</string>
+    <string name="section_app_icon">App Icon</string>
+    <string name="settings_app_icon_desc">Customize the application icon on the home screen</string>
+    <string name="app_icon_preview_title">Home Screen Preview</string>
+    <string name="app_icon_default">Default (Blue &amp; Orange)</string>
+    <string name="app_icon_blue">Ocean Blue</string>
+    <string name="app_icon_orange">Vibrant Orange</string>
+    <string name="app_icon_green">Emerald Green</string>
+    <string name="app_icon_purple">Purple &amp; Indigo</string>
+    <string name="app_icon_pink">Pink &amp; Berry</string>
+    <string name="app_icon_red">Ruby Red</string>
+    <string name="app_icon_dark">Elegant Dark</string>
 </resources>

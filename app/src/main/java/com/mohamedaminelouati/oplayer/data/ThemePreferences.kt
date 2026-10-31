@@ -108,6 +108,17 @@ class ThemePreferences(private val context: Context) {
     private val LIGHT_SECONDARY_COLOR_KEY = intPreferencesKey("light_secondary_color")
     private val APP_LANGUAGE_KEY = stringPreferencesKey("app_language")
     private val USE_INDIAN_NUMERALS_KEY = booleanPreferencesKey("use_indian_numerals")
+    private val APP_ICON_KEY = stringPreferencesKey("app_icon_style")
+
+    val appIconStyle: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[APP_ICON_KEY] ?: AppIconStyle.DEFAULT.id
+    }
+
+    suspend fun saveAppIconStyle(styleId: String) {
+        context.dataStore.edit { preferences ->
+            preferences[APP_ICON_KEY] = styleId
+        }
+    }
 
     val appLanguage: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[APP_LANGUAGE_KEY] ?: LocaleHelper.getSavedLanguage(context)

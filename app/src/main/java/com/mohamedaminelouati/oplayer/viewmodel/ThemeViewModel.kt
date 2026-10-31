@@ -1,13 +1,17 @@
 package com.mohamedaminelouati.oplayer.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mohamedaminelouati.oplayer.data.AppIconStyle
 import com.mohamedaminelouati.oplayer.data.AppTheme
 import com.mohamedaminelouati.oplayer.data.TextTruncationMode
 import com.mohamedaminelouati.oplayer.data.ThemePreferences
+import com.mohamedaminelouati.oplayer.util.AppIconManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -100,6 +104,14 @@ class ThemeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = true
     )
+
+    val appIconStyle: StateFlow<AppIconStyle> = themePreferences.appIconStyle
+        .map { AppIconStyle.fromId(it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = AppIconStyle.DEFAULT
+        )
 
     val appLanguage: StateFlow<String> = themePreferences.appLanguage.stateIn(
         scope = viewModelScope,
@@ -200,6 +212,13 @@ class ThemeViewModel @Inject constructor(
     fun resetThemeColors() {
         viewModelScope.launch {
             themePreferences.resetThemeColors()
+        }
+    }
+
+    fun setAppIconStyle(context: Context, style: AppIconStyle) {
+        viewModelScope.launch {
+            themePreferences.saveAppIconStyle(style.id)
+            AppIconManager.setAppIcon(context, style)
         }
     }
 }

@@ -428,4 +428,15 @@
     <string name="setting_numeral_system_sub">الاختيار بين الأرقام العربية (0، 1، 2) والأرقام الهندية (٠، ١، ٢)</string>
     <string name="numeral_arabic">عربية (0، 1، 2)</string>
     <string name="numeral_indian">هندية (٠، ١، ٢)</string>
+    <string name="section_app_icon">أيقونة التطبيق</string>
+    <string name="settings_app_icon_desc">تخصيص أيقونة التطبيق على الشاشة الرئيسية</string>
+    <string name="app_icon_preview_title">معاينة الشاشة الرئيسية</string>
+    <string name="app_icon_default">الافتراضي (أزرق وبرتقالي)</string>
+    <string name="app_icon_blue">أزرق محيطي</string>
+    <string name="app_icon_orange">برتقالي نابض</string>
+    <string name="app_icon_green">أخضر زمردي</string>
+    <string name="app_icon_purple">بنفسجي ونيلي</string>
+    <string name="app_icon_pink">وردي وتوتي</string>
+    <string name="app_icon_red">أحمر ياقوتي</string>
+    <string name="app_icon_dark">داكن أنيق</string>
 </resources>

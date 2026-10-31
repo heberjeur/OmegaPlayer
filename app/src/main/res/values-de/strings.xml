@@ -431,4 +431,15 @@ Lizenziert unter GNU GPL v3.0</string>
     <string name="setting_numeral_system_sub">Wählen Sie zwischen westarabischen (0, 1, 2) und indischen (٠, ١, ٢) Ziffern</string>
     <string name="numeral_arabic">Arabisch (0, 1, 2…)</string>
     <string name="numeral_indian">Indisch (٠, ١, ٢…)</string>
+    <string name="section_app_icon">App-Symbol</string>
+    <string name="settings_app_icon_desc">App-Symbol auf dem Startbildschirm anpassen</string>
+    <string name="app_icon_preview_title">Startbildschirm-Vorschau</string>
+    <string name="app_icon_default">Standard (Blau &amp; Orange)</string>
+    <string name="app_icon_blue">Ozeanblau</string>
+    <string name="app_icon_orange">Lebendiges Orange</string>
+    <string name="app_icon_green">Smaragdgrün</string>
+    <string name="app_icon_purple">Lila &amp; Indigo</string>
+    <string name="app_icon_pink">Rosa &amp; Beere</string>
+    <string name="app_icon_red">Rubinrot</string>
+    <string name="app_icon_dark">Elegantes Dunkel</string>
 </resources>
