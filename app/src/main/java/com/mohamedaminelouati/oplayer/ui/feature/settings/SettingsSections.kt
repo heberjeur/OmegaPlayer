@@ -79,7 +79,7 @@ fun SingleChoiceSegmentedButtonRowScope.SettingsSegmentedButton(
     count: Int,
     label: String,
     modifier: Modifier = Modifier,
-    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.labelMedium
+    textStyle: androidx.compose.ui.text.TextStyle = if (count >= 4) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium
 ) {
     SegmentedButton(
         modifier = modifier
@@ -88,7 +88,7 @@ fun SingleChoiceSegmentedButtonRowScope.SettingsSegmentedButton(
         selected = selected,
         onClick = onClick,
         shape = SegmentedButtonDefaults.itemShape(index = index, count = count),
-        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+        contentPadding = PaddingValues(horizontal = if (count >= 4) 2.dp else 4.dp, vertical = 6.dp),
         icon = {},
         label = {
             Text(
@@ -239,6 +239,7 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
             Spacer(modifier = Modifier.height(12.dp))
             SettingsSegmentedRow {
                 val truncationOptions = listOf(
+                    TextTruncationMode.ONE_LINE to stringResource(R.string.text_truncation_one),
                     TextTruncationMode.TWO_LINES to stringResource(R.string.text_truncation_two),
                     TextTruncationMode.THREE_LINES to stringResource(R.string.text_truncation_three),
                     TextTruncationMode.FULL_NAME to stringResource(R.string.text_truncation_full)

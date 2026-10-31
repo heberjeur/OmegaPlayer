@@ -321,7 +321,8 @@
     <string name="speed_fast_forward_label">Avance rápido 2X</string>
     <string name="speed_fast_rewind_label">Rebobinado 2X</string>
     <string name="setting_text_truncation">Estilo de visualización de nombres</string>
-    <string name="setting_text_truncation_sub">Elige entre 2 líneas, 3 líneas o nombres completos sin truncar</string>
+    <string name="setting_text_truncation_sub">Elige entre 1 línea, 2 líneas, 3 líneas o nombres completos sin truncar</string>
+    <string name="text_truncation_one">1 línea</string>
     <string name="text_truncation_two">2 líneas</string>
     <string name="text_truncation_three">3 líneas</string>
     <string name="text_truncation_full">Nombre completo</string>

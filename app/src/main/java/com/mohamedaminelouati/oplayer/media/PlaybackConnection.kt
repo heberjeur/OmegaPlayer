@@ -115,8 +115,9 @@ class PlaybackConnection @Inject constructor(
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     val previousItem = _currentMediaItem.value
                     val previousUri = previousItem?.localConfiguration?.uri?.toString()
+                    val currentUri = mediaItem?.localConfiguration?.uri?.toString()
                     _currentMediaItem.value = mediaItem
-                    handleMediaItemTransition(reason)
+                    handleMediaItemTransition(previousUri, currentUri, reason)
 
                     scope.launch {
                         val persistedSkipSilence = themePreferences.skipSilenceEnabled.first()
@@ -136,10 +137,20 @@ class PlaybackConnection @Inject constructor(
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
                         val mode = _repeatMode.value
-                        if (mode.targetRepeats > 0 && repetitionCounter >= mode.targetRepeats) {
-                            _repeatMode.value = PlayerRepeatMode.OFF
-                            controller.repeatMode = Player.REPEAT_MODE_OFF
-                            repetitionCounter = 0
+                        if (mode.targetRepeats > 0) {
+                            if (repetitionCounter >= mode.targetRepeats) {
+                                _repeatMode.value = PlayerRepeatMode.OFF
+                                controller.repeatMode = Player.REPEAT_MODE_OFF
+                                repetitionCounter = 0
+                            } else {
+                                repetitionCounter++
+                                if (repetitionCounter >= mode.targetRepeats) {
+                                    controller.repeatMode = Player.REPEAT_MODE_OFF
+                                }
+                                controller.seekTo(0L)
+                                controller.play()
+                                return
+                            }
                         }
                         val currentUri = _currentMediaItem.value?.localConfiguration?.uri?.toString()
                         if (currentUri != null) {
@@ -189,16 +200,18 @@ class PlaybackConnection @Inject constructor(
         }
     }
 
-    private fun handleMediaItemTransition(reason: Int) {
+    private fun handleMediaItemTransition(previousUri: String?, currentUri: String?, reason: Int) {
         val controller = _mediaController.value ?: return
         val mode = _repeatMode.value
         if (mode == PlayerRepeatMode.ONE || mode == PlayerRepeatMode.TWO || mode == PlayerRepeatMode.THREE) {
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+            val isRepeat = (previousUri != null && currentUri != null && previousUri == currentUri) ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+            if (isRepeat) {
                 repetitionCounter++
                 if (repetitionCounter >= mode.targetRepeats) {
                     controller.repeatMode = Player.REPEAT_MODE_OFF
                 }
-            } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            } else {
                 if (repetitionCounter >= mode.targetRepeats) {
                     _repeatMode.value = PlayerRepeatMode.OFF
                     controller.repeatMode = Player.REPEAT_MODE_OFF
@@ -207,9 +220,6 @@ class PlaybackConnection @Inject constructor(
                     repetitionCounter = 0
                     controller.repeatMode = Player.REPEAT_MODE_ONE
                 }
-            } else {
-                repetitionCounter = 0
-                controller.repeatMode = Player.REPEAT_MODE_ONE
             }
         } else if (mode == PlayerRepeatMode.ALL) {
             controller.repeatMode = Player.REPEAT_MODE_ALL
@@ -512,6 +522,9 @@ class PlaybackConnection @Inject constructor(
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         val clickedMediaId = mediaItems[safeIndex].mediaId
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            if (controller.playbackState == Player.STATE_ENDED) {
+                controller.seekTo(0L)
+            }
             controller.playWhenReady = true
             controller.play()
             return
@@ -600,6 +613,9 @@ class PlaybackConnection @Inject constructor(
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         val clickedMediaId = mediaItems[safeIndex].mediaId
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            if (controller.playbackState == Player.STATE_ENDED) {
+                controller.seekTo(0L)
+            }
             controller.playWhenReady = true
             controller.play()
             return
@@ -658,6 +674,9 @@ class PlaybackConnection @Inject constructor(
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         val clickedMediaId = mediaItems[safeIndex].mediaId
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            if (controller.playbackState == Player.STATE_ENDED) {
+                controller.seekTo(0L)
+            }
             controller.playWhenReady = true
             controller.play()
             return
@@ -718,6 +737,9 @@ class PlaybackConnection @Inject constructor(
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         val clickedMediaId = mediaItems[safeIndex].mediaId
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            if (controller.playbackState == Player.STATE_ENDED) {
+                controller.seekTo(0L)
+            }
             controller.playWhenReady = true
             controller.play()
             return
@@ -796,6 +818,9 @@ class PlaybackConnection @Inject constructor(
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
         val clickedMediaId = mediaItems[safeIndex].mediaId
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
+            if (controller.playbackState == Player.STATE_ENDED) {
+                controller.seekTo(0L)
+            }
             controller.playWhenReady = true
             controller.play()
             return

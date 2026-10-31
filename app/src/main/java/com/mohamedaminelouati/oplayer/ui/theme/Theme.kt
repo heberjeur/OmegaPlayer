@@ -23,6 +23,7 @@ import com.mohamedaminelouati.oplayer.data.TextTruncationMode
 
 val TextTruncationMode.maxLines: Int
     get() = when (this) {
+        TextTruncationMode.ONE_LINE -> 1
         TextTruncationMode.TWO_LINES -> 2
         TextTruncationMode.THREE_LINES -> 3
         TextTruncationMode.FULL_NAME -> Int.MAX_VALUE
@@ -30,6 +31,7 @@ val TextTruncationMode.maxLines: Int
 
 val TextTruncationMode.overflow: TextOverflow
     get() = when (this) {
+        TextTruncationMode.ONE_LINE,
         TextTruncationMode.TWO_LINES,
         TextTruncationMode.THREE_LINES -> TextOverflow.Ellipsis
         TextTruncationMode.FULL_NAME -> TextOverflow.Clip

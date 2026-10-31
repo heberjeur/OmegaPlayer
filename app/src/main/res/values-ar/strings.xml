@@ -321,7 +321,8 @@
     <string name="speed_fast_forward_label">تقديم سريع 2X</string>
     <string name="speed_fast_rewind_label">ترجيع 2X</string>
     <string name="setting_text_truncation">نمط عرض الأسماء</string>
-    <string name="setting_text_truncation_sub">اختر بين سطرين أو 3 أسطر أو الأسماء الكاملة دون اقتطاع</string>
+    <string name="setting_text_truncation_sub">اختر بين سطر واحد أو سطرين أو 3 أسطر أو الاسم الكامل دون اقتطاع</string>
+    <string name="text_truncation_one">سطر واحد</string>
     <string name="text_truncation_two">سطران</string>
     <string name="text_truncation_three">3 أسطر</string>
     <string name="text_truncation_full">الاسم الكامل</string>

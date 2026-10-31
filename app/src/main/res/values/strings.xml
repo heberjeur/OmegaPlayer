@@ -321,7 +321,8 @@
     <string name="speed_fast_forward_label">2X Fast Forward</string>
     <string name="speed_fast_rewind_label">2X Rewind</string>
     <string name="setting_text_truncation">Name Display Style</string>
-    <string name="setting_text_truncation_sub">Choose between 2 lines, 3 lines, or full names without truncation</string>
+    <string name="setting_text_truncation_sub">Choose between 1 line, 2 lines, 3 lines, or full names without truncation</string>
+    <string name="text_truncation_one">1 Line</string>
     <string name="text_truncation_two">2 Lines</string>
     <string name="text_truncation_three">3 Lines</string>
     <string name="text_truncation_full">Full Name</string>

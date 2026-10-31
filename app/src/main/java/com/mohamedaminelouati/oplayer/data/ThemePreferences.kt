@@ -27,7 +27,7 @@ enum class BrightnessScope {
 }
 
 enum class TextTruncationMode {
-    TWO_LINES, THREE_LINES, FULL_NAME
+    ONE_LINE, TWO_LINES, THREE_LINES, FULL_NAME
 }
 
 enum class SecurityLockType {
