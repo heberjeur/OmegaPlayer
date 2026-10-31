@@ -37,6 +37,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.mohamedaminelouati.oplayer.data.ThemePreferences
 
@@ -49,6 +50,9 @@ class PlaybackService : MediaSessionService() {
     
     @Inject
     lateinit var themePreferences: ThemePreferences
+
+    @Inject
+    lateinit var playbackRepository: com.mohamedaminelouati.oplayer.data.repository.PlaybackRepository
 
     override fun attachBaseContext(newBase: android.content.Context) {
         val lang = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedLanguage(newBase)
@@ -132,6 +136,7 @@ class PlaybackService : MediaSessionService() {
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED && closeAfterQueueEnds) {
+                    saveCurrentPlayback(player)
                     player.stop()
                     player.clearMediaItems()
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -240,6 +245,7 @@ class PlaybackService : MediaSessionService() {
                         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                     }
                     ACTION_CLOSE -> {
+                        saveCurrentPlayback(player)
                         player.stop()
                         player.clearMediaItems()
                         stopSelf()
@@ -384,13 +390,53 @@ class PlaybackService : MediaSessionService() {
         return mediaSession
     }
 
+    private fun saveCurrentPlayback(player: Player) {
+        val currentItem = player.currentMediaItem ?: return
+        val currentUri = currentItem.localConfiguration?.uri?.toString() ?: currentItem.mediaId ?: return
+        val position = player.currentPosition.coerceAtLeast(0L)
+        val duration = player.duration.coerceAtLeast(0L)
+        try {
+            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                if (themePreferences.isHistoryPaused.first()) return@runBlocking
+                val existing = playbackRepository.getRecentPlayback(currentUri)
+                val rawTitle = currentItem.mediaMetadata.title?.toString()
+                val rawArtist = currentItem.mediaMetadata.artist?.toString()
+                val resolvedName = com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(rawTitle, currentUri, this@PlaybackService)
+                val isVideo = currentItem.mediaMetadata.mediaType == androidx.media3.common.MediaMetadata.MEDIA_TYPE_VIDEO ||
+                        (currentItem.localConfiguration?.mimeType?.startsWith("video/") == true)
+                val record = existing?.copy(
+                    position = position,
+                    duration = if (duration > 0L) duration else existing.duration,
+                    lastPlayed = System.currentTimeMillis(),
+                    name = resolvedName
+                ) ?: com.mohamedaminelouati.oplayer.data.RecentPlayback(
+                    uri = currentUri,
+                    position = position,
+                    duration = duration,
+                    lastPlayed = System.currentTimeMillis(),
+                    mediaType = if (isVideo) "video" else "audio",
+                    name = resolvedName,
+                    artist = rawArtist,
+                    size = 0L
+                )
+                playbackRepository.saveRecentPlayback(record)
+            }
+        } catch (_: Exception) {}
+    }
+
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        mediaSession?.player?.pause()
+        mediaSession?.player?.let { player ->
+            saveCurrentPlayback(player)
+            player.pause()
+        }
         stopSelf()
     }
 
     override fun onDestroy() {
+        mediaSession?.player?.let { player ->
+            saveCurrentPlayback(player)
+        }
         serviceScope.cancel()
         mediaSession?.run {
             player.release()

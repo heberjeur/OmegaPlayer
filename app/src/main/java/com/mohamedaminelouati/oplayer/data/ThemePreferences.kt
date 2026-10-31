@@ -470,7 +470,11 @@ class ThemePreferences(private val context: Context) {
     }
 
     fun getFolderSortOrder(folderKey: String, defaultSort: String? = null): Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[stringPreferencesKey("sort_order_$folderKey")] ?: preferences[DEFAULT_SORT_ORDER_KEY] ?: defaultSort ?: "DATE_DESC"
+        if (folderKey == "tab_history" || folderKey.startsWith("history")) {
+            preferences[stringPreferencesKey("sort_order_$folderKey")] ?: defaultSort ?: "DATE_DESC"
+        } else {
+            preferences[stringPreferencesKey("sort_order_$folderKey")] ?: preferences[DEFAULT_SORT_ORDER_KEY] ?: defaultSort ?: "DATE_DESC"
+        }
     }
 
     suspend fun saveFolderSortOrder(folderKey: String, sortOrder: String) {

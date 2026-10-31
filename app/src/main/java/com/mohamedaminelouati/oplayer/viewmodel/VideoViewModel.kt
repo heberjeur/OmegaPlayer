@@ -605,27 +605,33 @@ class VideoViewModel @Inject constructor(
     fun savePlaybackProgress() {
         val player = playbackConnection.mediaController.value ?: return
         val mediaItem = player.currentMediaItem ?: return
-        val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: return
-        val video = videos.value.find { it.uri.toString() == currentUri } ?: return
+        val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: mediaItem.mediaId ?: return
+        val video = videos.value.find { it.uri.toString() == currentUri }
         
-        val position = player.currentPosition
-        val duration = player.duration
-        val name = video.name
+        val position = player.currentPosition.coerceAtLeast(0L)
+        val duration = if (player.duration > 0L) player.duration else (video?.duration ?: 0L)
+        val rawTitle = video?.name ?: mediaItem.mediaMetadata.title?.toString()
+        val name = com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(rawTitle, currentUri, getApplication())
 
-        viewModelScope.launch {
-            if (!themePreferences.savePositionOnQuit.first()) return@launch
+        viewModelScope.launch(Dispatchers.IO) {
             if (themePreferences.isHistoryPaused.first()) return@launch
 
-            playbackRepository.saveRecentPlayback(
-                RecentPlayback(
-                    uri = currentUri,
-                    position = position,
-                    duration = duration,
-                    mediaType = "video",
-                    name = name,
-                    size = video.size
-                )
+            val existing = playbackRepository.getRecentPlayback(currentUri)
+            val record = existing?.copy(
+                position = position,
+                duration = if (duration > 0L) duration else existing.duration,
+                lastPlayed = System.currentTimeMillis(),
+                name = name
+            ) ?: RecentPlayback(
+                uri = currentUri,
+                position = position,
+                duration = duration,
+                lastPlayed = System.currentTimeMillis(),
+                mediaType = "video",
+                name = name,
+                size = video?.size ?: 0L
             )
+            playbackRepository.saveRecentPlayback(record)
         }
     }
 
@@ -819,7 +825,10 @@ class VideoViewModel @Inject constructor(
         audios: List<AudioModel>,
         audiosByUri: Map<String, AudioModel>? = null
     ) {
-        playbackConnection.playHistory(historyItems, startIndex, videos, audios, audiosByUri = audiosByUri)
+        viewModelScope.launch {
+            val savePosition = themePreferences.savePositionOnQuit.first()
+            playbackConnection.playHistory(historyItems, startIndex, videos, audios, audiosByUri = audiosByUri, resumePosition = savePosition)
+        }
     }
 
     fun setFolderQueue(folderVideos: List<VideoModel>) {

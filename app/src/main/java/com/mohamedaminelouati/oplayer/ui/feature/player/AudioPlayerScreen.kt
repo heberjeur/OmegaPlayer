@@ -637,9 +637,7 @@ fun AudioPlayerScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            if (savePositionOnQuit) {
-                viewModel.savePlaybackProgress()
-            }
+            viewModel.savePlaybackProgress()
         }
     }
 

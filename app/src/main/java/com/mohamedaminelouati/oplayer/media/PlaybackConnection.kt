@@ -106,16 +106,23 @@ class PlaybackConnection @Inject constructor(
                     _isPlaying.value = isPlaying
                     if (isPlaying) {
                         startProgressUpdates()
+                        saveCurrentProgress()
                     } else {
                         stopProgressUpdates()
                         saveCurrentProgress()
                     }
                 }
 
+                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                    if (!playWhenReady) {
+                        saveCurrentProgress()
+                    }
+                }
+
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     val previousItem = _currentMediaItem.value
-                    val previousUri = previousItem?.localConfiguration?.uri?.toString()
-                    val currentUri = mediaItem?.localConfiguration?.uri?.toString()
+                    val previousUri = previousItem?.localConfiguration?.uri?.toString() ?: previousItem?.mediaId
+                    val currentUri = mediaItem?.localConfiguration?.uri?.toString() ?: mediaItem?.mediaId
                     _currentMediaItem.value = mediaItem
                     handleMediaItemTransition(previousUri, currentUri, reason)
 
@@ -126,16 +133,35 @@ class PlaybackConnection @Inject constructor(
                         }
                     }
 
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && previousUri != null) {
+                    if (previousUri != null) {
                         val queueItem = _currentQueue.value.find { it.uri == previousUri }
-                        val dur = queueItem?.duration ?: 0L
-                        _livePlaybackProgress.value = _livePlaybackProgress.value + (previousUri to 1.0f)
-                        saveCompletedItem(previousUri, dur, queueItem)
+                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                            val dur = queueItem?.duration ?: 0L
+                            _livePlaybackProgress.value = _livePlaybackProgress.value + (previousUri to 1.0f)
+                            saveCompletedItem(previousUri, dur, queueItem)
+                        } else {
+                            saveCurrentProgress(targetUri = previousUri)
+                        }
+                    }
+
+                    if (currentUri != null) {
+                        val queueItem = _currentQueue.value.find { it.uri == currentUri }
+                        val isVideo = queueItem?.isVideo ?: (mediaItem?.let { MediaUtils.isVideoMediaItem(it) } ?: false)
+                        recordItemStarted(
+                            uri = currentUri,
+                            position = controller.currentPosition.coerceAtLeast(0L),
+                            duration = queueItem?.duration ?: controller.duration.coerceAtLeast(0L),
+                            isVideo = isVideo,
+                            title = queueItem?.title ?: mediaItem?.mediaMetadata?.title?.toString(),
+                            artist = queueItem?.artist ?: mediaItem?.mediaMetadata?.artist?.toString()
+                        )
                     }
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) {
+                    if (playbackState == Player.STATE_READY) {
+                        saveCurrentProgress()
+                    } else if (playbackState == Player.STATE_ENDED) {
                         val mode = _repeatMode.value
                         if (mode.targetRepeats > 0) {
                             if (repetitionCounter >= mode.targetRepeats) {
@@ -152,7 +178,7 @@ class PlaybackConnection @Inject constructor(
                                 return
                             }
                         }
-                        val currentUri = _currentMediaItem.value?.localConfiguration?.uri?.toString()
+                        val currentUri = _currentMediaItem.value?.localConfiguration?.uri?.toString() ?: _currentMediaItem.value?.mediaId
                         if (currentUri != null) {
                             val dur = controller.duration.coerceAtLeast(0L)
                             val queueItem = _currentQueue.value.find { it.uri == currentUri }
@@ -297,6 +323,7 @@ class PlaybackConnection @Inject constructor(
                 val controller = _mediaController.value
                 if (controller != null && controller.isPlaying) {
                     val uri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
+                        ?: controller.currentMediaItem?.mediaId
                     val duration = controller.duration
                     val position = controller.currentPosition
                     if (uri != null && duration > 0L) {
@@ -304,7 +331,7 @@ class PlaybackConnection @Inject constructor(
                         _livePlaybackProgress.value = _livePlaybackProgress.value + (uri to progress)
                     }
                     tickCounter++
-                    if (tickCounter >= 10) {
+                    if (tickCounter >= 6) {
                         tickCounter = 0
                         saveCurrentProgress()
                     }
@@ -319,73 +346,111 @@ class PlaybackConnection @Inject constructor(
         progressJob = null
     }
 
-    private fun saveCurrentProgress(targetUri: String? = null, overridePosition: Long? = null) {
+    fun recordItemStarted(
+        uri: String,
+        position: Long = 0L,
+        duration: Long = 0L,
+        isVideo: Boolean = false,
+        title: String? = null,
+        artist: String? = null,
+        size: Long = 0L
+    ) {
+        scope.launch(Dispatchers.IO) {
+            if (themePreferences.isHistoryPaused.first()) return@launch
+            val existing = playbackRepository.getRecentPlayback(uri)
+            val queueItem = _currentQueue.value.find { it.uri == uri }
+            val finalDuration = if (duration > 0L) duration else (queueItem?.duration ?: existing?.duration ?: 0L)
+            val finalPos = if (position > 0L) position else (existing?.position ?: 0L)
+            val resolvedIsVideo = if (isVideo) true else (queueItem?.isVideo ?: (existing?.mediaType == "video"))
+            val rawTitle = title ?: queueItem?.title ?: existing?.name
+            val resolvedName = MediaUtils.resolveMediaTitle(rawTitle, uri, context)
+            val finalArtist = artist ?: queueItem?.artist ?: existing?.artist
+            val finalSize = if (size > 0L) size else (existing?.size ?: 0L)
+
+            val recordToSave = existing?.copy(
+                position = finalPos,
+                duration = finalDuration,
+                lastPlayed = System.currentTimeMillis(),
+                name = resolvedName
+            ) ?: RecentPlayback(
+                uri = uri,
+                position = finalPos,
+                duration = finalDuration,
+                lastPlayed = System.currentTimeMillis(),
+                mediaType = if (resolvedIsVideo) "video" else "audio",
+                name = resolvedName,
+                artist = finalArtist,
+                size = finalSize
+            )
+            playbackRepository.saveRecentPlayback(recordToSave)
+        }
+    }
+
+    fun saveCurrentProgress(targetUri: String? = null, overridePosition: Long? = null) {
         val controller = _mediaController.value ?: return
-        val currentItem = controller.currentMediaItem ?: return
-        val currentUri = targetUri ?: currentItem.localConfiguration?.uri?.toString() ?: return
+        val currentItem = controller.currentMediaItem
+        val currentUri = targetUri ?: currentItem?.localConfiguration?.uri?.toString() ?: currentItem?.mediaId ?: return
         val duration = controller.duration
         val position = overridePosition ?: controller.currentPosition
-        if (duration <= 0L) return
 
         scope.launch(Dispatchers.IO) {
-            if (!themePreferences.savePositionOnQuit.first()) return@launch
             if (themePreferences.isHistoryPaused.first()) return@launch
 
             val queueItem = _currentQueue.value.find { it.uri == currentUri }
             val existing = playbackRepository.getRecentPlayback(currentUri)
+            val finalDuration = if (duration > 0L) duration else (queueItem?.duration ?: existing?.duration ?: 0L)
+            val finalPosition = position.coerceAtLeast(0L)
+            val isVideo = queueItem?.isVideo ?: (existing?.mediaType == "video") ?: (currentItem?.let { MediaUtils.isVideoMediaItem(it) } ?: false)
+            val rawTitle = queueItem?.title ?: existing?.name ?: currentItem?.mediaMetadata?.title?.toString()
+            val resolvedName = MediaUtils.resolveMediaTitle(rawTitle, currentUri, context)
+            val finalArtist = queueItem?.artist ?: existing?.artist ?: currentItem?.mediaMetadata?.artist?.toString()
 
-            val recordToSave = when {
-                existing != null -> existing.copy(
-                    position = position,
-                    duration = if (duration > 0L) duration else existing.duration,
-                    lastPlayed = System.currentTimeMillis()
-                )
-                queueItem != null -> RecentPlayback(
-                    uri = currentUri,
-                    position = position,
-                    duration = if (duration > 0L) duration else queueItem.duration,
-                    lastPlayed = System.currentTimeMillis(),
-                    mediaType = if (queueItem.isVideo) "video" else "audio",
-                    name = queueItem.title,
-                    artist = queueItem.artist,
-                    size = 0L
-                )
-                else -> null
-            }
-            if (recordToSave != null) {
-                playbackRepository.saveRecentPlayback(recordToSave)
-            }
+            val recordToSave = existing?.copy(
+                position = finalPosition,
+                duration = finalDuration,
+                lastPlayed = System.currentTimeMillis(),
+                name = resolvedName
+            ) ?: RecentPlayback(
+                uri = currentUri,
+                position = finalPosition,
+                duration = finalDuration,
+                lastPlayed = System.currentTimeMillis(),
+                mediaType = if (isVideo) "video" else "audio",
+                name = resolvedName,
+                artist = finalArtist,
+                size = existing?.size ?: 0L
+            )
+            playbackRepository.saveRecentPlayback(recordToSave)
         }
     }
 
     private fun saveCompletedItem(uri: String, duration: Long, queueItem: PlaybackQueueItem?) {
         scope.launch(Dispatchers.IO) {
-            if (!themePreferences.savePositionOnQuit.first()) return@launch
             if (themePreferences.isHistoryPaused.first()) return@launch
 
             val existing = playbackRepository.getRecentPlayback(uri)
-            val finalDuration = if (duration > 0L) duration else (existing?.duration ?: 0L)
-            val recordToSave = when {
-                existing != null -> existing.copy(
-                    position = finalDuration,
-                    duration = finalDuration,
-                    lastPlayed = System.currentTimeMillis()
-                )
-                queueItem != null -> RecentPlayback(
-                    uri = uri,
-                    position = finalDuration,
-                    duration = finalDuration,
-                    lastPlayed = System.currentTimeMillis(),
-                    mediaType = if (queueItem.isVideo) "video" else "audio",
-                    name = queueItem.title,
-                    artist = queueItem.artist,
-                    size = 0L
-                )
-                else -> null
-            }
-            if (recordToSave != null) {
-                playbackRepository.saveRecentPlayback(recordToSave)
-            }
+            val finalDuration = if (duration > 0L) duration else (existing?.duration ?: queueItem?.duration ?: 0L)
+            val isVideo = queueItem?.isVideo ?: (existing?.mediaType == "video")
+            val rawTitle = queueItem?.title ?: existing?.name
+            val resolvedName = MediaUtils.resolveMediaTitle(rawTitle, uri, context)
+            val finalArtist = queueItem?.artist ?: existing?.artist
+
+            val recordToSave = existing?.copy(
+                position = finalDuration,
+                duration = finalDuration,
+                lastPlayed = System.currentTimeMillis(),
+                name = resolvedName
+            ) ?: RecentPlayback(
+                uri = uri,
+                position = finalDuration,
+                duration = finalDuration,
+                lastPlayed = System.currentTimeMillis(),
+                mediaType = if (isVideo) "video" else "audio",
+                name = resolvedName,
+                artist = finalArtist,
+                size = existing?.size ?: 0L
+            )
+            playbackRepository.saveRecentPlayback(recordToSave)
         }
     }
 
@@ -520,6 +585,20 @@ class PlaybackConnection @Inject constructor(
         if (mediaItems.isEmpty()) return
 
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val selectedItem = playlistItems[safeIndex]
+        val isVideo = selectedItem.mediaType == "video"
+        val video = if (isVideo) videoIndex[selectedItem.mediaUri] else null
+        val audio = if (!isVideo) audioIndex[selectedItem.mediaUri] else null
+        recordItemStarted(
+            uri = selectedItem.mediaUri,
+            position = startPositionMs,
+            duration = video?.duration ?: audio?.duration ?: 0L,
+            isVideo = isVideo,
+            title = video?.name ?: audio?.name,
+            artist = audio?.artist,
+            size = video?.size ?: audio?.size ?: 0L
+        )
+
         val clickedMediaId = mediaItems[safeIndex].mediaId
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
             if (controller.playbackState == Player.STATE_ENDED) {
@@ -545,10 +624,11 @@ class PlaybackConnection @Inject constructor(
         startIndex: Int,
         videos: List<com.mohamedaminelouati.oplayer.data.VideoModel>,
         audios: List<com.mohamedaminelouati.oplayer.data.AudioModel>,
-        audiosByUri: Map<String, com.mohamedaminelouati.oplayer.data.AudioModel>? = null
+        audiosByUri: Map<String, com.mohamedaminelouati.oplayer.data.AudioModel>? = null,
+        resumePosition: Boolean = true
     ) {
         if (_mediaController.value == null) {
-            initializeController { playHistory(historyItems, startIndex, videos, audios, audiosByUri) }
+            initializeController { playHistory(historyItems, startIndex, videos, audios, audiosByUri, resumePosition) }
             return
         }
         val controller = _mediaController.value ?: return
@@ -611,7 +691,18 @@ class PlaybackConnection @Inject constructor(
         if (mediaItems.isEmpty()) return
 
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val selectedHistory = historyItems[safeIndex]
         val clickedMediaId = mediaItems[safeIndex].mediaId
+        recordItemStarted(
+            uri = selectedHistory.uri,
+            position = if (resumePosition) selectedHistory.position else 0L,
+            duration = selectedHistory.duration,
+            isVideo = selectedHistory.mediaType == "video",
+            title = selectedHistory.name,
+            artist = selectedHistory.artist,
+            size = selectedHistory.size
+        )
+
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
             if (controller.playbackState == Player.STATE_ENDED) {
                 controller.seekTo(0L)
@@ -621,7 +712,7 @@ class PlaybackConnection @Inject constructor(
             return
         }
 
-        val initialPos = historyItems[safeIndex].position.coerceAtLeast(0L)
+        val initialPos = if (resumePosition) selectedHistory.position.coerceAtLeast(0L) else 0L
         controller.stop()
         controller.clearMediaItems()
         controller.setMediaItems(mediaItems, safeIndex, initialPos)
@@ -672,7 +763,16 @@ class PlaybackConnection @Inject constructor(
                 .build()
         }
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val selectedVideo = videos[safeIndex]
         val clickedMediaId = mediaItems[safeIndex].mediaId
+        recordItemStarted(
+            uri = selectedVideo.uri.toString(),
+            position = startPositionMs,
+            duration = selectedVideo.duration,
+            isVideo = true,
+            title = selectedVideo.name,
+            size = selectedVideo.size
+        )
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
             if (controller.playbackState == Player.STATE_ENDED) {
                 controller.seekTo(0L)
@@ -735,7 +835,17 @@ class PlaybackConnection @Inject constructor(
                 .build()
         }
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val selectedAudio = audios[safeIndex]
         val clickedMediaId = mediaItems[safeIndex].mediaId
+        recordItemStarted(
+            uri = selectedAudio.uri.toString(),
+            position = startPositionMs,
+            duration = selectedAudio.duration,
+            isVideo = false,
+            title = selectedAudio.name,
+            artist = selectedAudio.artist,
+            size = selectedAudio.size
+        )
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
             if (controller.playbackState == Player.STATE_ENDED) {
                 controller.seekTo(0L)
@@ -816,7 +926,18 @@ class PlaybackConnection @Inject constructor(
             }
         }
         val safeIndex = startIndex.coerceIn(0, mediaItems.size - 1)
+        val selectedItem = items[safeIndex]
+        val audio = (selectedItem as? com.mohamedaminelouati.oplayer.data.SearchMediaItem.Audio)?.model
         val clickedMediaId = mediaItems[safeIndex].mediaId
+        recordItemStarted(
+            uri = selectedItem.uri.toString(),
+            position = startPositionMs,
+            duration = selectedItem.duration,
+            isVideo = selectedItem.isVideo,
+            title = selectedItem.name,
+            artist = audio?.artist,
+            size = audio?.size ?: 0L
+        )
         if (controller.currentMediaItem?.mediaId == clickedMediaId) {
             if (controller.playbackState == Player.STATE_ENDED) {
                 controller.seekTo(0L)

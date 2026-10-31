@@ -485,29 +485,36 @@ class AudioViewModel @Inject constructor(
     fun savePlaybackProgress() {
         val controller = playbackConnection.mediaController.value ?: return
         val mediaItem = controller.currentMediaItem ?: return
-        val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: return
-        val audio = audios.value.find { it.uri.toString() == currentUri } ?: return
+        val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: mediaItem.mediaId ?: return
+        val audio = audios.value.find { it.uri.toString() == currentUri }
         
-        val position = controller.currentPosition
-        val duration = controller.duration
-        val name = audio.name
-        val artist = audio.artist
+        val position = controller.currentPosition.coerceAtLeast(0L)
+        val duration = if (controller.duration > 0L) controller.duration else (audio?.duration ?: 0L)
+        val rawTitle = audio?.name ?: mediaItem.mediaMetadata.title?.toString()
+        val name = com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(rawTitle, currentUri, getApplication())
+        val artist = audio?.artist ?: mediaItem.mediaMetadata.artist?.toString()
 
         viewModelScope.launch(Dispatchers.IO) {
-            if (!themePreferences.savePositionOnQuit.first()) return@launch
             if (themePreferences.isHistoryPaused.first()) return@launch
             
-            playbackRepository.saveRecentPlayback(
-                RecentPlayback(
-                    uri = currentUri,
-                    position = position,
-                    duration = duration,
-                    mediaType = "audio",
-                    name = name,
-                    artist = artist,
-                    size = audio.size
-                )
+            val existing = playbackRepository.getRecentPlayback(currentUri)
+            val record = existing?.copy(
+                position = position,
+                duration = if (duration > 0L) duration else existing.duration,
+                lastPlayed = System.currentTimeMillis(),
+                name = name,
+                artist = artist
+            ) ?: RecentPlayback(
+                uri = currentUri,
+                position = position,
+                duration = duration,
+                lastPlayed = System.currentTimeMillis(),
+                mediaType = "audio",
+                name = name,
+                artist = artist,
+                size = audio?.size ?: 0L
             )
+            playbackRepository.saveRecentPlayback(record)
         }
     }
 

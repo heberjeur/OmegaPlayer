@@ -61,6 +61,38 @@ object MediaUtils {
         return !isVideoMediaItem(mediaItem)
     }
 
+    fun resolveMediaTitle(rawTitle: String?, uriStr: String, context: Context? = null): String {
+        val candidate = rawTitle?.trim()
+        if (!candidate.isNullOrEmpty() && candidate != "." && candidate != "..") {
+            return candidate
+        }
+        if (uriStr.isNotBlank()) {
+            try {
+                val uri = Uri.parse(uriStr)
+                if (context != null && uri.scheme == "content") {
+                    val projection = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME)
+                    context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val idx = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                            if (idx >= 0) {
+                                val name = cursor.getString(idx)?.trim()
+                                if (!name.isNullOrEmpty() && name != "." && name != "..") {
+                                    return name
+                                }
+                            }
+                        }
+                    }
+                }
+                val decoded = safeDecodeUri(uriStr)
+                val segment = decoded.substringAfterLast('/').substringBefore('?').trim()
+                if (segment.isNotEmpty() && segment != "." && segment != "..") {
+                    return segment
+                }
+            } catch (_: Exception) {}
+        }
+        return "Media"
+    }
+
     fun safeEncodeUri(uri: String): String {
         var raw = uri
         while ((raw.contains("%3A", ignoreCase = true) || raw.contains("%2F", ignoreCase = true)) && hasOnlyValidEscapes(raw)) {

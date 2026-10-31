@@ -153,7 +153,10 @@ fun DeleteHistoryItemDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(text = stringResource(R.string.delete_media_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) },
-        text = { Text(text = stringResource(R.string.delete_media_from_device_confirm, item.name), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+        text = { 
+            val displayName = com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
+            Text(text = stringResource(R.string.delete_media_from_device_confirm, displayName), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) 
+        },
         confirmButton = {
             Button(onClick = {
                 onDismiss()

@@ -92,6 +92,10 @@ fun RecentPlaybackItem(
                 }
             }
 
+            val context = LocalContext.current
+            val displayName = remember(item.name, item.uri) {
+                com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
+            }
             val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
@@ -101,7 +105,7 @@ fun RecentPlaybackItem(
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = item.name,
+                    text = displayName,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -259,6 +263,10 @@ fun HistoryGridCard(
                 }
             }
 
+            val context = LocalContext.current
+            val displayName = remember(item.name, item.uri) {
+                com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
+            }
             val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
@@ -268,7 +276,7 @@ fun HistoryGridCard(
                     .padding(start = 8.dp, end = if (onDelete != null || onDeleteFromDevice != null) 36.dp else 8.dp, top = 8.dp, bottom = 8.dp)
             ) {
                 Text(
-                    text = item.name,
+                    text = displayName,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
                     modifier = Modifier.fillMaxWidth(),
@@ -556,10 +564,14 @@ fun HistoryItem(
                 }
             }
             
+            val context = LocalContext.current
+            val displayName = remember(item.name, item.uri) {
+                com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
+            }
             val truncation = LocalTextTruncationMode.current
             Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
                 Text(
-                    text = item.name,
+                    text = displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface,

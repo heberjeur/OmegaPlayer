@@ -642,9 +642,7 @@ fun VideoPlayerScreen(
 
             activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-            if (savePositionOnQuit) {
-                viewModel.savePlaybackProgress()
-            }
+            viewModel.savePlaybackProgress()
             
             if (!currentBackgroundPlay.value) {
                 mediaController?.pause()

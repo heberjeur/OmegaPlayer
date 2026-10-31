@@ -179,7 +179,10 @@ fun HomeScreen(
     }.collectAsStateWithLifecycle(initialValue = viewModel.defaultViewMode.value)
 
     val currentSortOrderName by remember(currentContextKey) {
-        viewModel.getFolderSortOrder(currentContextKey)
+        viewModel.getFolderSortOrder(
+            currentContextKey,
+            if (currentContextKey == "tab_history") MediaSortOrder.DATE_DESC.name else null
+        )
     }.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
 
     val currentSortOrder = remember(currentSortOrderName) {
@@ -371,14 +374,16 @@ fun HomeScreen(
 
     val sortedHistory = remember(fullHistory, searchQuery, currentSortOrder) {
         val list = if (searchQuery.isEmpty()) fullHistory
-        else fullHistory.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        else fullHistory.filter {
+            com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(it.name, it.uri).contains(searchQuery, ignoreCase = true)
+        }
         when (currentSortOrder) {
-            MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
-            MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
-            MediaSortOrder.DATE_ASC -> list.sortedBy { it.lastPlayed }
-            MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.lastPlayed }
-            MediaSortOrder.DURATION_DESC, MediaSortOrder.SIZE_DESC -> list.sortedByDescending { it.duration }
-            MediaSortOrder.DURATION_ASC, MediaSortOrder.SIZE_ASC -> list.sortedBy { it.duration }
+            MediaSortOrder.NAME_ASC -> list.sortedWith(compareBy<RecentPlayback> { com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(it.name, it.uri).lowercase() }.thenByDescending { it.lastPlayed })
+            MediaSortOrder.NAME_DESC -> list.sortedWith(compareByDescending<RecentPlayback> { com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(it.name, it.uri).lowercase() }.thenByDescending { it.lastPlayed })
+            MediaSortOrder.DATE_ASC -> list.sortedWith(compareBy<RecentPlayback> { it.lastPlayed }.thenByDescending { it.uri })
+            MediaSortOrder.DATE_DESC -> list.sortedWith(compareByDescending<RecentPlayback> { it.lastPlayed }.thenByDescending { it.uri })
+            MediaSortOrder.DURATION_DESC, MediaSortOrder.SIZE_DESC -> list.sortedWith(compareByDescending<RecentPlayback> { it.duration }.thenByDescending { it.lastPlayed })
+            MediaSortOrder.DURATION_ASC, MediaSortOrder.SIZE_ASC -> list.sortedWith(compareBy<RecentPlayback> { it.duration }.thenByDescending { it.lastPlayed })
         }
     }
 
