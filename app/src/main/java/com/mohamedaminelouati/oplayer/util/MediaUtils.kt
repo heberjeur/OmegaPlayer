@@ -1,9 +1,11 @@
 package com.mohamedaminelouati.oplayer.util
 
+import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.content.ContextWrapper
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
@@ -14,6 +16,15 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import java.io.File
+
+fun Context.findActivity(): Activity? {
+    var current = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}
 
 data class PendingMediaRename(
     val uri: Uri,

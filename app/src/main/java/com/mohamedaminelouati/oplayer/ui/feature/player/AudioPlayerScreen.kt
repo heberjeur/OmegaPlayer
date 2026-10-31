@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import com.mohamedaminelouati.oplayer.util.MediaUtils
+import com.mohamedaminelouati.oplayer.util.findActivity
 import com.mohamedaminelouati.oplayer.viewmodel.AudioViewModel
 import com.mohamedaminelouati.oplayer.media.PlaybackSource
 import java.io.File
@@ -138,7 +139,7 @@ fun AudioPlayerScreen(
     val gesturePlayPauseEnabled by viewModel.gesturePlayPauseEnabled.collectAsStateWithLifecycle(initialValue = true)
     val gestureTapControlsEnabled by viewModel.gestureTapControlsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val seekIncrement by viewModel.seekIncrement.collectAsStateWithLifecycle(initialValue = 10)
-    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    val activity = remember(context) { context.findActivity() }
     val view = LocalView.current
     val isDarkTheme = isSystemInDarkTheme()
 
@@ -191,6 +192,7 @@ fun AudioPlayerScreen(
             windowController?.show(WindowInsetsCompat.Type.systemBars())
             windowController?.isAppearanceLightStatusBars = !isDarkTheme
             windowController?.isAppearanceLightNavigationBars = !isDarkTheme
+            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 

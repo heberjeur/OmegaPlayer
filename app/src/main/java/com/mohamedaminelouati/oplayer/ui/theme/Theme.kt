@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.view.WindowCompat
 import com.mohamedaminelouati.oplayer.data.AppTheme
 import com.mohamedaminelouati.oplayer.data.TextTruncationMode
+import com.mohamedaminelouati.oplayer.util.findActivity
 
 val TextTruncationMode.maxLines: Int
     get() = when (this) {
@@ -152,7 +153,7 @@ fun OMediaPlayerTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = view.context.findActivity()?.window ?: return@SideEffect
             WindowCompat.setDecorFitsSystemWindows(window, false)
             val windowInsetsController = WindowCompat.getInsetsController(window, view)
             windowInsetsController.isAppearanceLightStatusBars = !darkTheme

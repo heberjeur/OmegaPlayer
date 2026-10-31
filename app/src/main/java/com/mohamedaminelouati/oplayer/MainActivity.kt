@@ -42,6 +42,7 @@ import com.mohamedaminelouati.oplayer.viewmodel.ThemeViewModel
 import com.mohamedaminelouati.oplayer.ui.feature.player.AudioPlayerScreen
 import com.mohamedaminelouati.oplayer.media.PlaybackConnection
 import com.mohamedaminelouati.oplayer.ui.common.NowPlayingBar
+import com.mohamedaminelouati.oplayer.util.findActivity
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -406,7 +407,7 @@ fun MainScreen(
     initialTab: com.mohamedaminelouati.oplayer.ui.feature.library.MediaTab? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = context as? android.app.Activity
+    val activity = remember(context) { context.findActivity() }
     val keepScreenOnWhenPaused by videoViewModel.keepScreenOnWhenPaused.collectAsStateWithLifecycle()
     val currentMediaItem by playbackConnection.currentMediaItem.collectAsStateWithLifecycle()
     val isPlaying by playbackConnection.isPlaying.collectAsStateWithLifecycle()

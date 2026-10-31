@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -62,6 +63,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
 import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.util.findActivity
 import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -130,7 +133,7 @@ fun VideoPlayerScreen(
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
-    val activity = context as? Activity
+    val activity = remember(context) { context.findActivity() }
     val hazeState = remember { HazeState() }
     val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager }
     
@@ -437,10 +440,17 @@ fun VideoPlayerScreen(
     }
 
     var playbackSpeed by remember { mutableFloatStateOf(effectiveSpeed) }
-    var isLandscape by rememberSaveable { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var aspectRatio by remember { mutableIntStateOf(0) }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val truncation = LocalTextTruncationMode.current
+
+    LaunchedEffect(playerOrientation) {
+        if (!isLandscape) {
+            activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
 
     var isShuffle by remember { mutableStateOf(mediaController?.shuffleModeEnabled ?: false) }
     var currentMediaIndexState by remember { mutableIntStateOf(mediaController?.currentMediaItemIndex ?: 0) }
@@ -462,8 +472,7 @@ fun VideoPlayerScreen(
         if (isLocked) {
             Toast.makeText(context, context.getString(R.string.unlock_player_prompt), Toast.LENGTH_SHORT).show()
         } else if (isLandscape) {
-            isLandscape = false
-            activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         } else {
             onBack()
         }
@@ -567,7 +576,7 @@ fun VideoPlayerScreen(
                         videoResolution = "${player.videoSize.width}x${player.videoSize.height}"
                     }
                 } else if (state == Player.STATE_ENDED) {
-                    if (currentCloseAfterQueueEnds) {
+                    if (currentCloseAfterQueueEnds && repeatMode == com.mohamedaminelouati.oplayer.media.PlayerRepeatMode.OFF) {
                         currentOnBack()
                     }
                 }
@@ -1295,8 +1304,7 @@ fun VideoPlayerScreen(
                     ) {
                         IconButton(onClick = {
                             if (isLandscape) {
-                                isLandscape = false
-                                activity?.requestedOrientation = if (playerOrientation == 0) ActivityInfo.SCREEN_ORIENTATION_USER else if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                             } else {
                                 onBack()
                             }
@@ -1499,13 +1507,10 @@ fun VideoPlayerScreen(
                                 }) {
                                     Icon(Icons.Default.LockOpen, contentDescription = stringResource(R.string.action_lock), tint = Color.White)
                                 }
-                                if (playerOrientation == 2) {
-                                    IconButton(onClick = {
-                                        isLandscape = false
-                                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                    }) {
-                                        Icon(Icons.Default.FullscreenExit, contentDescription = stringResource(R.string.action_exit_fullscreen), tint = Color.White)
-                                    }
+                                IconButton(onClick = {
+                                    activity?.requestedOrientation = if (playerOrientation == 1) ActivityInfo.SCREEN_ORIENTATION_SENSOR else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                }) {
+                                    Icon(Icons.Default.FullscreenExit, contentDescription = stringResource(R.string.action_exit_fullscreen), tint = Color.White)
                                 }
                             }
                         }
@@ -1585,7 +1590,6 @@ fun VideoPlayerScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(onClick = {
-                                isLandscape = true
                                 activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                             }) {
                                 Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.action_fullscreen), tint = Color.White)

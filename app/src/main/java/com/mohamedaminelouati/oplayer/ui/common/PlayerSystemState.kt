@@ -15,6 +15,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.mohamedaminelouati.oplayer.util.findActivity
 import kotlin.math.round
 
 private const val DEFAULT_MAX_VOLUME = 15
@@ -47,7 +48,7 @@ fun rememberInitialSystemVolume(audioManager: AudioManager?, maxVolume: Int): Fl
 fun rememberInitialSystemBrightness(): Float {
     val context = LocalContext.current
     return remember(context) {
-        val windowBrightness = (context as? Activity)?.window?.attributes?.screenBrightness ?: -1f
+        val windowBrightness = context.findActivity()?.window?.attributes?.screenBrightness ?: -1f
         if (windowBrightness >= MIN_BRIGHTNESS) {
             windowBrightness.coerceIn(MIN_BRIGHTNESS, 1f)
         } else {
@@ -71,7 +72,7 @@ private fun systemVolumeFor(volume: Float, maxVolume: Int): Int =
     round(volume.coerceAtMost(1f) * maxVolume).toInt()
 
 fun setBrightness(context: Context, brightness: Float) {
-    val activity = context as? Activity ?: return
+    val activity = context.findActivity() ?: return
     val layoutParams = activity.window.attributes
     layoutParams.screenBrightness = brightness
     activity.window.attributes = layoutParams

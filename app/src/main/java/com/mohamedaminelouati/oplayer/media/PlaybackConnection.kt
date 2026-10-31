@@ -70,6 +70,7 @@ class PlaybackConnection @Inject constructor(
     }
 
     private var repetitionCounter = 0
+    private var isInternalRepetitionSeek = false
 
     @androidx.annotation.OptIn(UnstableApi::class)
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -120,11 +121,31 @@ class PlaybackConnection @Inject constructor(
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    if (isInternalRepetitionSeek) {
+                        isInternalRepetitionSeek = false
+                        return
+                    }
                     val previousItem = _currentMediaItem.value
                     val previousUri = previousItem?.localConfiguration?.uri?.toString() ?: previousItem?.mediaId
                     val currentUri = mediaItem?.localConfiguration?.uri?.toString() ?: mediaItem?.mediaId
                     _currentMediaItem.value = mediaItem
-                    handleMediaItemTransition(previousUri, currentUri, reason)
+
+                    val mode = _repeatMode.value
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && mode.targetRepeats > 0) {
+                        if (repetitionCounter < mode.targetRepeats) {
+                            repetitionCounter++
+                            isInternalRepetitionSeek = true
+                            controller.seekToPreviousMediaItem()
+                            controller.seekTo(0L)
+                            controller.play()
+                            return
+                        } else {
+                            _repeatMode.value = PlayerRepeatMode.OFF
+                            repetitionCounter = 0
+                        }
+                    } else if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                        repetitionCounter = 0
+                    }
 
                     scope.launch {
                         val persistedSkipSilence = themePreferences.skipSilenceEnabled.first()
@@ -164,18 +185,14 @@ class PlaybackConnection @Inject constructor(
                     } else if (playbackState == Player.STATE_ENDED) {
                         val mode = _repeatMode.value
                         if (mode.targetRepeats > 0) {
-                            if (repetitionCounter >= mode.targetRepeats) {
-                                _repeatMode.value = PlayerRepeatMode.OFF
-                                controller.repeatMode = Player.REPEAT_MODE_OFF
-                                repetitionCounter = 0
-                            } else {
+                            if (repetitionCounter < mode.targetRepeats) {
                                 repetitionCounter++
-                                if (repetitionCounter >= mode.targetRepeats) {
-                                    controller.repeatMode = Player.REPEAT_MODE_OFF
-                                }
                                 controller.seekTo(0L)
                                 controller.play()
                                 return
+                            } else {
+                                _repeatMode.value = PlayerRepeatMode.OFF
+                                repetitionCounter = 0
                             }
                         }
                         val currentUri = _currentMediaItem.value?.localConfiguration?.uri?.toString() ?: _currentMediaItem.value?.mediaId
@@ -218,39 +235,11 @@ class PlaybackConnection @Inject constructor(
 
     private fun applyExoRepeatMode(controller: MediaController, mode: PlayerRepeatMode) {
         when (mode) {
-            PlayerRepeatMode.OFF -> controller.repeatMode = Player.REPEAT_MODE_OFF
+            PlayerRepeatMode.OFF,
             PlayerRepeatMode.ONE,
             PlayerRepeatMode.TWO,
-            PlayerRepeatMode.THREE -> controller.repeatMode = Player.REPEAT_MODE_ONE
+            PlayerRepeatMode.THREE -> controller.repeatMode = Player.REPEAT_MODE_OFF
             PlayerRepeatMode.ALL -> controller.repeatMode = Player.REPEAT_MODE_ALL
-        }
-    }
-
-    private fun handleMediaItemTransition(previousUri: String?, currentUri: String?, reason: Int) {
-        val controller = _mediaController.value ?: return
-        val mode = _repeatMode.value
-        if (mode == PlayerRepeatMode.ONE || mode == PlayerRepeatMode.TWO || mode == PlayerRepeatMode.THREE) {
-            val isRepeat = (previousUri != null && currentUri != null && previousUri == currentUri) ||
-                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
-            if (isRepeat) {
-                repetitionCounter++
-                if (repetitionCounter >= mode.targetRepeats) {
-                    controller.repeatMode = Player.REPEAT_MODE_OFF
-                }
-            } else {
-                if (repetitionCounter >= mode.targetRepeats) {
-                    _repeatMode.value = PlayerRepeatMode.OFF
-                    controller.repeatMode = Player.REPEAT_MODE_OFF
-                    repetitionCounter = 0
-                } else {
-                    repetitionCounter = 0
-                    controller.repeatMode = Player.REPEAT_MODE_ONE
-                }
-            }
-        } else if (mode == PlayerRepeatMode.ALL) {
-            controller.repeatMode = Player.REPEAT_MODE_ALL
-        } else {
-            controller.repeatMode = Player.REPEAT_MODE_OFF
         }
     }
 

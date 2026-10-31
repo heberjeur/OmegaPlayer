@@ -2,6 +2,7 @@ package com.mohamedaminelouati.oplayer.ui.feature.library
 
 import android.Manifest
 import android.app.Activity
+import com.mohamedaminelouati.oplayer.util.findActivity
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -222,7 +223,7 @@ fun HomeScreen(
     }
 
     var showExitConfirmDialog by remember { mutableStateOf(false) }
-    val activity = context as? Activity
+    val activity = remember(context) { context.findActivity() }
     BackHandler(enabled = isFocused) {
         if (selectedKeys.isNotEmpty()) {
             selectedKeys = emptySet()

@@ -9,6 +9,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -17,6 +18,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalContext
 import com.mohamedaminelouati.oplayer.R
 import com.mohamedaminelouati.oplayer.data.SecurityLockType
+import com.mohamedaminelouati.oplayer.util.findActivity
 import com.mohamedaminelouati.oplayer.viewmodel.VideoViewModel
 
 @Composable
@@ -27,7 +29,7 @@ fun AppLockScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = context as? android.app.Activity
+    val activity = remember(context) { context.findActivity() }
     BackHandler {
         activity?.finish()
     }
