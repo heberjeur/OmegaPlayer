@@ -182,11 +182,9 @@ fun ModernOmegaIcon(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(R.drawable.ic_omega_logo),
+            painter = painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(6.dp)
+            modifier = Modifier.fillMaxSize()
         )
     }
 }

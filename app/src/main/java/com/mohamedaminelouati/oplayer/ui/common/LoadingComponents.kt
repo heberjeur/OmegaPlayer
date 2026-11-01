@@ -140,7 +140,7 @@ fun ModernProgressIndicator(modifier: Modifier = Modifier) {
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Image(
-                    painter = painterResource(R.drawable.ic_omega_logo),
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = null,
                     modifier = Modifier.size(36.dp)
                 )

@@ -73,7 +73,7 @@ object AppIconManager {
         val cornerRadius = size * 0.22f
         canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), cornerRadius, cornerRadius, paint)
 
-        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_omega_logo)
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground)
         drawable?.let {
             it.setBounds(0, 0, size, size)
             it.draw(canvas)

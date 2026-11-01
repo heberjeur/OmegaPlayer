@@ -254,11 +254,9 @@ fun SettingsAppearanceSection(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(R.drawable.ic_omega_logo),
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
                             contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(4.dp)
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
                 },
@@ -1743,11 +1741,9 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(R.drawable.ic_omega_logo),
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
