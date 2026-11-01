@@ -398,7 +398,7 @@ Lizenziert unter GNU GPL v3.0</string>
     <string name="settings_excluded_desc">Versteckte und ausgeblendete Ordner</string>
     <string name="settings_notifications_desc">Sperrbildschirm- und Benachrichtigungssteuerung</string>
     <string name="settings_about_desc">Version, Entwickler, Quellcode</string>
-    <string name="theme_colors">Benutzerdefinierte Akzentfarben</string>
+    <string name="theme_colors">Akzentfarben</string>
     <string name="theme_colors_sub">Primär- und Sekundärfarben für Dunkel- und Hellmodus anpassen</string>
     <string name="mode_dark">Dunkelmodus</string>
     <string name="mode_light">Hellmodus</string>
@@ -442,4 +442,12 @@ Lizenziert unter GNU GPL v3.0</string>
     <string name="app_icon_pink">Rosa &amp; Beere</string>
     <string name="app_icon_red">Rubinrot</string>
     <string name="app_icon_dark">Elegantes Dunkel</string>
+    <string name="app_icon_skyblue">Himmelblau</string>
+    <string name="app_icon_amber">Bernsteingold</string>
+    <string name="app_icon_teal">Türkisblau</string>
+    <string name="app_icon_indigo">Tiefes Indigo</string>
+    <string name="app_icon_lime">Limettegrün</string>
+    <string name="app_icon_slate">Schiefergrau</string>
+    <string name="pin_shortcut_home">Zum Startbildschirm hinzufügen</string>
+    <string name="pin_shortcut_success">Verknüpfung auf Startbildschirm erstellt</string>
 </resources>

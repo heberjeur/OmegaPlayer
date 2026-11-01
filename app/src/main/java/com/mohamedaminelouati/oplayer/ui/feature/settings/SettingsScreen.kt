@@ -44,6 +44,7 @@ enum class SettingsPage(
 ) {
     APPEARANCE(R.string.section_appearance, R.string.settings_appearance_desc, Icons.Default.Palette),
     APP_ICON(R.string.section_app_icon, R.string.settings_app_icon_desc, Icons.Default.AppShortcut),
+    LANGUAGE(R.string.setting_language, R.string.setting_language_sub, Icons.Default.Language),
     PLAYBACK(R.string.section_playback, R.string.settings_playback_desc, Icons.Default.PlayCircle),
     PLAYER_HUD(R.string.setting_player_hud, R.string.settings_hud_desc, Icons.Default.Fullscreen),
     GESTURES(R.string.section_gestures, R.string.settings_gestures_desc, Icons.Default.TouchApp),
@@ -64,7 +65,7 @@ data class SearchableSettingItem(
 
 private val allSearchableSettings = listOf(
     SearchableSettingItem(R.string.section_app_icon, R.string.settings_app_icon_desc, SettingsPage.APP_ICON),
-    SearchableSettingItem(R.string.setting_language, R.string.setting_language_sub, SettingsPage.APPEARANCE),
+    SearchableSettingItem(R.string.setting_language, R.string.setting_language_sub, SettingsPage.LANGUAGE),
     SearchableSettingItem(R.string.app_theme, R.string.theme_system, SettingsPage.APPEARANCE),
     SearchableSettingItem(R.string.dynamic_color, R.string.dynamic_color_sub, SettingsPage.APPEARANCE),
     SearchableSettingItem(R.string.theme_colors, R.string.theme_colors_sub, SettingsPage.APPEARANCE),
@@ -323,7 +324,19 @@ fun SettingsScreen(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             ) {
                                 Column {
+                                    val currentLangTag by themeViewModel.appLanguage.collectAsStateWithLifecycle()
                                     SettingsPage.entries.forEachIndexed { index, page ->
+                                        val subtitleText = if (page == SettingsPage.LANGUAGE) {
+                                            val langItem = AppLanguages.firstOrNull { it.tag == currentLangTag } ?: AppLanguages[0]
+                                            if (currentLangTag.isEmpty()) {
+                                                "🌐 " + stringResource(R.string.language_system_default)
+                                            } else {
+                                                stringResource(langItem.nameRes)
+                                            }
+                                        } else {
+                                            stringResource(page.subtitleRes)
+                                        }
+
                                         ListItem(
                                             leadingContent = { SettingIcon(page.icon) },
                                             headlineContent = {
@@ -335,7 +348,7 @@ fun SettingsScreen(
                                             },
                                             supportingContent = {
                                                 Text(
-                                                    stringResource(page.subtitleRes),
+                                                    subtitleText,
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -402,6 +415,7 @@ fun SettingsScreen(
                     when (activeSection) {
                         SettingsPage.APPEARANCE -> SettingsAppearanceSection(themeViewModel)
                         SettingsPage.APP_ICON -> SettingsAppIconSection(themeViewModel)
+                        SettingsPage.LANGUAGE -> SettingsLanguageSection(themeViewModel)
                         SettingsPage.PLAYBACK -> SettingsPlaybackSection(themeViewModel, videoViewModel)
                         SettingsPage.PLAYER_HUD -> SettingsPlayerHudSection(videoViewModel)
                         SettingsPage.GESTURES -> SettingsGesturesSection(videoViewModel)

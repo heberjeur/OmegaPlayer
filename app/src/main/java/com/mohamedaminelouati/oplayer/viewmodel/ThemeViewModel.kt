@@ -105,6 +105,18 @@ class ThemeViewModel @Inject constructor(
         initialValue = true
     )
 
+    val appIconPrimaryColor: StateFlow<Int> = themePreferences.appIconPrimaryColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkPrimaryInt
+    )
+
+    val appIconSecondaryColor: StateFlow<Int> = themePreferences.appIconSecondaryColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkSecondaryInt
+    )
+
     val appIconStyle: StateFlow<AppIconStyle> = themePreferences.appIconStyle
         .map { AppIconStyle.fromId(it) }
         .stateIn(
@@ -220,5 +232,36 @@ class ThemeViewModel @Inject constructor(
             themePreferences.saveAppIconStyle(style.id)
             AppIconManager.setAppIcon(context, style)
         }
+    }
+
+    fun setAppIconPrimaryColor(context: Context, color: Int) {
+        viewModelScope.launch {
+            themePreferences.saveAppIconPrimaryColor(color)
+            val sec = appIconSecondaryColor.value
+            AppIconManager.applyIconForColors(context, color, sec)
+        }
+    }
+
+    fun setAppIconSecondaryColor(context: Context, color: Int) {
+        viewModelScope.launch {
+            themePreferences.saveAppIconSecondaryColor(color)
+            val prim = appIconPrimaryColor.value
+            AppIconManager.applyIconForColors(context, prim, color)
+        }
+    }
+
+    fun resetAppIconColors(context: Context) {
+        viewModelScope.launch {
+            themePreferences.resetAppIconColors()
+            AppIconManager.setAppIcon(context, AppIconStyle.DEFAULT)
+        }
+    }
+
+    fun pinAppIconShortcut(context: Context): Boolean {
+        return AppIconManager.pinCustomShortcut(
+            context,
+            appIconPrimaryColor.value,
+            appIconSecondaryColor.value
+        )
     }
 }

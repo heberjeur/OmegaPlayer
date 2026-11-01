@@ -395,7 +395,7 @@
     <string name="settings_excluded_desc">المجلدات المخفية والمستبعدة</string>
     <string name="settings_notifications_desc">عناصر التحكم في شاشة القفل والإشعارات</string>
     <string name="settings_about_desc">الإصدار، المطور، الكود المصدري</string>
-    <string name="theme_colors">ألوان التمييز المخصصة</string>
+    <string name="theme_colors">ألوان التمييز</string>
     <string name="theme_colors_sub">تخصيص الألوان الأساسية والثانوية للوضعين الداكن والفاتح</string>
     <string name="mode_dark">الوضع الداكن</string>
     <string name="mode_light">الوضع الفاتح</string>
@@ -439,4 +439,12 @@
     <string name="app_icon_pink">وردي وتوتي</string>
     <string name="app_icon_red">أحمر ياقوتي</string>
     <string name="app_icon_dark">داكن أنيق</string>
+    <string name="app_icon_skyblue">أزرق سماوي</string>
+    <string name="app_icon_amber">عنبر ذهبي</string>
+    <string name="app_icon_teal">سماوي تركوازي</string>
+    <string name="app_icon_indigo">نيلي عميق</string>
+    <string name="app_icon_lime">أخضر ليموني</string>
+    <string name="app_icon_slate">رمادي أردوازي</string>
+    <string name="pin_shortcut_home">إضافة اختصار للشاشة الرئيسية</string>
+    <string name="pin_shortcut_success">تمت إضافة الاختصار إلى الشاشة الرئيسية</string>
 </resources>

@@ -139,16 +139,26 @@ fun SettingHeader(
     trailing: @Composable (() -> Unit)? = null
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = if (subtitle.isNullOrBlank()) Alignment.CenterVertically else Alignment.Top,
         modifier = modifier.fillMaxWidth()
     ) {
         SettingIcon(imageVector = icon)
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             if (!subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
+                )
             }
         }
         if (trailing != null) {
@@ -211,16 +221,6 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
                 )
             }
         }
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    AppLanguageCard(themeViewModel = themeViewModel)
-
-    val currentTag by themeViewModel.appLanguage.collectAsState()
-    if (com.mohamedaminelouati.oplayer.util.LocaleHelper.isArabic(currentTag)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        NumeralSystemCard(themeViewModel = themeViewModel)
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -311,29 +311,27 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
     }
 }
 
-private data class LanguageItem(
+data class LanguageItem(
     val tag: String,
     val nameRes: Int,
     val iconRes: Int
 )
 
-private val AppLanguages = listOf(
+val AppLanguages = listOf(
     LanguageItem("", R.string.language_system_default, R.drawable.ic_lang_system),
-    LanguageItem("en", R.string.language_en, R.drawable.ic_flag_en),
-    LanguageItem("fr", R.string.language_fr, R.drawable.ic_flag_fr),
-    LanguageItem("ar", R.string.language_ar, R.drawable.ic_flag_ar),
-    LanguageItem("es", R.string.language_es, R.drawable.ic_flag_es),
-    LanguageItem("pt", R.string.language_pt, R.drawable.ic_flag_pt),
     LanguageItem("de", R.string.language_de, R.drawable.ic_flag_de),
+    LanguageItem("zh", R.string.language_zh, R.drawable.ic_flag_zh),
+    LanguageItem("en", R.string.language_en, R.drawable.ic_flag_en),
+    LanguageItem("es", R.string.language_es, R.drawable.ic_flag_es),
+    LanguageItem("fr", R.string.language_fr, R.drawable.ic_flag_fr),
+    LanguageItem("pt", R.string.language_pt, R.drawable.ic_flag_pt),
     LanguageItem("ru", R.string.language_ru, R.drawable.ic_flag_ru),
-    LanguageItem("zh", R.string.language_zh, R.drawable.ic_flag_zh)
+    LanguageItem("ar", R.string.language_ar, R.drawable.ic_flag_ar)
 )
 
 @Composable
-fun AppLanguageCard(themeViewModel: ThemeViewModel) {
-    var showDialog by remember { mutableStateOf(false) }
+fun SettingsLanguageSection(themeViewModel: ThemeViewModel) {
     val currentTag by themeViewModel.appLanguage.collectAsState()
-    val currentItem = AppLanguages.firstOrNull { it.tag == currentTag } ?: AppLanguages[0]
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -341,102 +339,70 @@ fun AppLanguageCard(themeViewModel: ThemeViewModel) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            SettingHeader(
-                title = stringResource(R.string.setting_language),
-                subtitle = stringResource(R.string.setting_language_sub),
-                icon = Icons.Default.Language
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            ListItem(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { showDialog = true },
-                headlineContent = {
-                    Text(
-                        text = stringResource(currentItem.nameRes),
-                        fontWeight = FontWeight.Medium
+            AppLanguages.forEachIndexed { index, item ->
+                val isSelected = (currentTag == item.tag) || (item.tag.isEmpty() && currentTag.isEmpty())
+                ListItem(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            if (currentTag != item.tag) {
+                                themeViewModel.setAppLanguage(item.tag)
+                                val locales = if (item.tag.isEmpty()) {
+                                    LocaleListCompat.getEmptyLocaleList()
+                                } else {
+                                    LocaleListCompat.forLanguageTags(item.tag)
+                                }
+                                AppCompatDelegate.setApplicationLocales(locales)
+                            }
+                        },
+                    leadingContent = {
+                        Image(
+                            painter = painterResource(item.iconRes),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(width = 30.dp, height = 22.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    },
+                    headlineContent = {
+                        Text(
+                            text = stringResource(item.nameRes),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    trailingContent = {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    },
+                    colors = ListItemDefaults.colors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent
                     )
-                },
-                supportingContent = {
-                    Text(
-                        text = stringResource(R.string.setting_language_sub)
+                )
+
+                if (index < AppLanguages.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                     )
-                },
-                leadingContent = {
-                    Image(
-                        painter = painterResource(currentItem.iconRes),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(width = 30.dp, height = 22.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                },
-                trailingContent = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null
-                    )
-                },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-            )
+                }
+            }
         }
     }
 
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(stringResource(R.string.setting_language)) },
-            text = {
-                Column {
-                    AppLanguages.forEach { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    showDialog = false
-                                    themeViewModel.setAppLanguage(item.tag)
-                                    val locales = if (item.tag.isEmpty()) {
-                                        LocaleListCompat.getEmptyLocaleList()
-                                    } else {
-                                        LocaleListCompat.forLanguageTags(item.tag)
-                                    }
-                                    AppCompatDelegate.setApplicationLocales(locales)
-                                }
-                                .padding(vertical = 10.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = (currentTag == item.tag) || (item.tag.isEmpty() && currentTag.isEmpty()),
-                                onClick = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Image(
-                                painter = painterResource(item.iconRes),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(width = 28.dp, height = 20.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = stringResource(item.nameRes),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            }
-        )
+    if (com.mohamedaminelouati.oplayer.util.LocaleHelper.isArabic(currentTag)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        NumeralSystemCard(themeViewModel = themeViewModel)
     }
 }
 
@@ -1661,7 +1627,24 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
 @Composable
 fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
     val context = LocalContext.current
-    val currentIconStyle by themeViewModel.appIconStyle.collectAsState()
+    val iconPrimary by themeViewModel.appIconPrimaryColor.collectAsState()
+    val iconSecondary by themeViewModel.appIconSecondaryColor.collectAsState()
+    var colorPaletteDialogFor by remember { mutableStateOf<String?>(null) }
+
+    if (colorPaletteDialogFor != null) {
+        val targetColor = if (colorPaletteDialogFor == "primary") iconPrimary else iconSecondary
+        ColorDegreePaletteDialog(
+            initialColor = targetColor,
+            onColorSelected = { colorInt ->
+                if (colorPaletteDialogFor == "primary") {
+                    themeViewModel.setAppIconPrimaryColor(context, colorInt)
+                } else {
+                    themeViewModel.setAppIconSecondaryColor(context, colorInt)
+                }
+            },
+            onDismiss = { colorPaletteDialogFor = null }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1687,7 +1670,7 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                     .clip(RoundedCornerShape(20.dp))
                     .background(
                         brush = Brush.linearGradient(
-                            colors = listOf(currentIconStyle.startColor, currentIconStyle.endColor)
+                            colors = listOf(Color(iconPrimary), Color(iconSecondary))
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -1712,12 +1695,14 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = stringResource(currentIconStyle.titleRes),
+                text = stringResource(R.string.section_app_icon),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )
         }
     }
+
+    Spacer(modifier = Modifier.height(16.dp))
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1732,70 +1717,85 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            AppIconStyle.entries.forEachIndexed { index, style ->
-                val isSelected = currentIconStyle == style
-                ListItem(
-                    leadingContent = {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(style.startColor, style.endColor)
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Ω",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 22.sp,
-                                    textAlign = TextAlign.Center
-                                ),
-                                modifier = Modifier.offset(y = (-1).dp)
-                            )
-                        }
-                    },
-                    headlineContent = {
-                        Text(
-                            text = stringResource(style.titleRes),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    trailingContent = {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable {
-                            if (currentIconStyle != style) {
-                                themeViewModel.setAppIconStyle(context, style)
-                            }
-                        },
-                    colors = ListItemDefaults.colors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent
-                    )
-                )
-
-                if (index < AppIconStyle.entries.lastIndex) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
+            Text(
+                text = stringResource(R.string.primary_color),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ColorSwatchRow(
+                selectedColor = iconPrimary,
+                onColorSelected = { colorInt ->
+                    themeViewModel.setAppIconPrimaryColor(context, colorInt)
+                },
+                onCustomClicked = {
+                    colorPaletteDialogFor = "primary"
                 }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.secondary_color),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ColorSwatchRow(
+                selectedColor = iconSecondary,
+                onColorSelected = { colorInt ->
+                    themeViewModel.setAppIconSecondaryColor(context, colorInt)
+                },
+                onCustomClicked = {
+                    colorPaletteDialogFor = "secondary"
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = { themeViewModel.resetAppIconColors(context) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Restore,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.reset_default_colors))
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = {
+                    val success = themeViewModel.pinAppIconShortcut(context)
+                    if (success) {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.pin_shortcut_success),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AppShortcut,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.pin_shortcut_home))
             }
         }
     }

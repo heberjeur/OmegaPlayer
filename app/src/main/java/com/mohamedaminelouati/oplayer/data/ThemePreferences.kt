@@ -109,6 +109,36 @@ class ThemePreferences(private val context: Context) {
     private val APP_LANGUAGE_KEY = stringPreferencesKey("app_language")
     private val USE_INDIAN_NUMERALS_KEY = booleanPreferencesKey("use_indian_numerals")
     private val APP_ICON_KEY = stringPreferencesKey("app_icon_style")
+    private val APP_ICON_PRIMARY_COLOR_KEY = intPreferencesKey("app_icon_primary_color")
+    private val APP_ICON_SECONDARY_COLOR_KEY = intPreferencesKey("app_icon_secondary_color")
+
+    val appIconPrimaryColor: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[APP_ICON_PRIMARY_COLOR_KEY] ?: com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkPrimaryInt
+    }
+
+    val appIconSecondaryColor: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[APP_ICON_SECONDARY_COLOR_KEY] ?: com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkSecondaryInt
+    }
+
+    suspend fun saveAppIconPrimaryColor(color: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[APP_ICON_PRIMARY_COLOR_KEY] = color
+        }
+    }
+
+    suspend fun saveAppIconSecondaryColor(color: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[APP_ICON_SECONDARY_COLOR_KEY] = color
+        }
+    }
+
+    suspend fun resetAppIconColors() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(APP_ICON_PRIMARY_COLOR_KEY)
+            preferences.remove(APP_ICON_SECONDARY_COLOR_KEY)
+            preferences.remove(APP_ICON_KEY)
+        }
+    }
 
     val appIconStyle: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[APP_ICON_KEY] ?: AppIconStyle.DEFAULT.id

@@ -398,7 +398,7 @@ Licenciado sob GNU GPL v3.0</string>
     <string name="settings_excluded_desc">Pastas ocultadas e excluídas</string>
     <string name="settings_notifications_desc">Tela de bloqueio e controles de notificação</string>
     <string name="settings_about_desc">Versão, desenvolvedor, código-fonte</string>
-    <string name="theme_colors">Cores de Destaque Personalizadas</string>
+    <string name="theme_colors">Cores de Destaque</string>
     <string name="theme_colors_sub">Personalizar cores primárias e secundárias para os modos claro e escuro</string>
     <string name="mode_dark">Modo Escuro</string>
     <string name="mode_light">Modo Claro</string>
@@ -442,4 +442,12 @@ Licenciado sob GNU GPL v3.0</string>
     <string name="app_icon_pink">Rosa e Framboesa</string>
     <string name="app_icon_red">Vermelho Rubi</string>
     <string name="app_icon_dark">Escuro Elegante</string>
+    <string name="app_icon_skyblue">Azul Céu</string>
+    <string name="app_icon_amber">Âmbar Dourado</string>
+    <string name="app_icon_teal">Ciano Cerceta</string>
+    <string name="app_icon_indigo">Índigo Profundo</string>
+    <string name="app_icon_lime">Verde Lima</string>
+    <string name="app_icon_slate">Cinza Ardósia</string>
+    <string name="pin_shortcut_home">Adicionar à tela inicial</string>
+    <string name="pin_shortcut_success">Atalho criado na tela inicial</string>
 </resources>

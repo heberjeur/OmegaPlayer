@@ -395,7 +395,7 @@
     <string name="settings_excluded_desc">Dossiers masqués et exclus</string>
     <string name="settings_notifications_desc">Contrôles sur écran de verrouillage et notifications</string>
     <string name="settings_about_desc">Version, développeur, code source</string>
-    <string name="theme_colors">Couleurs d\'accentuation personnalisées</string>
+    <string name="theme_colors">Couleurs d\'accentuation</string>
     <string name="theme_colors_sub">Personnaliser les couleurs primaire et secondaire pour les modes sombre et clair</string>
     <string name="mode_dark">Mode sombre</string>
     <string name="mode_light">Mode clair</string>
@@ -439,4 +439,12 @@
     <string name="app_icon_pink">Rose &amp; Framboise</string>
     <string name="app_icon_red">Rouge Rubis</string>
     <string name="app_icon_dark">Sombre Élégant</string>
+    <string name="app_icon_skyblue">Bleu Ciel</string>
+    <string name="app_icon_amber">Ambre &amp; Or</string>
+    <string name="app_icon_teal">Sarcelle &amp; Turquoise</string>
+    <string name="app_icon_indigo">Indigo Profond</string>
+    <string name="app_icon_lime">Vert Lime</string>
+    <string name="app_icon_slate">Ardoise &amp; Gris</string>
+    <string name="pin_shortcut_home">Ajouter à l\'écran d\'accueil</string>
+    <string name="pin_shortcut_success">Raccourci ajouté sur l\'écran d\'accueil</string>
 </resources>

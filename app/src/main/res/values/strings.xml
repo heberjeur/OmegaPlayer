@@ -395,7 +395,7 @@
     <string name="settings_excluded_desc">Hidden and excluded folders</string>
     <string name="settings_notifications_desc">Lock screen and notification controls</string>
     <string name="settings_about_desc">Version, developer, source code</string>
-    <string name="theme_colors">Custom Accent Colors</string>
+    <string name="theme_colors">Accent Colors</string>
     <string name="theme_colors_sub">Customize primary and secondary colors for dark and light modes</string>
     <string name="mode_dark">Dark Mode</string>
     <string name="mode_light">Light Mode</string>
@@ -439,4 +439,12 @@
     <string name="app_icon_pink">Pink &amp; Berry</string>
     <string name="app_icon_red">Ruby Red</string>
     <string name="app_icon_dark">Elegant Dark</string>
+    <string name="app_icon_skyblue">Sky Blue</string>
+    <string name="app_icon_amber">Amber Gold</string>
+    <string name="app_icon_teal">Teal Cyan</string>
+    <string name="app_icon_indigo">Deep Indigo</string>
+    <string name="app_icon_lime">Lime Green</string>
+    <string name="app_icon_slate">Slate Grey</string>
+    <string name="pin_shortcut_home">Add shortcut to home screen</string>
+    <string name="pin_shortcut_success">Shortcut created on home screen</string>
 </resources>

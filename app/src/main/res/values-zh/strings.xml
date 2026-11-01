@@ -398,7 +398,7 @@
     <string name="settings_excluded_desc">已隐藏与排除的文件夹管理</string>
     <string name="settings_notifications_desc">锁屏播放界面与系统通知栏控件配置</string>
     <string name="settings_about_desc">版本信息、开发者介绍、GitHub 源代码</string>
-    <string name="theme_colors">自定义强调色</string>
+    <string name="theme_colors">强调颜色</string>
     <string name="theme_colors_sub">分别为深色和浅色模式定制主色与次色</string>
     <string name="mode_dark">深色模式</string>
     <string name="mode_light">浅色模式</string>
@@ -442,4 +442,12 @@
     <string name="app_icon_pink">莓粉</string>
     <string name="app_icon_red">红宝石</string>
     <string name="app_icon_dark">曜石黑</string>
+    <string name="app_icon_skyblue">天蓝色</string>
+    <string name="app_icon_amber">琥珀金</string>
+    <string name="app_icon_teal">蓝青色</string>
+    <string name="app_icon_indigo">深靛蓝</string>
+    <string name="app_icon_lime">青柠绿</string>
+    <string name="app_icon_slate">岩石灰</string>
+    <string name="pin_shortcut_home">添加到主屏幕</string>
+    <string name="pin_shortcut_success">已在主屏幕创建快捷方式</string>
 </resources>
