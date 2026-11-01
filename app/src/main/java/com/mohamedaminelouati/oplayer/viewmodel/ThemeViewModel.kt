@@ -234,19 +234,11 @@ class ThemeViewModel @Inject constructor(
         }
     }
 
-    fun setAppIconPrimaryColor(context: Context, color: Int) {
+    fun saveAppIconColors(context: Context, primaryColor: Int, secondaryColor: Int) {
         viewModelScope.launch {
-            themePreferences.saveAppIconPrimaryColor(color)
-            val sec = appIconSecondaryColor.value
-            AppIconManager.applyIconForColors(context, color, sec)
-        }
-    }
-
-    fun setAppIconSecondaryColor(context: Context, color: Int) {
-        viewModelScope.launch {
-            themePreferences.saveAppIconSecondaryColor(color)
-            val prim = appIconPrimaryColor.value
-            AppIconManager.applyIconForColors(context, prim, color)
+            themePreferences.saveAppIconPrimaryColor(primaryColor)
+            themePreferences.saveAppIconSecondaryColor(secondaryColor)
+            AppIconManager.applyIconForColors(context, primaryColor, secondaryColor)
         }
     }
 
@@ -255,13 +247,5 @@ class ThemeViewModel @Inject constructor(
             themePreferences.resetAppIconColors()
             AppIconManager.setAppIcon(context, AppIconStyle.DEFAULT)
         }
-    }
-
-    fun pinAppIconShortcut(context: Context): Boolean {
-        return AppIconManager.pinCustomShortcut(
-            context,
-            appIconPrimaryColor.value,
-            appIconSecondaryColor.value
-        )
     }
 }

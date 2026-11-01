@@ -448,6 +448,6 @@
     <string name="app_icon_indigo">Глубокий индиго</string>
     <string name="app_icon_lime">Лаймовый зеленый</string>
     <string name="app_icon_slate">Сланцево-серый</string>
-    <string name="pin_shortcut_home">Добавить на главный экран</string>
-    <string name="pin_shortcut_success">Ярлык создан на главном экране</string>
+    <string name="app_icon_save">Сохранить</string>
+    <string name="app_icon_saved">Значок сохранен</string>
 </resources>

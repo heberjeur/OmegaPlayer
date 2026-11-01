@@ -445,6 +445,6 @@
     <string name="app_icon_indigo">نيلي عميق</string>
     <string name="app_icon_lime">أخضر ليموني</string>
     <string name="app_icon_slate">رمادي أردوازي</string>
-    <string name="pin_shortcut_home">إضافة اختصار للشاشة الرئيسية</string>
-    <string name="pin_shortcut_success">تمت إضافة الاختصار إلى الشاشة الرئيسية</string>
+    <string name="app_icon_save">حفظ</string>
+    <string name="app_icon_saved">تم حفظ الأيقونة</string>
 </resources>

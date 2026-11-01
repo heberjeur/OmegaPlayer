@@ -169,7 +169,10 @@ fun SettingHeader(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
+fun SettingsAppearanceSection(
+    themeViewModel: ThemeViewModel,
+    onNavigateToAppIcon: () -> Unit = {}
+) {
     val currentTheme by themeViewModel.theme.collectAsState()
     val dynamicColorEnabled by themeViewModel.dynamicColor.collectAsState()
     val folderFlattenThreshold by themeViewModel.folderFlattenThreshold.collectAsState()
@@ -226,6 +229,70 @@ fun SettingsAppearanceSection(themeViewModel: ThemeViewModel) {
     Spacer(modifier = Modifier.height(16.dp))
 
     ThemeColorsCard(themeViewModel = themeViewModel)
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            val iconPrimary by themeViewModel.appIconPrimaryColor.collectAsState()
+            val iconSecondary by themeViewModel.appIconSecondaryColor.collectAsState()
+            ListItem(
+                leadingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(Color(iconPrimary), Color(iconSecondary))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Ω",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 22.sp,
+                                textAlign = TextAlign.Center
+                            ),
+                            modifier = Modifier.offset(y = (-1).dp)
+                        )
+                    }
+                },
+                headlineContent = {
+                    Text(
+                        stringResource(R.string.section_app_icon),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        stringResource(R.string.settings_app_icon_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { onNavigateToAppIcon() },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    }
 
     Spacer(modifier = Modifier.height(16.dp))
 
@@ -1627,19 +1694,22 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
 @Composable
 fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
     val context = LocalContext.current
-    val iconPrimary by themeViewModel.appIconPrimaryColor.collectAsState()
-    val iconSecondary by themeViewModel.appIconSecondaryColor.collectAsState()
+    val savedPrimary by themeViewModel.appIconPrimaryColor.collectAsState()
+    val savedSecondary by themeViewModel.appIconSecondaryColor.collectAsState()
+
+    var draftPrimary by remember(savedPrimary) { mutableIntStateOf(savedPrimary) }
+    var draftSecondary by remember(savedSecondary) { mutableIntStateOf(savedSecondary) }
     var colorPaletteDialogFor by remember { mutableStateOf<String?>(null) }
 
     if (colorPaletteDialogFor != null) {
-        val targetColor = if (colorPaletteDialogFor == "primary") iconPrimary else iconSecondary
+        val targetColor = if (colorPaletteDialogFor == "primary") draftPrimary else draftSecondary
         ColorDegreePaletteDialog(
             initialColor = targetColor,
             onColorSelected = { colorInt ->
                 if (colorPaletteDialogFor == "primary") {
-                    themeViewModel.setAppIconPrimaryColor(context, colorInt)
+                    draftPrimary = colorInt
                 } else {
-                    themeViewModel.setAppIconSecondaryColor(context, colorInt)
+                    draftSecondary = colorInt
                 }
             },
             onDismiss = { colorPaletteDialogFor = null }
@@ -1670,7 +1740,7 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                     .clip(RoundedCornerShape(20.dp))
                     .background(
                         brush = Brush.linearGradient(
-                            colors = listOf(Color(iconPrimary), Color(iconSecondary))
+                            colors = listOf(Color(draftPrimary), Color(draftSecondary))
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -1710,13 +1780,6 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            SettingHeader(
-                title = stringResource(R.string.section_app_icon),
-                subtitle = stringResource(R.string.settings_app_icon_desc),
-                icon = Icons.Default.AppShortcut
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
             Text(
                 text = stringResource(R.string.primary_color),
                 style = MaterialTheme.typography.titleSmall,
@@ -1725,9 +1788,9 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             ColorSwatchRow(
-                selectedColor = iconPrimary,
+                selectedColor = draftPrimary,
                 onColorSelected = { colorInt ->
-                    themeViewModel.setAppIconPrimaryColor(context, colorInt)
+                    draftPrimary = colorInt
                 },
                 onCustomClicked = {
                     colorPaletteDialogFor = "primary"
@@ -1746,9 +1809,9 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             ColorSwatchRow(
-                selectedColor = iconSecondary,
+                selectedColor = draftSecondary,
                 onColorSelected = { colorInt ->
-                    themeViewModel.setAppIconSecondaryColor(context, colorInt)
+                    draftSecondary = colorInt
                 },
                 onCustomClicked = {
                     colorPaletteDialogFor = "secondary"
@@ -1760,7 +1823,10 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(
-                onClick = { themeViewModel.resetAppIconColors(context) },
+                onClick = {
+                    draftPrimary = com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkPrimaryInt
+                    draftSecondary = com.mohamedaminelouati.oplayer.ui.theme.DefaultDarkSecondaryInt
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp)
             ) {
@@ -1777,25 +1843,23 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
 
             Button(
                 onClick = {
-                    val success = themeViewModel.pinAppIconShortcut(context)
-                    if (success) {
-                        android.widget.Toast.makeText(
-                            context,
-                            context.getString(R.string.pin_shortcut_success),
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    themeViewModel.saveAppIconColors(context, draftPrimary, draftSecondary)
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(R.string.app_icon_saved),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.AppShortcut,
+                    imageVector = Icons.Default.Check,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.pin_shortcut_home))
+                Text(stringResource(R.string.app_icon_save))
             }
         }
     }

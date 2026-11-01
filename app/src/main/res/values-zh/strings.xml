@@ -448,6 +448,6 @@
     <string name="app_icon_indigo">深靛蓝</string>
     <string name="app_icon_lime">青柠绿</string>
     <string name="app_icon_slate">岩石灰</string>
-    <string name="pin_shortcut_home">添加到主屏幕</string>
-    <string name="pin_shortcut_success">已在主屏幕创建快捷方式</string>
+    <string name="app_icon_save">保存</string>
+    <string name="app_icon_saved">图标已保存</string>
 </resources>

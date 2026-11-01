@@ -448,6 +448,6 @@ Licenciado sob GNU GPL v3.0</string>
     <string name="app_icon_indigo">Índigo Profundo</string>
     <string name="app_icon_lime">Verde Lima</string>
     <string name="app_icon_slate">Cinza Ardósia</string>
-    <string name="pin_shortcut_home">Adicionar à tela inicial</string>
-    <string name="pin_shortcut_success">Atalho criado na tela inicial</string>
+    <string name="app_icon_save">Salvar</string>
+    <string name="app_icon_saved">Ícone salvo</string>
 </resources>

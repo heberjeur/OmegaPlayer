@@ -445,6 +445,6 @@
     <string name="app_icon_indigo">Indigo Profond</string>
     <string name="app_icon_lime">Vert Lime</string>
     <string name="app_icon_slate">Ardoise &amp; Gris</string>
-    <string name="pin_shortcut_home">Ajouter à l\'écran d\'accueil</string>
-    <string name="pin_shortcut_success">Raccourci ajouté sur l\'écran d\'accueil</string>
+    <string name="app_icon_save">Sauvegarder</string>
+    <string name="app_icon_saved">Icône enregistrée</string>
 </resources>

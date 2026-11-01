@@ -131,6 +131,8 @@ fun SettingsScreen(
     BackHandler(enabled = isFocused) {
         if (searchQuery.isNotEmpty()) {
             searchQuery = ""
+        } else if (currentSection == SettingsPage.APP_ICON) {
+            currentSection = SettingsPage.APPEARANCE
         } else if (currentSection != null) {
             currentSection = null
         } else {
@@ -325,7 +327,10 @@ fun SettingsScreen(
                             ) {
                                 Column {
                                     val currentLangTag by themeViewModel.appLanguage.collectAsStateWithLifecycle()
-                                    SettingsPage.entries.forEachIndexed { index, page ->
+                                    val rootSettingsPages = remember {
+                                        SettingsPage.entries.filter { it != SettingsPage.APP_ICON }
+                                    }
+                                    rootSettingsPages.forEachIndexed { index, page ->
                                         val subtitleText = if (page == SettingsPage.LANGUAGE) {
                                             val langItem = AppLanguages.firstOrNull { it.tag == currentLangTag } ?: AppLanguages[0]
                                             if (currentLangTag.isEmpty()) {
@@ -363,7 +368,7 @@ fun SettingsScreen(
                                             modifier = Modifier.clickable { currentSection = page },
                                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                                         )
-                                        if (index < SettingsPage.entries.lastIndex) {
+                                        if (index < rootSettingsPages.lastIndex) {
                                             HorizontalDivider(
                                                 modifier = Modifier.padding(horizontal = 16.dp),
                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -391,7 +396,13 @@ fun SettingsScreen(
                     TopAppBar(
                         title = { Text(stringResource(activeSection.titleRes), fontWeight = FontWeight.Bold) },
                         navigationIcon = {
-                            IconButton(onClick = { currentSection = null }) {
+                            IconButton(onClick = {
+                                if (currentSection == SettingsPage.APP_ICON) {
+                                    currentSection = SettingsPage.APPEARANCE
+                                } else {
+                                    currentSection = null
+                                }
+                            }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = stringResource(R.string.action_back)
@@ -413,7 +424,10 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     when (activeSection) {
-                        SettingsPage.APPEARANCE -> SettingsAppearanceSection(themeViewModel)
+                        SettingsPage.APPEARANCE -> SettingsAppearanceSection(
+                            themeViewModel = themeViewModel,
+                            onNavigateToAppIcon = { currentSection = SettingsPage.APP_ICON }
+                        )
                         SettingsPage.APP_ICON -> SettingsAppIconSection(themeViewModel)
                         SettingsPage.LANGUAGE -> SettingsLanguageSection(themeViewModel)
                         SettingsPage.PLAYBACK -> SettingsPlaybackSection(themeViewModel, videoViewModel)

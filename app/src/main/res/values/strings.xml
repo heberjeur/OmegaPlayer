@@ -445,6 +445,6 @@
     <string name="app_icon_indigo">Deep Indigo</string>
     <string name="app_icon_lime">Lime Green</string>
     <string name="app_icon_slate">Slate Grey</string>
-    <string name="pin_shortcut_home">Add shortcut to home screen</string>
-    <string name="pin_shortcut_success">Shortcut created on home screen</string>
+    <string name="app_icon_save">Save</string>
+    <string name="app_icon_saved">Icon saved</string>
 </resources>

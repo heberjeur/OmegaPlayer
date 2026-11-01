@@ -445,6 +445,6 @@
     <string name="app_icon_indigo">Índigo Profundo</string>
     <string name="app_icon_lime">Verde Lima</string>
     <string name="app_icon_slate">Gris Pizarra</string>
-    <string name="pin_shortcut_home">Añadir a la pantalla de inicio</string>
-    <string name="pin_shortcut_success">Acceso directo creado en la pantalla de inicio</string>
+    <string name="app_icon_save">Guardar</string>
+    <string name="app_icon_saved">Icono guardado</string>
 </resources>

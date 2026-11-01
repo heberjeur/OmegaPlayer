@@ -448,6 +448,6 @@ Lizenziert unter GNU GPL v3.0</string>
     <string name="app_icon_indigo">Tiefes Indigo</string>
     <string name="app_icon_lime">Limettegrün</string>
     <string name="app_icon_slate">Schiefergrau</string>
-    <string name="pin_shortcut_home">Zum Startbildschirm hinzufügen</string>
-    <string name="pin_shortcut_success">Verknüpfung auf Startbildschirm erstellt</string>
+    <string name="app_icon_save">Speichern</string>
+    <string name="app_icon_saved">Symbol gespeichert</string>
 </resources>
