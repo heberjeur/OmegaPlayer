@@ -248,7 +248,7 @@ fun SettingsAppearanceSection(
                             .clip(RoundedCornerShape(12.dp))
                             .background(
                                 brush = Brush.linearGradient(
-                                    colors = listOf(Color(iconPrimary), Color(iconSecondary))
+                                    colors = listOf(Color(iconSecondary), Color(iconPrimary))
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -1740,7 +1740,7 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                     .clip(RoundedCornerShape(20.dp))
                     .background(
                         brush = Brush.linearGradient(
-                            colors = listOf(Color(draftPrimary), Color(draftSecondary))
+                            colors = listOf(Color(draftSecondary), Color(draftPrimary))
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -1763,11 +1763,6 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = stringResource(R.string.section_app_icon),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
             )
         }
     }
