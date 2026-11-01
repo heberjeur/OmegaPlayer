@@ -1,10 +1,14 @@
 package com.mohamedaminelouati.oplayer.util
 
+import android.app.Activity
+import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
+import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -49,34 +53,57 @@ object AppIconManager {
         val style = AppIconStyle.findClosestStyle(primaryColor, secondaryColor)
         setAppIcon(context, style)
         updateShortcutIfPinned(context, primaryColor, secondaryColor)
+        (context as? Activity)?.let {
+            updateTaskDescription(it, primaryColor, secondaryColor)
+        }
+    }
+
+    fun createIconBitmap(context: Context, primaryColor: Int, secondaryColor: Int): Bitmap {
+        val size = 192
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, size.toFloat(), size.toFloat(),
+                secondaryColor, primaryColor,
+                Shader.TileMode.CLAMP
+            )
+        }
+        val cornerRadius = size * 0.22f
+        canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), cornerRadius, cornerRadius, paint)
+
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground)
+        drawable?.let {
+            it.setBounds(0, 0, size, size)
+            it.draw(canvas)
+        }
+        return bitmap
+    }
+
+    fun updateTaskDescription(activity: Activity, primaryColor: Int, secondaryColor: Int) {
+        try {
+            val bitmap = createIconBitmap(activity, primaryColor, secondaryColor)
+            val appName = activity.getString(R.string.app_name)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val icon = android.graphics.drawable.Icon.createWithBitmap(bitmap)
+                val taskDescription = ActivityManager.TaskDescription.Builder()
+                    .setIcon(icon)
+                    .setPrimaryColor(primaryColor)
+                    .build()
+                activity.setTaskDescription(taskDescription)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.setTaskDescription(ActivityManager.TaskDescription(appName, bitmap, primaryColor))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun updateShortcutIfPinned(context: Context, primaryColor: Int, secondaryColor: Int) {
         try {
-            val size = 192
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                shader = LinearGradient(
-                    0f, 0f, size.toFloat(), size.toFloat(),
-                    secondaryColor, primaryColor,
-                    Shader.TileMode.CLAMP
-                )
-            }
-            val cornerRadius = size * 0.22f
-            canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), cornerRadius, cornerRadius, paint)
-
-            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                textSize = size * 0.52f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.CENTER
-            }
-            val textBounds = Rect()
-            textPaint.getTextBounds("Ω", 0, 1, textBounds)
-            val yOffset = (size / 2f) + (textBounds.height() / 2f) - textBounds.bottom - 4f
-            canvas.drawText("Ω", size / 2f, yOffset, textPaint)
+            val bitmap = createIconBitmap(context, primaryColor, secondaryColor)
 
             val launchIntent = Intent(context, MainActivity::class.java).apply {
                 action = Intent.ACTION_VIEW

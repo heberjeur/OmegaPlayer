@@ -253,15 +253,10 @@ fun SettingsAppearanceSection(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Ω",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 22.sp,
-                                textAlign = TextAlign.Center
-                            ),
-                            modifier = Modifier.offset(y = (-1).dp)
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
                 },
@@ -1745,15 +1740,10 @@ fun SettingsAppIconSection(themeViewModel: ThemeViewModel) {
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Ω",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 40.sp,
-                        textAlign = TextAlign.Center
-                    ),
-                    modifier = Modifier.offset(y = (-2).dp)
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 

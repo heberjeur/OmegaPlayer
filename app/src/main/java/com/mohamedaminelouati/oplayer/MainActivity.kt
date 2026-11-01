@@ -93,6 +93,16 @@ class MainActivity : FragmentActivity() {
 
             val appTheme by themeViewModel.theme.collectAsState()
             val dynamicColor by themeViewModel.dynamicColor.collectAsState()
+            val appIconPrimary by themeViewModel.appIconPrimaryColor.collectAsState()
+            val appIconSecondary by themeViewModel.appIconSecondaryColor.collectAsState()
+
+            LaunchedEffect(appIconPrimary, appIconSecondary) {
+                com.mohamedaminelouati.oplayer.util.AppIconManager.updateTaskDescription(
+                    this@MainActivity,
+                    appIconPrimary,
+                    appIconSecondary
+                )
+            }
             val textTruncationMode by themeViewModel.textTruncationMode.collectAsState()
             val savePositionOnQuit by themeViewModel.savePositionOnQuit.collectAsState()
             val showHistoryDate by themeViewModel.showHistoryDate.collectAsState()
