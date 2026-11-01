@@ -1,6 +1,7 @@
 package com.mohamedaminelouati.oplayer.ui.common
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -16,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -137,17 +139,10 @@ fun ModernProgressIndicator(modifier: Modifier = Modifier) {
             tonalElevation = 2.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Ω",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Black,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF87CEEB),
-                                Color(0xFFFF6600)
-                            )
-                        )
-                    )
+                Image(
+                    painter = painterResource(R.drawable.ic_omega_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }

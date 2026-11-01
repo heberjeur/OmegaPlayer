@@ -1,6 +1,7 @@
 package com.mohamedaminelouati.oplayer.ui.feature.library.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.mohamedaminelouati.oplayer.R
@@ -179,15 +181,12 @@ fun ModernOmegaIcon(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "Ω",
-            style = MaterialTheme.typography.titleLarge.copy(
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Black,
-                fontSize = 24.sp,
-                textAlign = TextAlign.Center
-            ),
-            modifier = Modifier.offset(y = (-1).dp)
+        Image(
+            painter = painterResource(R.drawable.ic_omega_logo),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(6.dp)
         )
     }
 }
