@@ -4,15 +4,11 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
 import android.os.Build
 import androidx.core.content.ContextCompat
-import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
-import androidx.core.graphics.drawable.IconCompat
-import com.mohamedaminelouati.oplayer.MainActivity
 import com.mohamedaminelouati.oplayer.R
 import com.mohamedaminelouati.oplayer.data.AppIconStyle
 
@@ -24,18 +20,18 @@ object AppIconManager {
 
         try {
             val targetComponent = ComponentName(packageName, style.aliasName)
-            if (packageManager.getComponentEnabledSetting(targetComponent) != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
-                packageManager.setComponentEnabledSetting(
-                    targetComponent,
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                    PackageManager.DONT_KILL_APP
-                )
+            val currentState = packageManager.getComponentEnabledSetting(targetComponent)
+            if (currentState == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                return
             }
 
             AppIconStyle.entries.forEach { iconStyle ->
                 if (iconStyle != style) {
                     val componentName = ComponentName(packageName, iconStyle.aliasName)
-                    if (packageManager.getComponentEnabledSetting(componentName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
+                    val state = packageManager.getComponentEnabledSetting(componentName)
+                    if (state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED ||
+                        (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && iconStyle == AppIconStyle.DEFAULT)
+                    ) {
                         packageManager.setComponentEnabledSetting(
                             componentName,
                             PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
@@ -44,6 +40,14 @@ object AppIconManager {
                     }
                 }
             }
+
+            packageManager.setComponentEnabledSetting(
+                targetComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+
+            cleanupLegacyShortcuts(context)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -52,9 +56,17 @@ object AppIconManager {
     fun applyIconForColors(context: Context, primaryColor: Int, secondaryColor: Int) {
         val style = AppIconStyle.findClosestStyle(primaryColor, secondaryColor)
         setAppIcon(context, style)
-        updateShortcutIfPinned(context, primaryColor, secondaryColor)
         (context as? Activity)?.let {
             updateTaskDescription(it, primaryColor, secondaryColor)
+        }
+    }
+
+    private fun cleanupLegacyShortcuts(context: Context) {
+        try {
+            ShortcutManagerCompat.disableShortcuts(context, listOf("custom_omega_player_shortcut"), null)
+            ShortcutManagerCompat.removeDynamicShortcuts(context, listOf("custom_omega_player_shortcut"))
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -96,27 +108,6 @@ object AppIconManager {
                 @Suppress("DEPRECATION")
                 activity.setTaskDescription(ActivityManager.TaskDescription(appName, bitmap, primaryColor))
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun updateShortcutIfPinned(context: Context, primaryColor: Int, secondaryColor: Int) {
-        try {
-            val bitmap = createIconBitmap(context, primaryColor, secondaryColor)
-
-            val launchIntent = Intent(context, MainActivity::class.java).apply {
-                action = Intent.ACTION_VIEW
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-
-            val shortcutInfo = ShortcutInfoCompat.Builder(context, "custom_omega_player_shortcut")
-                .setShortLabel(context.getString(R.string.app_name))
-                .setIcon(IconCompat.createWithBitmap(bitmap))
-                .setIntent(launchIntent)
-                .build()
-
-            ShortcutManagerCompat.updateShortcuts(context, listOf(shortcutInfo))
         } catch (e: Exception) {
             e.printStackTrace()
         }
