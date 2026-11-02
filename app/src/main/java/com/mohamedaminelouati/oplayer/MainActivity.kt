@@ -143,22 +143,23 @@ class MainActivity : FragmentActivity() {
                 androidx.compose.ui.platform.LocalConfiguration provides localizedConfiguration,
                 androidx.compose.ui.platform.LocalLayoutDirection provides layoutDirection
             ) {
-                OMediaPlayerTheme(
-                    appTheme = appTheme,
-                    dynamicColor = dynamicColor,
-                    textTruncationMode = textTruncationMode,
-                    savePositionOnQuit = savePositionOnQuit,
-                    showHistoryDate = showHistoryDate,
-                    darkPrimaryColor = androidx.compose.ui.graphics.Color(darkPrimaryColor),
-                    darkSecondaryColor = androidx.compose.ui.graphics.Color(darkSecondaryColor),
-                    lightPrimaryColor = androidx.compose.ui.graphics.Color(lightPrimaryColor),
-                    lightSecondaryColor = androidx.compose.ui.graphics.Color(lightSecondaryColor)
-                ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val navController = rememberNavController()
+                key(appLanguage) {
+                    OMediaPlayerTheme(
+                        appTheme = appTheme,
+                        dynamicColor = dynamicColor,
+                        textTruncationMode = textTruncationMode,
+                        savePositionOnQuit = savePositionOnQuit,
+                        showHistoryDate = showHistoryDate,
+                        darkPrimaryColor = androidx.compose.ui.graphics.Color(darkPrimaryColor),
+                        darkSecondaryColor = androidx.compose.ui.graphics.Color(darkSecondaryColor),
+                        lightPrimaryColor = androidx.compose.ui.graphics.Color(lightPrimaryColor),
+                        lightSecondaryColor = androidx.compose.ui.graphics.Color(lightSecondaryColor)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                        ) {
+                            val navController = rememberNavController()
 
                     DisposableEffect(Unit) {
                         val consumer = androidx.core.util.Consumer<Intent> { intent ->
@@ -361,6 +362,7 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+}
 }
 }
 
