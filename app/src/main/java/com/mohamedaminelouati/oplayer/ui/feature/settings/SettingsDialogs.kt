@@ -54,7 +54,7 @@ fun SettingsSortOrderDialog(
                             onClick = { onSortOrderSelected(order.name) }
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(order.label, style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(order.labelRes), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }

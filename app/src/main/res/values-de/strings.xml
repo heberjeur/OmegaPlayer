@@ -450,4 +450,12 @@ Lizenziert unter GNU GPL v3.0</string>
     <string name="app_icon_slate">Schiefergrau</string>
     <string name="app_icon_save">Speichern</string>
     <string name="app_icon_saved">Symbol gespeichert</string>
+    <string name="sort_date_desc">Neueste zuerst</string>
+    <string name="sort_date_asc">Älteste zuerst</string>
+    <string name="sort_name_asc">Name (A-Z)</string>
+    <string name="sort_name_desc">Name (Z-A)</string>
+    <string name="sort_size_asc">Größe (Kleinste)</string>
+    <string name="sort_size_desc">Größe (Größte)</string>
+    <string name="sort_duration_asc">Dauer (Kürzeste)</string>
+    <string name="sort_duration_desc">Dauer (Längste)</string>
 </resources>

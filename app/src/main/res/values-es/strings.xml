@@ -447,4 +447,12 @@
     <string name="app_icon_slate">Gris Pizarra</string>
     <string name="app_icon_save">Guardar</string>
     <string name="app_icon_saved">Icono guardado</string>
+    <string name="sort_date_desc">Más recientes primero</string>
+    <string name="sort_date_asc">Más antiguos primero</string>
+    <string name="sort_name_asc">Nombre (A-Z)</string>
+    <string name="sort_name_desc">Nombre (Z-A)</string>
+    <string name="sort_size_asc">Tamaño (Más pequeño)</string>
+    <string name="sort_size_desc">Tamaño (Más grande)</string>
+    <string name="sort_duration_asc">Duración (Más corta)</string>
+    <string name="sort_duration_desc">Duración (Más larga)</string>
 </resources>

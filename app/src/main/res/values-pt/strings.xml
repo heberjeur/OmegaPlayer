@@ -450,4 +450,12 @@ Licenciado sob GNU GPL v3.0</string>
     <string name="app_icon_slate">Cinza Ardósia</string>
     <string name="app_icon_save">Salvar</string>
     <string name="app_icon_saved">Ícone salvo</string>
+    <string name="sort_date_desc">Mais recentes primeiro</string>
+    <string name="sort_date_asc">Mais antigos primeiro</string>
+    <string name="sort_name_asc">Nome (A-Z)</string>
+    <string name="sort_name_desc">Nome (Z-A)</string>
+    <string name="sort_size_asc">Tamanho (Menor)</string>
+    <string name="sort_size_desc">Tamanho (Maior)</string>
+    <string name="sort_duration_asc">Duração (Mais curta)</string>
+    <string name="sort_duration_desc">Duração (Mais longa)</string>
 </resources>

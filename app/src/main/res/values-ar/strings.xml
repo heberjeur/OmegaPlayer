@@ -447,4 +447,12 @@
     <string name="app_icon_slate">رمادي أردوازي</string>
     <string name="app_icon_save">حفظ</string>
     <string name="app_icon_saved">تم حفظ الأيقونة</string>
+    <string name="sort_date_desc">الأحدث أولاً</string>
+    <string name="sort_date_asc">الأقدم أولاً</string>
+    <string name="sort_name_asc">الاسم (أ-ي)</string>
+    <string name="sort_name_desc">الاسم (ي-أ)</string>
+    <string name="sort_size_asc">الحجم (الأصغر)</string>
+    <string name="sort_size_desc">الحجم (الأكبر)</string>
+    <string name="sort_duration_asc">المدة (الأقصر)</string>
+    <string name="sort_duration_desc">المدة (الأطول)</string>
 </resources>

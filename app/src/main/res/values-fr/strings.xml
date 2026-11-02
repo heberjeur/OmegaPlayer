@@ -447,4 +447,12 @@
     <string name="app_icon_slate">Ardoise &amp; Gris</string>
     <string name="app_icon_save">Sauvegarder</string>
     <string name="app_icon_saved">Icône enregistrée</string>
+    <string name="sort_date_desc">Plus récent d\'abord</string>
+    <string name="sort_date_asc">Plus ancien d\'abord</string>
+    <string name="sort_name_asc">Nom (A-Z)</string>
+    <string name="sort_name_desc">Nom (Z-A)</string>
+    <string name="sort_size_asc">Taille (Plus petit)</string>
+    <string name="sort_size_desc">Taille (Plus grand)</string>
+    <string name="sort_duration_asc">Durée (Plus courte)</string>
+    <string name="sort_duration_desc">Durée (Plus longue)</string>
 </resources>

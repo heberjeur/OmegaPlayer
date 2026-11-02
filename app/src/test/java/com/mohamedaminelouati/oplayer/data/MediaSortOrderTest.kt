@@ -25,4 +25,11 @@ class MediaSortOrderTest {
             assertEquals(order, MediaSortOrder.valueOf(order.name))
         }
     }
+
+    @Test
+    fun everyOrderHasValidLabelRes() {
+        MediaSortOrder.entries.forEach { order ->
+            assertTrue(order.labelRes != 0)
+        }
+    }
 }

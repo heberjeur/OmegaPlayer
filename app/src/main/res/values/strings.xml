@@ -447,4 +447,12 @@
     <string name="app_icon_slate">Slate Grey</string>
     <string name="app_icon_save">Save</string>
     <string name="app_icon_saved">Icon saved</string>
+    <string name="sort_date_desc">Newest First</string>
+    <string name="sort_date_asc">Oldest First</string>
+    <string name="sort_name_asc">Name (A-Z)</string>
+    <string name="sort_name_desc">Name (Z-A)</string>
+    <string name="sort_size_asc">Size (Smallest)</string>
+    <string name="sort_size_desc">Size (Largest)</string>
+    <string name="sort_duration_asc">Duration (Shortest)</string>
+    <string name="sort_duration_desc">Duration (Longest)</string>
 </resources>

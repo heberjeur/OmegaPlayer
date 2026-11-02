@@ -1524,7 +1524,8 @@ fun SettingsDefaultsSection(videoViewModel: VideoViewModel, onOpenSortOrderDialo
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-            val currentSortLabel = MediaSortOrder.values().firstOrNull { it.name == defaultSortOrder }?.label ?: defaultSortOrder
+            val currentOrder = MediaSortOrder.values().firstOrNull { it.name == defaultSortOrder }
+            val currentSortLabel = currentOrder?.let { stringResource(it.labelRes) } ?: defaultSortOrder
             val isDefaultSort = defaultSortOrder == MediaSortOrder.DATE_DESC.name
 
             ListItem(

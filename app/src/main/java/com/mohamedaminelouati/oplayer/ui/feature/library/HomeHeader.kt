@@ -252,7 +252,7 @@ fun HomeHeader(
                 ) {
                     MediaSortOrder.entries.forEach { order ->
                         DropdownMenuItem(
-                            text = { Text(order.label) },
+                            text = { Text(stringResource(order.labelRes)) },
                             onClick = {
                                 showFilterMenu = false
                                 viewModel.setFolderSortOrder(currentContextKey, order.name)

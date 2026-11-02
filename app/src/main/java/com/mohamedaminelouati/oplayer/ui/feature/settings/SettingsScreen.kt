@@ -334,7 +334,7 @@ fun SettingsScreen(
                                         val subtitleText = if (page == SettingsPage.LANGUAGE) {
                                             val langItem = AppLanguages.firstOrNull { it.tag == currentLangTag } ?: AppLanguages[0]
                                             if (currentLangTag.isEmpty()) {
-                                                "🌐 " + stringResource(R.string.language_system_default)
+                                                stringResource(R.string.language_system_default)
                                             } else {
                                                 stringResource(langItem.nameRes)
                                             }

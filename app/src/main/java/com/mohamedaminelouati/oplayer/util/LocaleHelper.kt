@@ -78,15 +78,33 @@ object LocaleHelper {
             .apply()
     }
 
-    val systemLocale: Locale by lazy {
-        val sysConfig = Resources.getSystem().configuration
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            sysConfig.locales[0]
-        } else {
-            @Suppress("DEPRECATION")
-            sysConfig.locale
+    private var initialSystemLocale: Locale? = null
+
+    fun captureSystemLocale(context: Context) {
+        if (initialSystemLocale == null) {
+            val config = context.resources.configuration
+            initialSystemLocale = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                if (!config.locales.isEmpty) config.locales[0] else null
+            } else {
+                @Suppress("DEPRECATION")
+                config.locale
+            }
         }
     }
+
+    val systemLocale: Locale
+        get() {
+            initialSystemLocale?.let { return it }
+            val appLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+            if (!appLocales.isEmpty) {
+                appLocales[0]?.let { return it }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                val list = android.os.LocaleList.getDefault()
+                if (!list.isEmpty) return list[0]
+            }
+            return Locale.getDefault()
+        }
 
     fun resolveLocale(languageTag: String): Locale {
         val baseLocale = if (languageTag.isNotEmpty()) {

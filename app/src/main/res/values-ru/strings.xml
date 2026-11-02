@@ -450,4 +450,12 @@
     <string name="app_icon_slate">Сланцево-серый</string>
     <string name="app_icon_save">Сохранить</string>
     <string name="app_icon_saved">Значок сохранен</string>
+    <string name="sort_date_desc">Сначала новые</string>
+    <string name="sort_date_asc">Сначала старые</string>
+    <string name="sort_name_asc">Имя (А-Я)</string>
+    <string name="sort_name_desc">Имя (Я-А)</string>
+    <string name="sort_size_asc">Размер (Меньший)</string>
+    <string name="sort_size_desc">Размер (Больший)</string>
+    <string name="sort_duration_asc">Длительность (Короткие)</string>
+    <string name="sort_duration_desc">Длительность (Длинные)</string>
 </resources>

@@ -14,6 +14,7 @@ import dagger.hilt.android.HiltAndroidApp
 class OMediaPlayerApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        com.mohamedaminelouati.oplayer.util.LocaleHelper.captureSystemLocale(this)
         warmApplicationInfoCache()
         warmImageLoader()
     }

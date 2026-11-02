@@ -450,4 +450,12 @@
     <string name="app_icon_slate">岩石灰</string>
     <string name="app_icon_save">保存</string>
     <string name="app_icon_saved">图标已保存</string>
+    <string name="sort_date_desc">最新优先</string>
+    <string name="sort_date_asc">最早优先</string>
+    <string name="sort_name_asc">名称 (A-Z)</string>
+    <string name="sort_name_desc">名称 (Z-A)</string>
+    <string name="sort_size_asc">大小 (由小到大)</string>
+    <string name="sort_size_desc">大小 (由大到小)</string>
+    <string name="sort_duration_asc">时长 (由短到长)</string>
+    <string name="sort_duration_desc">时长 (由长到短)</string>
 </resources>

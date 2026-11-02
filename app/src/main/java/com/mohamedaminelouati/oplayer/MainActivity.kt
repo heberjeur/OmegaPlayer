@@ -58,9 +58,14 @@ class MainActivity : FragmentActivity() {
     lateinit var playbackConnection: PlaybackConnection
 
     override fun attachBaseContext(newBase: android.content.Context) {
+        com.mohamedaminelouati.oplayer.util.LocaleHelper.captureSystemLocale(newBase)
         val lang = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedLanguage(newBase)
         com.mohamedaminelouati.oplayer.util.LocaleHelper.useIndianNumerals = com.mohamedaminelouati.oplayer.util.LocaleHelper.getSavedIndianNumerals(newBase)
-        super.attachBaseContext(com.mohamedaminelouati.oplayer.util.LocaleHelper.createConfigurationContext(newBase, lang))
+        if (lang.isEmpty() && !com.mohamedaminelouati.oplayer.util.LocaleHelper.useIndianNumerals) {
+            super.attachBaseContext(newBase)
+        } else {
+            super.attachBaseContext(com.mohamedaminelouati.oplayer.util.LocaleHelper.createConfigurationContext(newBase, lang))
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,17 +130,35 @@ class MainActivity : FragmentActivity() {
             val baseActivityContext = androidx.compose.ui.platform.LocalContext.current
             val currentSystemConfig = androidx.compose.ui.platform.LocalConfiguration.current
             val localizedContext = remember(appLanguage, useIndianNumerals, baseActivityContext, currentSystemConfig) {
-                com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedContext(baseActivityContext, appLanguage)
+                if (appLanguage.isEmpty() && !useIndianNumerals) {
+                    baseActivityContext
+                } else {
+                    com.mohamedaminelouati.oplayer.util.LocaleHelper.getLocalizedContext(baseActivityContext, appLanguage)
+                }
             }
             val localizedConfiguration = remember(appLanguage, useIndianNumerals, currentSystemConfig) {
-                val locale = com.mohamedaminelouati.oplayer.util.LocaleHelper.getEffectiveLocale(appLanguage)
-                val config = Configuration(currentSystemConfig)
-                config.setLocale(locale)
-                config.setLayoutDirection(locale)
-                config
+                if (appLanguage.isEmpty() && !useIndianNumerals) {
+                    currentSystemConfig
+                } else {
+                    val locale = com.mohamedaminelouati.oplayer.util.LocaleHelper.getEffectiveLocale(appLanguage)
+                    val config = Configuration(currentSystemConfig)
+                    config.setLocale(locale)
+                    config.setLayoutDirection(locale)
+                    config
+                }
             }
             val layoutDirection = remember(appLanguage) {
-                com.mohamedaminelouati.oplayer.util.LocaleHelper.getLayoutDirection(appLanguage)
+                if (appLanguage.isEmpty()) {
+                    val locale = com.mohamedaminelouati.oplayer.util.LocaleHelper.systemLocale
+                    val direction = androidx.core.text.TextUtilsCompat.getLayoutDirectionFromLocale(locale)
+                    if (direction == android.view.View.LAYOUT_DIRECTION_RTL) {
+                        androidx.compose.ui.unit.LayoutDirection.Rtl
+                    } else {
+                        androidx.compose.ui.unit.LayoutDirection.Ltr
+                    }
+                } else {
+                    com.mohamedaminelouati.oplayer.util.LocaleHelper.getLayoutDirection(appLanguage)
+                }
             }
 
             CompositionLocalProvider(
