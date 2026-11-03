@@ -30,9 +30,7 @@ import com.mohamedaminelouati.oplayer.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -129,16 +127,13 @@ fun FolderListItem(
                 }
             }
             
-            val truncation = LocalTextTruncationMode.current
             Column(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
+                    MarqueeText(
                         text = name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = truncation.maxLines,
-                        overflow = truncation.overflow,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     if (isLocked) {
@@ -456,18 +451,15 @@ fun FolderGridItem(
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                val truncation = LocalTextTruncationMode.current
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text(
+                    MarqueeText(
                         text = name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        maxLines = truncation.maxLines,
-                        overflow = truncation.overflow
+                        textAlign = TextAlign.Center
                     )
                 }
                 Text(

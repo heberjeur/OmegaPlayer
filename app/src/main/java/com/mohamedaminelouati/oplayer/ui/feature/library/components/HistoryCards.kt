@@ -34,13 +34,11 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.mohamedaminelouati.oplayer.data.RecentPlayback
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 import com.mohamedaminelouati.oplayer.ui.common.videoThumbImageRequest
 import com.mohamedaminelouati.oplayer.util.MediaUtils.formatDuration
 import com.mohamedaminelouati.oplayer.ui.theme.LocalSavePositionOnQuit
 import com.mohamedaminelouati.oplayer.ui.theme.LocalShowHistoryDate
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
 
 @Composable
 fun RecentPlaybackItem(
@@ -96,7 +94,6 @@ fun RecentPlaybackItem(
             val displayName = remember(item.name, item.uri) {
                 com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
             }
-            val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -104,15 +101,12 @@ fun RecentPlaybackItem(
                     .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text(
+                MarqueeText(
                     text = displayName,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Justify,
-                    maxLines = truncation.maxLines,
-                    overflow = truncation.overflow
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
@@ -267,7 +261,6 @@ fun HistoryGridCard(
             val displayName = remember(item.name, item.uri) {
                 com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
             }
-            val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -275,14 +268,11 @@ fun HistoryGridCard(
                     .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                     .padding(start = 8.dp, end = if (onDelete != null || onDeleteFromDevice != null) 36.dp else 8.dp, top = 8.dp, bottom = 8.dp)
             ) {
-                Text(
+                MarqueeText(
                     text = displayName,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Justify,
-                    maxLines = truncation.maxLines,
-                    overflow = truncation.overflow
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
@@ -568,17 +558,13 @@ fun HistoryItem(
             val displayName = remember(item.name, item.uri) {
                 com.mohamedaminelouati.oplayer.util.MediaUtils.resolveMediaTitle(item.name, item.uri, context)
             }
-            val truncation = LocalTextTruncationMode.current
             Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
-                Text(
+                MarqueeText(
                     text = displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Justify,
-                    maxLines = truncation.maxLines,
-                    overflow = truncation.overflow
+                    modifier = Modifier.fillMaxWidth()
                 )
                 val showDate = LocalShowHistoryDate.current
                 if (showDate && item.lastPlayed > 0L) {

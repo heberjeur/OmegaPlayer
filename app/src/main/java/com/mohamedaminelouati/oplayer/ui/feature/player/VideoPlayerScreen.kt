@@ -72,15 +72,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
-import com.mohamedaminelouati.oplayer.data.TextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 import com.mohamedaminelouati.oplayer.util.findActivity
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -445,7 +441,6 @@ fun VideoPlayerScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var aspectRatio by remember { mutableIntStateOf(0) }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val truncation = LocalTextTruncationMode.current
 
     LaunchedEffect(playerOrientation) {
         if (!isLandscape) {
@@ -1312,18 +1307,14 @@ fun VideoPlayerScreen(
                         }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
                         }
-                        val isOneLine = truncation == TextTruncationMode.ONE_LINE
-                        Text(
+                        MarqueeText(
                             text = videoName,
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            maxLines = truncation.maxLines,
-                            overflow = if (isOneLine) TextOverflow.Clip else truncation.overflow,
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp)
-                                .then(if (isOneLine) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
                         )
                         IconButton(onClick = {
                             showQueueSheet = true

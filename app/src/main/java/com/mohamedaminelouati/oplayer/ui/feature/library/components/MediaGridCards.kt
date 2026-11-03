@@ -29,21 +29,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.mohamedaminelouati.oplayer.data.AudioModel
 import com.mohamedaminelouati.oplayer.data.VideoModel
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 import com.mohamedaminelouati.oplayer.ui.common.videoThumbImageRequest
 import com.mohamedaminelouati.oplayer.util.MediaUtils
 import com.mohamedaminelouati.oplayer.util.MediaUtils.formatDuration
 import com.mohamedaminelouati.oplayer.ui.theme.LocalPlaybackProgress
 import com.mohamedaminelouati.oplayer.ui.theme.LocalSavePositionOnQuit
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
 
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -123,7 +120,6 @@ fun VideoGridItem(
                     }
                 }
 
-                val truncation = LocalTextTruncationMode.current
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -131,14 +127,11 @@ fun VideoGridItem(
                         .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                         .padding(start = 8.dp, end = 36.dp, top = 8.dp, bottom = 8.dp)
                 ) {
-                    Text(
+                    MarqueeText(
                         text = video.name,
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Justify,
-                        maxLines = truncation.maxLines,
-                        overflow = truncation.overflow
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
@@ -441,7 +434,6 @@ fun AudioGridItem(
                 }
             }
 
-            val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -449,14 +441,11 @@ fun AudioGridItem(
                     .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                     .padding(start = 8.dp, end = 36.dp, top = 8.dp, bottom = 8.dp)
             ) {
-                Text(
+                MarqueeText(
                     text = audio.name,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Justify,
-                    maxLines = truncation.maxLines,
-                    overflow = truncation.overflow
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 

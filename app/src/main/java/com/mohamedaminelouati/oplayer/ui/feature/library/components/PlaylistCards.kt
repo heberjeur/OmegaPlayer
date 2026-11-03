@@ -22,12 +22,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.mohamedaminelouati.oplayer.R
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mohamedaminelouati.oplayer.data.Playlist
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -73,14 +70,11 @@ fun PlaylistListItem(
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
-            val truncation = LocalTextTruncationMode.current
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    playlist.name,
+                MarqueeText(
+                    text = playlist.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = truncation.maxLines,
-                    overflow = truncation.overflow
+                    fontWeight = FontWeight.Bold
                 )
             }
             if (isSelectionMode) {
@@ -153,18 +147,15 @@ fun PlaylistGridCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        val truncation = LocalTextTruncationMode.current
         Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            Text(
+            MarqueeText(
                 text = playlist.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter),
-                textAlign = TextAlign.Center,
-                maxLines = truncation.maxLines,
-                overflow = truncation.overflow
+                textAlign = TextAlign.Center
             )
 
             Surface(

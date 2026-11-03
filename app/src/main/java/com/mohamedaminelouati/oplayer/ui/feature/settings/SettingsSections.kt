@@ -419,15 +419,29 @@ fun SettingsLanguageSection(themeViewModel: ThemeViewModel) {
                             }
                         },
                     leadingContent = {
-                        Image(
-                            painter = painterResource(item.iconRes),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(width = 30.dp, height = 22.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop
-                        )
+                        if (item.tag.isEmpty()) {
+                            Box(
+                                modifier = Modifier.size(width = 30.dp, height = 22.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        } else {
+                            Image(
+                                painter = painterResource(item.iconRes),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(width = 30.dp, height = 22.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     },
                     headlineContent = {
                         Text(

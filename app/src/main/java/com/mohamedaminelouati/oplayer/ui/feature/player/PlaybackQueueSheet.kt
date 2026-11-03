@@ -54,7 +54,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -62,9 +61,7 @@ import coil.compose.AsyncImage
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.MediaInfoDialog
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.PlayingVisualizer
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.SelectionFooterBar
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 import coil.request.ImageRequest
 import com.mohamedaminelouati.oplayer.R
 import com.mohamedaminelouati.oplayer.media.PlaybackQueueItem
@@ -470,18 +467,15 @@ fun PlaybackQueueSheet(
                             
                             Spacer(modifier = Modifier.width(12.dp))
                             
-                            val truncation = LocalTextTruncationMode.current
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Text(
+                                MarqueeText(
                                     text = item.title,
                                     color = if (isDragged || isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isDragged || isCurrent) FontWeight.Bold else FontWeight.Medium,
-                                    maxLines = truncation.maxLines,
-                                    overflow = truncation.overflow
+                                    fontWeight = if (isDragged || isCurrent) FontWeight.Bold else FontWeight.Medium
                                 )
                                 if (isCurrent) {
                                     Spacer(modifier = Modifier.height(2.dp))

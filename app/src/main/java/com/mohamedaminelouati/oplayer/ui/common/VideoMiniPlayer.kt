@@ -5,7 +5,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -38,7 +37,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.mohamedaminelouati.oplayer.R
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
@@ -204,16 +202,14 @@ fun VideoMiniPlayer(
                         .weight(1f)
                         .padding(horizontal = 12.dp)
                 ) {
-                    Text(
+                    MarqueeText(
                         text = mediaTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Clip,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.basicMarquee()
+                        forceMarquee = true
                     )
                 }
 

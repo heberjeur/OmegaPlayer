@@ -35,9 +35,7 @@ import com.mohamedaminelouati.oplayer.data.AudioModel
 import com.mohamedaminelouati.oplayer.media.PlayerRepeatMode
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
-import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
-import com.mohamedaminelouati.oplayer.ui.theme.maxLines
-import com.mohamedaminelouati.oplayer.ui.theme.overflow
+import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -192,16 +190,13 @@ fun AudioPlayerContent(
         }
 
         val mediaInfo: @Composable () -> Unit = {
-            val truncation = LocalTextTruncationMode.current
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
+                MarqueeText(
                     text = currentAudio?.name ?: stringResource(R.string.unknown_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
-                    color = Color.White,
-                    maxLines = truncation.maxLines,
-                    overflow = truncation.overflow
+                    color = Color.White
                 )
             }
         }
