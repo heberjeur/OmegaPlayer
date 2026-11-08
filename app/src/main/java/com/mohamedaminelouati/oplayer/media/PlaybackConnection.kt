@@ -125,23 +125,26 @@ class PlaybackConnection @Inject constructor(
                     val currentUri = mediaItem?.localConfiguration?.uri?.toString() ?: mediaItem?.mediaId
                     _currentMediaItem.value = mediaItem
 
+                    val isSameItem = previousUri != null && currentUri != null && previousUri == currentUri
+                    if (!isSameItem) {
+                        repetitionCounter = 0
+                    }
+
                     val mode = _repeatMode.value
                     if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
                         if (mode.targetRepeats > 0) {
                             repetitionCounter++
                             if (repetitionCounter >= mode.targetRepeats) {
                                 controller.repeatMode = Player.REPEAT_MODE_OFF
+                                _repeatMode.value = PlayerRepeatMode.OFF
+                                repetitionCounter = 0
                             }
                         }
                     } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                         repetitionCounter = 0
                         if (mode.targetRepeats > 0) {
+                            controller.repeatMode = Player.REPEAT_MODE_OFF
                             _repeatMode.value = PlayerRepeatMode.OFF
-                        }
-                    } else {
-                        repetitionCounter = 0
-                        if (mode.targetRepeats > 0) {
-                            controller.repeatMode = Player.REPEAT_MODE_ONE
                         }
                     }
 
@@ -181,24 +184,6 @@ class PlaybackConnection @Inject constructor(
                     if (playbackState == Player.STATE_READY) {
                         saveCurrentProgress()
                     } else if (playbackState == Player.STATE_ENDED) {
-                        val mode = _repeatMode.value
-                        if (mode.targetRepeats > 0) {
-                            if (repetitionCounter < mode.targetRepeats) {
-                                repetitionCounter++
-                                if (repetitionCounter >= mode.targetRepeats) {
-                                    controller.repeatMode = Player.REPEAT_MODE_OFF
-                                }
-                                controller.seekTo(0L)
-                                controller.playWhenReady = true
-                                controller.prepare()
-                                controller.play()
-                                return
-                            } else {
-                                _repeatMode.value = PlayerRepeatMode.OFF
-                                controller.repeatMode = Player.REPEAT_MODE_OFF
-                                repetitionCounter = 0
-                            }
-                        }
                         val currentUri = _currentMediaItem.value?.localConfiguration?.uri?.toString() ?: _currentMediaItem.value?.mediaId
                         if (currentUri != null) {
                             val dur = controller.duration.coerceAtLeast(0L)
@@ -393,7 +378,7 @@ class PlaybackConnection @Inject constructor(
             val existing = playbackRepository.getRecentPlayback(currentUri)
             val finalDuration = if (duration > 0L) duration else (queueItem?.duration ?: existing?.duration ?: 0L)
             val finalPosition = position.coerceAtLeast(0L)
-            val isVideo = queueItem?.isVideo ?: (existing?.mediaType == "video") ?: (currentItem?.let { MediaUtils.isVideoMediaItem(it) } ?: false)
+            val isVideo = queueItem?.isVideo ?: existing?.let { it.mediaType == "video" } ?: currentItem?.let { MediaUtils.isVideoMediaItem(it) } ?: false
             val rawTitle = queueItem?.title ?: existing?.name ?: currentItem?.mediaMetadata?.title?.toString()
             val resolvedName = MediaUtils.resolveMediaTitle(rawTitle, currentUri, context)
             val finalArtist = queueItem?.artist ?: existing?.artist ?: currentItem?.mediaMetadata?.artist?.toString()
