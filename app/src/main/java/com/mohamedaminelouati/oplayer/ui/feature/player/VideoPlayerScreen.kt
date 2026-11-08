@@ -231,13 +231,11 @@ fun VideoPlayerScreen(
         viewModel.getCurrentVideo(playingUri) ?: videosList.find { it.uri.toString() == playingUri }
     }
 
-    val currentFolder = remember(currentVideo, playingUri) {
-        val path = currentVideo?.path ?: videosList.find { it.uri.toString() == playingUri }?.path
-        if (!path.isNullOrBlank()) {
-            java.io.File(path).parentFile?.absolutePath ?: ""
-        } else {
-            ""
-        }
+    val selectedFolder by viewModel.selectedFolder.collectAsStateWithLifecycle()
+    val currentFolder = remember(currentVideo, playingUri, selectedFolder) {
+        selectedFolder ?: currentVideo?.path?.let { java.io.File(it).parentFile?.absolutePath }
+            ?: videosList.find { it.uri.toString() == playingUri }?.path?.let { java.io.File(it).parentFile?.absolutePath }
+            ?: ""
     }
 
     val folderVideos = remember(currentFolder, videosList) {
@@ -303,8 +301,10 @@ fun VideoPlayerScreen(
 
     val speedScope by viewModel.speedScope.collectAsStateWithLifecycle(initialValue = PlaybackSpeedScope.GLOBAL)
     val globalSpeed by viewModel.globalPlaybackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
-    val folderSpeedFlow = remember(currentFolder) { viewModel.getFolderSpeed(currentFolder) }
-    val folderSpeed by folderSpeedFlow.collectAsStateWithLifecycle(initialValue = 1.0f)
+    val folderSpeedFlow = remember(currentFolder) {
+        if (currentFolder.isNotEmpty()) viewModel.getFolderSpeed(currentFolder) else flowOf(null)
+    }
+    val folderSpeed by folderSpeedFlow.collectAsStateWithLifecycle(initialValue = null)
 
     val playbackSource by viewModel.playbackSource.collectAsStateWithLifecycle(initialValue = PlaybackSource.None)
     val isHistory = com.mohamedaminelouati.oplayer.media.PlaybackSpeedResolver.isHistorySource(from, playbackSource)
@@ -323,7 +323,7 @@ fun VideoPlayerScreen(
         historySpeed = historySpeed,
         playlistId = playlistId,
         playlistSpeed = playlistSpeed,
-        folderSpeed = folderSpeed ?: 1.0f
+        folderSpeed = folderSpeed ?: globalSpeed
     )
 
     val showSystemStatusBar by viewModel.showSystemStatusBar.collectAsStateWithLifecycle(initialValue = true)

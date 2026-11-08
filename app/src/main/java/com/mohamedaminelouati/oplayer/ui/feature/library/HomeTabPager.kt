@@ -225,15 +225,17 @@ fun HomeTabPager(
         runWithFolderAuth(path) {
             scope.launch {
                 if (isVideo) {
-                    val videosInFolder = viewModel.getVideosInFolder(path)
+                    val videosInFolder = viewModel.getSortedVideosInFolder(path)
                     if (videosInFolder.isNotEmpty()) {
+                        viewModel.setSelectedFolder(path)
                         viewModel.playVideos(videosInFolder, 0)
                         val encodedUri = com.mohamedaminelouati.oplayer.util.MediaUtils.safeEncodeUri(videosInFolder.first().uri.toString())
                         onVideoClick(encodedUri, -1L, "folder")
                     }
                 } else {
-                    val audiosInFolder = audioViewModel.getAudiosInFolder(path)
+                    val audiosInFolder = audioViewModel.getSortedAudiosInFolder(path)
                     if (audiosInFolder.isNotEmpty()) {
+                        audioViewModel.setSelectedFolder(path)
                         audioViewModel.playAudios(audiosInFolder, 0)
                         val encodedUri = com.mohamedaminelouati.oplayer.util.MediaUtils.safeEncodeUri(audiosInFolder.first().uri.toString())
                         onAudioClick(encodedUri, -1L, "folder")

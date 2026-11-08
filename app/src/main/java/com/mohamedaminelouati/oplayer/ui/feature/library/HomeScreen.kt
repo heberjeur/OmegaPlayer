@@ -43,6 +43,8 @@ import com.mohamedaminelouati.oplayer.viewmodel.AudioViewModel
 import com.mohamedaminelouati.oplayer.viewmodel.VideoViewModel
 import com.mohamedaminelouati.oplayer.ui.common.ModernLoadingDialog
 import com.mohamedaminelouati.oplayer.data.MediaSortOrder
+import com.mohamedaminelouati.oplayer.data.sortedWithOrder
+import com.mohamedaminelouati.oplayer.data.toMediaSortOrder
 import com.mohamedaminelouati.oplayer.data.RecentPlayback
 import com.mohamedaminelouati.oplayer.data.SearchScope
 import com.mohamedaminelouati.oplayer.data.SearchMediaItem
@@ -187,7 +189,7 @@ fun HomeScreen(
     }.collectAsStateWithLifecycle(initialValue = MediaSortOrder.DATE_DESC.name)
 
     val currentSortOrder = remember(currentSortOrderName) {
-        MediaSortOrder.values().firstOrNull { it.name == currentSortOrderName } ?: MediaSortOrder.DATE_DESC
+        currentSortOrderName.toMediaSortOrder()
     }
 
     val isCurrentFolderOpen = remember(selectedTab, selectedVideoFolder, selectedAudioFolder, selectedPlaylistForDetails) {
@@ -272,16 +274,7 @@ fun HomeScreen(
         else {
             val baseList = if (searchQuery.isEmpty()) videoFolders
             else videoFolders.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            when (currentSortOrder) {
-                MediaSortOrder.NAME_ASC -> baseList.sortedBy { it.name.lowercase() }
-                MediaSortOrder.NAME_DESC -> baseList.sortedByDescending { it.name.lowercase() }
-                MediaSortOrder.SIZE_DESC -> baseList.sortedByDescending { it.videoCount }
-                MediaSortOrder.SIZE_ASC -> baseList.sortedBy { it.videoCount }
-                MediaSortOrder.DURATION_DESC -> baseList.sortedByDescending { it.videoCount }
-                MediaSortOrder.DURATION_ASC -> baseList.sortedBy { it.videoCount }
-                MediaSortOrder.DATE_DESC -> baseList
-                MediaSortOrder.DATE_ASC -> baseList.reversed()
-            }
+            baseList.sortedWithOrder(currentSortOrder)
         }
     }
 
@@ -290,16 +283,7 @@ fun HomeScreen(
         else {
             val baseList = if (searchQuery.isEmpty()) audioFolders
             else audioFolders.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            when (currentSortOrder) {
-                MediaSortOrder.NAME_ASC -> baseList.sortedBy { it.name.lowercase() }
-                MediaSortOrder.NAME_DESC -> baseList.sortedByDescending { it.name.lowercase() }
-                MediaSortOrder.SIZE_DESC -> baseList.sortedByDescending { it.videoCount }
-                MediaSortOrder.SIZE_ASC -> baseList.sortedBy { it.videoCount }
-                MediaSortOrder.DURATION_DESC -> baseList.sortedByDescending { it.videoCount }
-                MediaSortOrder.DURATION_ASC -> baseList.sortedBy { it.videoCount }
-                MediaSortOrder.DATE_DESC -> baseList
-                MediaSortOrder.DATE_ASC -> baseList.reversed()
-            }
+            baseList.sortedWithOrder(currentSortOrder)
         }
     }
 
@@ -310,16 +294,7 @@ fun HomeScreen(
             val sourceList = if (isSearchingAllVideos) videos else videosInFolder
             val list = if (searchQuery.isEmpty()) sourceList
             else sourceList.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            when (currentSortOrder) {
-                MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.id }
-                MediaSortOrder.DATE_ASC -> list.sortedBy { it.id }
-                MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
-                MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
-                MediaSortOrder.SIZE_DESC -> list.sortedByDescending { it.size }
-                MediaSortOrder.SIZE_ASC -> list.sortedBy { it.size }
-                MediaSortOrder.DURATION_DESC -> list.sortedByDescending { it.duration }
-                MediaSortOrder.DURATION_ASC -> list.sortedBy { it.duration }
-            }
+            list.sortedWithOrder(currentSortOrder)
         }
     }
     
@@ -330,16 +305,7 @@ fun HomeScreen(
             val sourceList = if (isSearchingAllAudios) audios else audiosInFolder
             val list = if (searchQuery.isEmpty()) sourceList
             else sourceList.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            when (currentSortOrder) {
-                MediaSortOrder.DATE_DESC -> list.sortedByDescending { it.id }
-                MediaSortOrder.DATE_ASC -> list.sortedBy { it.id }
-                MediaSortOrder.NAME_ASC -> list.sortedBy { it.name.lowercase() }
-                MediaSortOrder.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
-                MediaSortOrder.SIZE_DESC -> list.sortedByDescending { it.size }
-                MediaSortOrder.SIZE_ASC -> list.sortedBy { it.size }
-                MediaSortOrder.DURATION_DESC -> list.sortedByDescending { it.duration }
-                MediaSortOrder.DURATION_ASC -> list.sortedBy { it.duration }
-            }
+            list.sortedWithOrder(currentSortOrder)
         }
     }
 
@@ -575,11 +541,18 @@ fun HomeScreen(
             selectedTab == MediaTab.VIDEOS -> {
                 scope.launch {
                     isProcessing = true
-                    val allVideos = selectedKeys.flatMap { viewModel.getVideosInFolder(it) }
+                    val selectedFolderNodes = sortedVideoFolders.filter { selectedKeys.contains(it.path) }
+                    val folderPaths = if (selectedFolderNodes.isNotEmpty()) {
+                        selectedFolderNodes.map { it.path }
+                    } else {
+                        selectedKeys.toList()
+                    }
+                    val allVideos = folderPaths.flatMap { viewModel.getSortedVideosInFolder(it) }
                     if (allVideos.isNotEmpty()) {
+                        viewModel.setSelectedFolder(folderPaths.firstOrNull())
                         viewModel.playVideos(allVideos, 0)
                         val encodedUri = com.mohamedaminelouati.oplayer.util.MediaUtils.safeEncodeUri(allVideos.first().uri.toString())
-                        onVideoClick(encodedUri, -1L, "folder_batch")
+                        onVideoClick(encodedUri, -1L, "folder")
                         selectedKeys = emptySet()
                     }
                     isProcessing = false
@@ -588,11 +561,18 @@ fun HomeScreen(
             selectedTab == MediaTab.AUDIOS -> {
                 scope.launch {
                     isProcessing = true
-                    val allAudios = selectedKeys.flatMap { audioViewModel.getAudiosInFolder(it) }
+                    val selectedFolderNodes = sortedAudioFolders.filter { selectedKeys.contains(it.path) }
+                    val folderPaths = if (selectedFolderNodes.isNotEmpty()) {
+                        selectedFolderNodes.map { it.path }
+                    } else {
+                        selectedKeys.toList()
+                    }
+                    val allAudios = folderPaths.flatMap { audioViewModel.getSortedAudiosInFolder(it) }
                     if (allAudios.isNotEmpty()) {
+                        audioViewModel.setSelectedFolder(folderPaths.firstOrNull())
                         audioViewModel.playAudios(allAudios, 0)
                         val encodedUri = com.mohamedaminelouati.oplayer.util.MediaUtils.safeEncodeUri(allAudios.first().uri.toString())
-                        onAudioClick(encodedUri, -1L, "folder_batch")
+                        onAudioClick(encodedUri, -1L, "folder")
                         selectedKeys = emptySet()
                     }
                     isProcessing = false

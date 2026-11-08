@@ -28,6 +28,8 @@ import com.mohamedaminelouati.oplayer.util.MediaUtils
 import com.mohamedaminelouati.oplayer.util.Resource
 import android.content.Context
 import com.mohamedaminelouati.oplayer.data.MediaSortOrder
+import com.mohamedaminelouati.oplayer.data.sortedWithOrder
+import com.mohamedaminelouati.oplayer.data.toMediaSortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -178,22 +180,16 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch { themePreferences.saveCloseAfterQueueEnds(enabled) }
     }
 
+    val defaultSortOrder: StateFlow<String> = themePreferences.defaultSortOrder
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MediaSortOrder.DATE_DESC.name)
+
     val filteredAudios: StateFlow<List<AudioModel>> = combine(audios, searchQuery, sortOrder) { audioList, query, sort ->
-        var result = if (query.isBlank()) {
+        val result = if (query.isBlank()) {
             audioList
         } else {
             audioList.filter { it.name.contains(query, ignoreCase = true) || it.artist.contains(query, ignoreCase = true) }
         }
-        when (sort) {
-            MediaSortOrder.DATE_DESC -> result
-            MediaSortOrder.DATE_ASC -> result.reversed()
-            MediaSortOrder.NAME_ASC -> result.sortedBy { it.name.lowercase() }
-            MediaSortOrder.NAME_DESC -> result.sortedByDescending { it.name.lowercase() }
-            MediaSortOrder.SIZE_ASC -> result.sortedBy { it.size }
-            MediaSortOrder.SIZE_DESC -> result.sortedByDescending { it.size }
-            MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
-            MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
-        }
+        result.sortedWithOrder(sort)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val playlists: StateFlow<List<Playlist>> = playlistUseCases.getPlaylists()
@@ -457,6 +453,12 @@ class AudioViewModel @Inject constructor(
             val parent = File(it.path).parentFile?.absolutePath ?: ""
             parent == folderPath || parent.startsWith("$folderPath/")
         }
+    }
+
+    suspend fun getSortedAudiosInFolder(folderPath: String): List<AudioModel> {
+        val sortOrderName = themePreferences.getFolderSortOrder("folder_audio_$folderPath").first()
+        val sortOrder = sortOrderName.toMediaSortOrder()
+        return getAudiosInFolder(folderPath).sortedWithOrder(sortOrder)
     }
 
     fun manualRefresh() {

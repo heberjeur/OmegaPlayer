@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import coil.imageLoader
 import com.mohamedaminelouati.oplayer.data.MediaSortOrder
+import com.mohamedaminelouati.oplayer.data.sortedWithOrder
+import com.mohamedaminelouati.oplayer.data.toMediaSortOrder
 import com.mohamedaminelouati.oplayer.data.VideoModel
 import com.mohamedaminelouati.oplayer.data.PlaybackSpeedScope
 import com.mohamedaminelouati.oplayer.data.BrightnessScope
@@ -435,21 +437,12 @@ class VideoViewModel @Inject constructor(
     }
 
     val filteredVideos: StateFlow<List<VideoModel>> = combine(videos, searchQuery, sortOrder) { videoList, query, sort ->
-        var result = if (query.isBlank()) {
+        val result = if (query.isBlank()) {
             videoList
         } else {
             videoList.filter { it.name.contains(query, ignoreCase = true) }
         }
-        when (sort) {
-            MediaSortOrder.DATE_DESC -> result
-            MediaSortOrder.DATE_ASC -> result.reversed()
-            MediaSortOrder.NAME_ASC -> result.sortedBy { it.name.lowercase() }
-            MediaSortOrder.NAME_DESC -> result.sortedByDescending { it.name.lowercase() }
-            MediaSortOrder.SIZE_ASC -> result.sortedBy { it.size }
-            MediaSortOrder.SIZE_DESC -> result.sortedByDescending { it.size }
-            MediaSortOrder.DURATION_ASC -> result.sortedBy { it.duration }
-            MediaSortOrder.DURATION_DESC -> result.sortedByDescending { it.duration }
-        }
+        result.sortedWithOrder(sort)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val folders: StateFlow<Map<String, Int>> = videos
@@ -563,6 +556,12 @@ class VideoViewModel @Inject constructor(
             val parent = File(it.path).parentFile?.absolutePath ?: ""
             parent == folderPath || parent.startsWith("$folderPath/")
         }
+    }
+
+    suspend fun getSortedVideosInFolder(folderPath: String): List<VideoModel> {
+        val sortOrderName = themePreferences.getFolderSortOrder("folder_video_$folderPath").first()
+        val sortOrder = sortOrderName.toMediaSortOrder()
+        return getVideosInFolder(folderPath).sortedWithOrder(sortOrder)
     }
 
     fun manualRefresh() {

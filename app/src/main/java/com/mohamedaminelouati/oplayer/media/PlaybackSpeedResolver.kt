@@ -5,7 +5,7 @@ import com.mohamedaminelouati.oplayer.data.PlaybackSpeedScope
 object PlaybackSpeedResolver {
 
     fun isHistorySource(from: String?, playbackSource: PlaybackSource): Boolean {
-        return from == "history" || (from != "folder" && !from.orEmpty().startsWith("playlist") && playbackSource is PlaybackSource.History)
+        return from == "history" || (from?.startsWith("folder") != true && !from.orEmpty().startsWith("playlist") && playbackSource is PlaybackSource.History)
     }
 
     fun resolvePlaylistId(from: String?, playbackSource: PlaybackSource): Int? {
