@@ -196,7 +196,8 @@ fun AudioPlayerContent(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
-                    color = Color.White
+                    color = Color.White,
+                    forceMarquee = true
                 )
             }
         }

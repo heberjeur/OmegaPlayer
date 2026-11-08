@@ -3,18 +3,20 @@ package com.mohamedaminelouati.oplayer.ui.common
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,18 +24,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mohamedaminelouati.oplayer.data.TextTruncationMode
@@ -110,12 +110,20 @@ fun MarqueeText(
         }
     }
 
-    var textWidthPx by remember(text) { mutableIntStateOf(0) }
-    var containerWidthPx by remember { mutableIntStateOf(0) }
-    val spacingPx = with(density) { 36.dp.roundToPx() }
+    val textMeasurer = rememberTextMeasurer()
+    val textLayoutResult = remember(text, resolvedStyle, fontWeight) {
+        textMeasurer.measure(
+            text = text,
+            style = if (fontWeight != null) resolvedStyle.copy(fontWeight = fontWeight) else resolvedStyle,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
 
-    val shouldScroll = containerWidthPx > 0 && textWidthPx > containerWidthPx
-    val scrollDistance = textWidthPx + spacingPx
+    val textWidthPx = textLayoutResult.size.width
+    val textHeightPx = textLayoutResult.size.height
+    val spacingPx = with(density) { 36.dp.roundToPx() }
+    val heightDp = with(density) { textHeightPx.coerceAtLeast(1).toDp() }
 
     val coroutineScope = rememberCoroutineScope()
     val autoOffsetAnim = remember(text) { Animatable(0f) }
@@ -123,50 +131,63 @@ fun MarqueeText(
     var isDragging by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(text, shouldScroll, isDragging, lastInteractionTime) {
-        if (!shouldScroll || isDragging) {
-            if (!shouldScroll) {
-                autoOffsetAnim.snapTo(0f)
+    val textColor = if (color != Color.Unspecified) {
+        color
+    } else if (style.color != Color.Unspecified) {
+        style.color
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    BoxWithConstraints(
+        modifier = modifier.clipToBounds()
+    ) {
+        val containerWidthPx = if (constraints.hasBoundedWidth) constraints.maxWidth else textWidthPx
+        val shouldScroll = containerWidthPx in 1 until textWidthPx
+        val scrollDistance = textWidthPx + spacingPx
+
+        LaunchedEffect(text, shouldScroll, scrollDistance, isDragging, lastInteractionTime) {
+            if (!shouldScroll || isDragging) {
+                if (!shouldScroll) {
+                    autoOffsetAnim.snapTo(0f)
+                }
+                return@LaunchedEffect
             }
-            return@LaunchedEffect
-        }
-        val durationMs = (scrollDistance / (density.density * 35f) * 1000f).roundToInt().coerceAtLeast(1000)
-        if (lastInteractionTime > 0L) {
-            delay(1500L)
-        } else {
-            delay(1200L)
-        }
-        while (!isDragging) {
-            val startVal = autoOffsetAnim.value
-            val targetVal = startVal + scrollDistance
-            autoOffsetAnim.animateTo(
-                targetValue = targetVal,
-                animationSpec = tween(
-                    durationMillis = durationMs,
-                    easing = LinearEasing
+            val durationMs = (scrollDistance / (density.density * 35f) * 1000f).roundToInt().coerceAtLeast(1000)
+            if (lastInteractionTime > 0L) {
+                delay(1500L)
+            } else {
+                delay(1200L)
+            }
+            while (!isDragging) {
+                val startVal = autoOffsetAnim.value
+                val targetVal = startVal + scrollDistance
+                autoOffsetAnim.animateTo(
+                    targetValue = targetVal,
+                    animationSpec = tween(
+                        durationMillis = durationMs,
+                        easing = LinearEasing
+                    )
                 )
-            )
-            autoOffsetAnim.snapTo(targetVal % scrollDistance)
-            delay(600L)
+                autoOffsetAnim.snapTo(targetVal % scrollDistance)
+                delay(600L)
+            }
         }
-    }
 
-    val draggableState = rememberDraggableState { delta ->
-        manualOffsetPx += delta
-    }
+        val draggableState = rememberDraggableState { delta ->
+            val step = if (isRtl) delta else -delta
+            manualOffsetPx += step
+        }
 
-    Box(
-        modifier = modifier
-            .clipToBounds()
-            .draggable(
+        val dragModifier = if (shouldScroll) {
+            Modifier.draggable(
                 state = draggableState,
                 orientation = Orientation.Horizontal,
-                enabled = shouldScroll,
                 onDragStarted = {
                     isDragging = true
                 },
                 onDragStopped = {
-                    val combined = autoOffsetAnim.value - manualOffsetPx
+                    val combined = autoOffsetAnim.value + manualOffsetPx
                     val modVal = if (scrollDistance > 0) {
                         ((combined % scrollDistance) + scrollDistance) % scrollDistance
                     } else 0f
@@ -178,83 +199,54 @@ fun MarqueeText(
                     }
                 }
             )
-            .drawWithContent {
-                val cw = size.width
-                val tw = textWidthPx.toFloat()
-                if (tw <= 0f || cw <= 0f) {
-                    drawContent()
-                    return@drawWithContent
-                }
+        } else {
+            Modifier
+        }
 
-                if (!shouldScroll) {
-                    val x = if (isRtl) {
-                        cw - tw
-                    } else when (textAlign) {
-                        TextAlign.Center -> (cw - tw) / 2f
-                        TextAlign.End -> cw - tw
-                        else -> 0f
-                    }
-                    translate(left = x, top = 0f) {
-                        this@drawWithContent.drawContent()
-                    }
-                    return@drawWithContent
-                }
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(heightDp)
+                .then(dragModifier)
+        ) {
+            val cw = size.width
+            val tw = textWidthPx.toFloat()
+            if (tw <= 0f || cw <= 0f) return@Canvas
 
-                val dist = scrollDistance.toFloat()
-                val rawShift = if (isDragging) {
-                    autoOffsetAnim.value - manualOffsetPx
-                } else {
-                    autoOffsetAnim.value
+            if (!shouldScroll) {
+                val x = if (isRtl) {
+                    cw - tw
+                } else when (textAlign) {
+                    TextAlign.Center -> (cw - tw) / 2f
+                    TextAlign.End -> cw - tw
+                    else -> 0f
                 }
-                val shift = if (dist > 0f) {
-                    ((rawShift % dist) + dist) % dist
-                } else 0f
-
-                if (isRtl) {
-                    val xStart = cw - tw
-                    val x1 = xStart - shift
-                    val x2 = x1 + dist
-                    translate(left = x1, top = 0f) {
-                        this@drawWithContent.drawContent()
-                    }
-                    translate(left = x2, top = 0f) {
-                        this@drawWithContent.drawContent()
-                    }
-                } else {
-                    val x1 = -shift
-                    val x2 = x1 + dist
-                    translate(left = x1, top = 0f) {
-                        this@drawWithContent.drawContent()
-                    }
-                    translate(left = x2, top = 0f) {
-                        this@drawWithContent.drawContent()
-                    }
-                }
+                drawText(textLayoutResult, color = textColor, topLeft = Offset(x, 0f))
+                return@Canvas
             }
-    ) {
-        CompositionLocalProvider(LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)) {
-            Text(
-                text = text,
-                color = color,
-                style = resolvedStyle,
-                fontWeight = fontWeight,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Visible,
-                modifier = Modifier.layout { measurable, constraints ->
-                    val placeable = measurable.measure(
-                        constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity)
-                    )
-                    val parentWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else placeable.width
-                    if (placeable.width != textWidthPx || parentWidth != containerWidthPx) {
-                        textWidthPx = placeable.width
-                        containerWidthPx = parentWidth
-                    }
-                    layout(parentWidth, placeable.height) {
-                        placeable.place(0, 0)
-                    }
-                }
-            )
+
+            val dist = scrollDistance.toFloat()
+            val rawShift = if (isDragging) {
+                autoOffsetAnim.value + manualOffsetPx
+            } else {
+                autoOffsetAnim.value
+            }
+            val shift = if (dist > 0f) {
+                ((rawShift % dist) + dist) % dist
+            } else 0f
+
+            if (isRtl) {
+                val xStart = cw - tw
+                val x1 = xStart + shift
+                val x2 = x1 - dist
+                drawText(textLayoutResult, color = textColor, topLeft = Offset(x1, 0f))
+                drawText(textLayoutResult, color = textColor, topLeft = Offset(x2, 0f))
+            } else {
+                val x1 = -shift
+                val x2 = x1 + dist
+                drawText(textLayoutResult, color = textColor, topLeft = Offset(x1, 0f))
+                drawText(textLayoutResult, color = textColor, topLeft = Offset(x2, 0f))
+            }
         }
     }
 }

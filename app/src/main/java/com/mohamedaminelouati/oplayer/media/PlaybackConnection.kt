@@ -70,7 +70,6 @@ class PlaybackConnection @Inject constructor(
     }
 
     private var repetitionCounter = 0
-    private var isInternalRepetitionSeek = false
 
     @androidx.annotation.OptIn(UnstableApi::class)
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -121,30 +120,29 @@ class PlaybackConnection @Inject constructor(
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    if (isInternalRepetitionSeek) {
-                        isInternalRepetitionSeek = false
-                        return
-                    }
                     val previousItem = _currentMediaItem.value
                     val previousUri = previousItem?.localConfiguration?.uri?.toString() ?: previousItem?.mediaId
                     val currentUri = mediaItem?.localConfiguration?.uri?.toString() ?: mediaItem?.mediaId
                     _currentMediaItem.value = mediaItem
 
                     val mode = _repeatMode.value
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && mode.targetRepeats > 0) {
-                        if (repetitionCounter < mode.targetRepeats) {
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                        if (mode.targetRepeats > 0) {
                             repetitionCounter++
-                            isInternalRepetitionSeek = true
-                            controller.seekToPreviousMediaItem()
-                            controller.seekTo(0L)
-                            controller.play()
-                            return
-                        } else {
-                            _repeatMode.value = PlayerRepeatMode.OFF
-                            repetitionCounter = 0
+                            if (repetitionCounter >= mode.targetRepeats) {
+                                controller.repeatMode = Player.REPEAT_MODE_OFF
+                            }
                         }
-                    } else if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                         repetitionCounter = 0
+                        if (mode.targetRepeats > 0) {
+                            _repeatMode.value = PlayerRepeatMode.OFF
+                        }
+                    } else {
+                        repetitionCounter = 0
+                        if (mode.targetRepeats > 0) {
+                            controller.repeatMode = Player.REPEAT_MODE_ONE
+                        }
                     }
 
                     scope.launch {
@@ -187,11 +185,17 @@ class PlaybackConnection @Inject constructor(
                         if (mode.targetRepeats > 0) {
                             if (repetitionCounter < mode.targetRepeats) {
                                 repetitionCounter++
+                                if (repetitionCounter >= mode.targetRepeats) {
+                                    controller.repeatMode = Player.REPEAT_MODE_OFF
+                                }
                                 controller.seekTo(0L)
+                                controller.playWhenReady = true
+                                controller.prepare()
                                 controller.play()
                                 return
                             } else {
                                 _repeatMode.value = PlayerRepeatMode.OFF
+                                controller.repeatMode = Player.REPEAT_MODE_OFF
                                 repetitionCounter = 0
                             }
                         }
@@ -235,10 +239,10 @@ class PlaybackConnection @Inject constructor(
 
     private fun applyExoRepeatMode(controller: MediaController, mode: PlayerRepeatMode) {
         when (mode) {
-            PlayerRepeatMode.OFF,
+            PlayerRepeatMode.OFF -> controller.repeatMode = Player.REPEAT_MODE_OFF
             PlayerRepeatMode.ONE,
             PlayerRepeatMode.TWO,
-            PlayerRepeatMode.THREE -> controller.repeatMode = Player.REPEAT_MODE_OFF
+            PlayerRepeatMode.THREE -> controller.repeatMode = Player.REPEAT_MODE_ONE
             PlayerRepeatMode.ALL -> controller.repeatMode = Player.REPEAT_MODE_ALL
         }
     }
