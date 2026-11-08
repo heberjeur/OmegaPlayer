@@ -36,6 +36,7 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
+        cache: gradle
 
     - name: Build project for CodeQL
       run: ./gradlew assembleDebug
