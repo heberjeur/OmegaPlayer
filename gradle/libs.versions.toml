@@ -24,7 +24,7 @@ paging = "3.5.3"
 hiltNavigation = "1.4.0"
 baselineProfile = "1.5.0"
 benchmarkMacro = "1.5.0"
-uiautomator = "2.4.0"
+uiautomator = "2.4.1"
 wire = "7.1.2"
 
 [libraries]
