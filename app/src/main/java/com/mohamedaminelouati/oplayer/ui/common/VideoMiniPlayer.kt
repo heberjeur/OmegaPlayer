@@ -208,8 +208,7 @@ fun VideoMiniPlayer(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        forceMarquee = true
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 

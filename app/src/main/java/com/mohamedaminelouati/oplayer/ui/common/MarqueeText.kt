@@ -66,23 +66,6 @@ fun MarqueeText(
     textAlign: TextAlign? = null,
     forceMarquee: Boolean = false
 ) {
-    val truncation = LocalTextTruncationMode.current
-    val isOneLine = forceMarquee || truncation == TextTruncationMode.ONE_LINE
-
-    if (!isOneLine) {
-        Text(
-            text = text,
-            modifier = modifier,
-            color = color,
-            style = style,
-            fontWeight = fontWeight,
-            textAlign = textAlign,
-            maxLines = truncation.maxLines,
-            overflow = truncation.overflow
-        )
-        return
-    }
-
     if (text.isEmpty()) {
         Text(
             text = "",
@@ -101,6 +84,25 @@ fun MarqueeText(
         } else {
             style
         }
+    }
+
+    val truncation = LocalTextTruncationMode.current
+    val isOneLine = forceMarquee || truncation == TextTruncationMode.ONE_LINE
+
+    if (!isOneLine) {
+        CompositionLocalProvider(LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)) {
+            Text(
+                text = text,
+                modifier = modifier,
+                color = color,
+                style = resolvedStyle,
+                fontWeight = fontWeight,
+                textAlign = textAlign,
+                maxLines = truncation.maxLines,
+                overflow = truncation.overflow
+            )
+        }
+        return
     }
 
     val textMeasurer = rememberTextMeasurer()
@@ -124,6 +126,7 @@ fun MarqueeText(
             CompositionLocalProvider(LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)) {
                 Text(
                     text = text,
+                    modifier = Modifier.fillMaxWidth(),
                     color = color,
                     style = resolvedStyle,
                     fontWeight = fontWeight,

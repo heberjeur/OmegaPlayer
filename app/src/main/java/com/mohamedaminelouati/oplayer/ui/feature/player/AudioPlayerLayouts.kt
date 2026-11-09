@@ -190,14 +190,17 @@ fun AudioPlayerContent(
         }
 
         val mediaInfo: @Composable () -> Unit = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 MarqueeText(
                     text = currentAudio?.name ?: stringResource(R.string.unknown_title),
+                    modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
-                    color = Color.White,
-                    forceMarquee = true
+                    color = Color.White
                 )
             }
         }

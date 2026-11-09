@@ -1312,7 +1312,6 @@ fun VideoPlayerScreen(
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            forceMarquee = true,
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp)
