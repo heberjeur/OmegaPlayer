@@ -40,7 +40,7 @@ Developed & Maintained by **[Mohamed Amine Louati](https://mohamedaminelouati.pr
   - Configurable sleep timer and custom notification controls.
 - **Pure Dark & AMOLED Modes**: Modern Material 3 UI with customizable primary and secondary accent color palettes.
 - **Dynamic App Icon Customization**: Choose from multiple dual-color launcher icon styles directly within the app.
-- **Bidirectional Marquee**: Seamless single-line marquee title scrolling in the mini-player with full Right-to-Left (Arabic) and Left-to-Right support.
+- **Background Playback & PiP**: Keep enjoying your media with Picture-in-Picture (PiP) multitasking and background audio playback with screen-off support.
 - **Security & Access Lock (PIN / Pattern)**: Secure app access, sensitive folders, and media playback with PIN or Pattern protection.
 - **Multilingual Support**: Fully localized into English, French, Arabic, German, Spanish, Portuguese, Russian, and Simplified Chinese.
 
