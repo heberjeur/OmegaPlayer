@@ -42,8 +42,10 @@
 
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/homescreen.jpeg" width="180"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/lockscreen.jpeg" width="180"/>
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/settingsscreen.jpeg" width="180"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/appearance.jpeg" width="180"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/languagescreen.jpeg" width="180"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/notificationscreen.jpeg" width="180"/>
 </p>
 
 ---
