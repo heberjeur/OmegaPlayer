@@ -1,2 +1,1 @@
-Lecteur vidéo et audio performant
-Verrouillage de sécurité avec code PIN et schéma
+Lecteur vidéo et audio performant avec verrouillage par code PIN et schéma.
