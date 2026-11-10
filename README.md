@@ -1,84 +1,88 @@
-<p align="center">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" width="120" alt="O Media Player Logo">
-</p>
-
-<h1 align="center">O Media Player</h1>
+# O Media Player
 
 <p align="center">
-  A modern, offline multimedia player for Android featuring a powerful video player,
-  music player, and a secure private vault.
+  <img src="assets/screenshots/feature_graphic_1024x500.png" alt="O Media Player Feature Graphic" width="100%" />
 </p>
 
 <p align="center">
-  <b>No Internet • No Ads • No Trackers • 100% Offline</b>
+  <a href="https://www.android.com/"><img src="https://img.shields.io/badge/platform-Android-lightgrey" alt="Platforms" /></a>
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3" /></a>
+  <a href="https://github.com/mohamedaminelouati/O-Media-Player/releases/latest"><img src="https://img.shields.io/badge/version-1.0.0-green.svg" alt="Version" /></a>
+  <a href="https://f-droid.org/packages/com.mohamedaminelouati.oplayer/"><img src="https://img.shields.io/badge/F--Droid-Available-blue?style=flat&logo=f-droid" alt="F-Droid" /></a>
 </p>
 
-<p align="center">
-  <i>Fork of OmegaPlayer, originally created by Arsalan Daim Shar &bull; Licensed under GNU GPL v3.0</i>
-</p>
+**O Media Player** is an intuitive, modern, 100% offline, privacy-first multimedia player for Android featuring a powerful video player, high-fidelity music player, and a secure private vault.
+
+Developed & Maintained by **[Mohamed Amine Louati](https://mohamedaminelouati.pro/)**.
+
+---
+
+## 📱 Screenshots
 
 <p align="center">
-  <a href="https://github.com/mohamedaminelouati/O-Media-Player/releases/latest">
-    <img src="https://img.shields.io/badge/Get%20it%20on-GitHub-181717?style=for-the-badge&logo=github" alt="GitHub">
-  </a>
-  <a href="https://f-droid.org/packages/com.mohamedaminelouati.oplayer/">
-    <img src="https://img.shields.io/badge/Get%20it%20on-F--Droid-1976D2?style=for-the-badge&logo=f-droid" alt="F-Droid">
-  </a>
+  <img src="assets/screenshots/showcase_5_screenshots_preview.png" alt="O Media Player Showcase" width="100%" />
 </p>
 
 ---
 
-## Features
+## 🌟 Key Features
 
-### Smooth Video Playback
-
--  Smart buffering for smooth playback
--  Gesture controls
-   - Left: Brightness
-   - Right: Volume
-   - Horizontal: Seek
--  Fit, Stretch & Zoom modes
--  Background playback with screen off support
-
-<p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/homescreen.jpeg" width="180"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/settingsscreen.jpeg" width="180"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/appearance.jpeg" width="180"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/languagescreen.jpeg" width="180"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/notificationscreen.jpeg" width="180"/>
-</p>
-
----
-
-### Premium Music Experience
-
- -  High-fidelity audio playback
- -  Supports MP3, FLAC, WAV, AAC, OGG and more
- -  Folder-based music browsing
- -  Dynamic album artwork with blurred backgrounds
+- **100% Offline & Private (Zero-Knowledge)**: Complete local privacy. No internet permission, zero ads, and zero background trackers.
+- **Hardware-Accelerated Video Playback**: High-performance playback engine powered by AndroidX Media3 / ExoPlayer with support for smart buffering, Picture-in-Picture (PiP), aspect ratio switching (Fit, Stretch, Zoom), and background audio playback.
+- **Intuitive Gesture Controls**:
+  - **Left swipe**: Brightness control
+  - **Right swipe**: Volume control
+  - **Horizontal swipe**: Accurate seeking
+  - **Double-tap**: Fast forward / rewind
+- **Premium Music Experience**:
+  - Built-in multi-band Equalizer with bass boost and virtualizer.
+  - Repeat modes (Off, All, One) and flexible shuffle algorithms.
+  - Configurable sleep timer and custom notification controls.
+- **Pure Dark & AMOLED Modes**: Modern Material 3 UI with customizable primary and secondary accent color palettes.
+- **Dynamic App Icon Customization**: Choose from multiple dual-color launcher icon styles directly within the app.
+- **Bidirectional Marquee**: Seamless single-line marquee title scrolling in the mini-player with full Right-to-Left (Arabic) and Left-to-Right support.
+- **Secure Vault (Private Media)**: Password, PIN, or Pattern protection to lock, hide, and safeguard sensitive media files from the public gallery.
+- **Multilingual Support**: Fully localized into English, French, Arabic, German, Spanish, Portuguese, Russian, and Simplified Chinese.
 
 ---
 
-### Private Media Vault
+## 🛠️ Tech Stack
 
- -  Protect videos with a PIN or fingerprint
- -  Hidden from the gallery and other apps
- -  Security question for recovery
- -  Automatically locks when the app is minimized
-
----
-
-### Modern Material Design
-
-- Material 3 interface
- -  Light & Dark theme
- -  Lightweight and battery efficient
- -  Responsive UI optimized for Android devices
+- **Platform & Language**: Android (Kotlin)
+- **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) (Material 3)
+- **Media Engine**: [AndroidX Media3 / ExoPlayer](https://developer.android.com/media/media3)
+- **Architecture**: MVVM & Clean Architecture
+- **Dependency Injection**: [Hilt / Dagger](https://dagger.dev/hilt/)
+- **Local Persistence**: [Room Database](https://developer.android.com/training/data-storage/room) & [DataStore Preferences](https://developer.android.com/topic/libraries/architecture/datastore)
+- **Image Loading**: [Coil](https://coil-kt.github.io/coil/)
 
 ---
 
-## Highlights
+## 🚀 Getting Started
 
- -  Completely Offline
- -  No Ads
- -  No Trackers
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/mohamedaminelouati/O-Media-Player.git
+   cd O-Media-Player
+   ```
+2. Build with Gradle:
+   ```bash
+   ./gradlew assembleFastDebug
+   ```
+   Or create a release APK:
+   ```bash
+   ./gradlew assembleRelease
+   ```
+3. Install on your connected device:
+   ```bash
+   ./gradlew installFastDebug
+   ```
+
+---
+
+## 📜 License & Acknowledgements
+
+This project is licensed under the **GNU General Public License v3.0** (GPL-3.0).
+
+- **Maintained & Enhanced by**: [Mohamed Amine Louati](https://mohamedaminelouati.pro/) ([LinkedIn](https://www.linkedin.com/in/mohamed-amine-louati-pro/) | [GitHub](https://github.com/mohamedaminelouati))
+- **Based on the original project**: *OmegaPlayer* created by [Arsalan Daim Shar](https://github.com/arslandaim-hub/OmegaPlayer).
