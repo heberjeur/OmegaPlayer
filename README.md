@@ -11,7 +11,7 @@
   <a href="https://f-droid.org/packages/com.mohamedaminelouati.oplayer/"><img src="https://img.shields.io/badge/F--Droid-Available-blue?style=flat&logo=f-droid" alt="F-Droid" /></a>
 </p>
 
-**O Media Player** is an intuitive, modern, 100% offline, privacy-first multimedia player for Android featuring a powerful video player, high-fidelity music player, and a secure private vault.
+**O Media Player** is an intuitive, modern, 100% offline, privacy-first multimedia player for Android featuring a powerful video player, high-fidelity music player, and customizable security access lock.
 
 Developed & Maintained by **[Mohamed Amine Louati](https://mohamedaminelouati.pro/)**.
 
@@ -41,7 +41,7 @@ Developed & Maintained by **[Mohamed Amine Louati](https://mohamedaminelouati.pr
 - **Pure Dark & AMOLED Modes**: Modern Material 3 UI with customizable primary and secondary accent color palettes.
 - **Dynamic App Icon Customization**: Choose from multiple dual-color launcher icon styles directly within the app.
 - **Bidirectional Marquee**: Seamless single-line marquee title scrolling in the mini-player with full Right-to-Left (Arabic) and Left-to-Right support.
-- **Secure Vault (Private Media)**: Password, PIN, or Pattern protection to lock, hide, and safeguard sensitive media files from the public gallery.
+- **Security & Access Lock (PIN / Pattern)**: Secure app access, sensitive folders, and media playback with PIN or Pattern protection.
 - **Multilingual Support**: Fully localized into English, French, Arabic, German, Spanish, Portuguese, Russian, and Simplified Chinese.
 
 ---

@@ -1,4 +1,4 @@
-O Media Player es un reproductor multimedia integral para Android. Combina un motor de video de alto rendimiento con un reproductor de música sofisticado y una bóveda privada segura para proteger tus archivos personales.
+O Media Player es un reproductor multimedia integral para Android. Combina un motor de video de alto rendimiento con un reproductor de música sofisticado y un bloqueo de seguridad confiable para proteger tus archivos personales.
 La aplicación funciona completamente sin conexión a internet, sin anuncios y sin rastreadores.
 
 Características clave:
@@ -14,7 +14,7 @@ EXPERIENCIA DE AUDIO DE ALTA CALIDAD
   Navegación por carpetas y carátulas de álbum dinámicas.
   Controles inteligentes: modos de repetición, ecualizador y salto de pistas.
 
-BÓVEDA MULTIMEDIA PRIVADA
+SEGURIDAD Y BLOQUEO DE ACCESO
   Protección con PIN y patrón: bloquea carpetas y archivos confidenciales para máxima privacidad.
 
 INTERFAZ MODERNA Y FLUIDA

@@ -1,4 +1,4 @@
-O Media Player est un lecteur multimédia complet pour Android. Il associe un moteur vidéo haute performance à un lecteur audio sophistiqué et un coffre-fort privé sécurisé pour protéger vos médias personnels.
+O Media Player est un lecteur multimédia complet pour Android. Il associe un moteur vidéo haute performance à un lecteur audio sophistiqué et un verrouillage de sécurité pour protéger vos médias personnels.
 L'application ne requiert aucun accès à Internet, ne contient aucune publicité et aucun traceur.
 
 Fonctionnalités clés :
@@ -14,7 +14,7 @@ EXPÉRIENCE AUDIO DE QUALITÉ
   Navigation par dossiers et pochettes dynamiques.
   Contrôles intelligents : modes de répétition, égaliseur et lecture enchaînée.
 
-COFFRE-FORT PRIVÉ
+SÉCURITÉ ET VERROUILLAGE D'ACCÈS
   Protection par code PIN et schéma : verrouillez vos dossiers et vidéos sensibles pour une sécurité maximale.
 
 INTERFACE MODERNE ET RÉACTIVE

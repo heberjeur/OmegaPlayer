@@ -1,4 +1,4 @@
-O Media Player is a multimedia player for Android. It combines a high-performance video engine with a sophisticated music player and a secure private vault to protect your personal media. 
+O Media Player is a multimedia player for Android. It combines a high-performance video engine with a sophisticated music player and a security access lock to protect your personal media. 
 Application has no internet connectivity at all, everything is ad free and no trackers whatsoever.
 
 Key Features:
@@ -14,8 +14,8 @@ SILKY SMOOTH VIDEO PLAYBACK
   Folder-Based Navigation. Dynamic Album Art: Adapts background based audio thumbnail color.
   Smart Controls: Repeat modes, skip, and smooth seek bars.
 
- PRIVATE MEDIA VAULT
-  PIN & Pattern Protection: App supports both PIN code and pattern lock for privacy and security.
+ SECURITY & ACCESS LOCK
+  PIN & Pattern Protection: App supports both PIN code and pattern lock to secure folders and playback.
 
  MODERN & RESPONSIVE UI
   Material 3 Design: A clean, beautiful interface that supports Light and Dark modes.
