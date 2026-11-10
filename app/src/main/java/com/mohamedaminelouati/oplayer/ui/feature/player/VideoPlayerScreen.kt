@@ -72,7 +72,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
-import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
+import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
+import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import com.mohamedaminelouati.oplayer.util.findActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -1307,11 +1309,14 @@ fun VideoPlayerScreen(
                         }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = Color.White)
                         }
-                        MarqueeText(
+                        val truncation = LocalTextTruncationMode.current
+                        Text(
                             text = videoName,
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            maxLines = truncation.maxLines,
+                            overflow = truncation.overflow,
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp)

@@ -34,7 +34,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.mohamedaminelouati.oplayer.data.AudioModel
 import com.mohamedaminelouati.oplayer.data.VideoModel
-import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
+import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
+import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import com.mohamedaminelouati.oplayer.ui.common.videoThumbImageRequest
 import com.mohamedaminelouati.oplayer.util.MediaUtils
 import com.mohamedaminelouati.oplayer.util.MediaUtils.formatDuration
@@ -202,15 +204,19 @@ fun VideoListItem(
                     }
                 }
                 
+                val truncation = LocalTextTruncationMode.current
                 val savePositionOnQuit = LocalSavePositionOnQuit.current
                 val playbackProgress = if (savePositionOnQuit) LocalPlaybackProgress.current[video.uri.toString()] ?: 0f else 0f
                 Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
-                    MarqueeText(
+                    Text(
                         text = video.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Justify,
+                        maxLines = truncation.maxLines,
+                        overflow = truncation.overflow
                     )
                     if (playbackProgress > 0f) {
                         Spacer(modifier = Modifier.height(6.dp))
@@ -498,15 +504,19 @@ fun AudioListItem(
                 }
             }
             
+            val truncation = LocalTextTruncationMode.current
             val savePositionOnQuit = LocalSavePositionOnQuit.current
             val playbackProgress = if (savePositionOnQuit) LocalPlaybackProgress.current[audio.uri.toString()] ?: 0f else 0f
             Column(modifier = Modifier.padding(start = 10.dp, end = 4.dp).weight(1f)) {
-                MarqueeText(
+                Text(
                     text = audio.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Justify,
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
                 if (playbackProgress > 0f) {
                     Spacer(modifier = Modifier.height(6.dp))

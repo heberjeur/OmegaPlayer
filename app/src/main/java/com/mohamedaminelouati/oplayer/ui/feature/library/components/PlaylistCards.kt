@@ -24,7 +24,9 @@ import com.mohamedaminelouati.oplayer.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.mohamedaminelouati.oplayer.data.Playlist
-import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
+import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
+import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.theme.overflow
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -70,11 +72,14 @@ fun PlaylistListItem(
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
+            val truncation = LocalTextTruncationMode.current
             Column(modifier = Modifier.weight(1f)) {
-                MarqueeText(
-                    text = playlist.name,
+                Text(
+                    playlist.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
             }
             if (isSelectionMode) {
@@ -147,15 +152,18 @@ fun PlaylistGridCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
+        val truncation = LocalTextTruncationMode.current
         Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            MarqueeText(
+            Text(
                 text = playlist.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = truncation.maxLines,
+                overflow = truncation.overflow
             )
 
             Surface(

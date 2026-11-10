@@ -64,7 +64,7 @@ fun MarqueeText(
     style: TextStyle = LocalTextStyle.current,
     fontWeight: FontWeight? = null,
     textAlign: TextAlign? = null,
-    forceMarquee: Boolean = false
+    forceMarquee: Boolean = true
 ) {
     if (text.isEmpty()) {
         Text(
@@ -130,7 +130,7 @@ fun MarqueeText(
                     color = color,
                     style = resolvedStyle,
                     fontWeight = fontWeight,
-                    textAlign = textAlign,
+                    textAlign = textAlign ?: (if (isRtl) TextAlign.End else TextAlign.Start),
                     maxLines = 1,
                     softWrap = false
                 )
@@ -181,74 +181,83 @@ fun MarqueeText(
 
         val (x1, x2) = if (isRtl) {
             val startX = (containerWidthPx - textWidthPx).toFloat()
-            val rem = currentOffset % cycleWidth
-            val shift = if (rem < 0f) rem + cycleWidth else rem
-            Pair(startX + shift, startX + shift - cycleWidth)
+            val rem = ((currentOffset % cycleWidth) + cycleWidth) % cycleWidth
+            val first = startX + rem
+            val second = first - cycleWidth
+            Pair(first, second)
         } else {
-            val rem = currentOffset % cycleWidth
-            val base = if (rem > 0f) rem - cycleWidth else rem
-            Pair(base, base + cycleWidth)
+            val rem = ((currentOffset % cycleWidth) - cycleWidth) % cycleWidth
+            val first = if (rem > 0f) rem - cycleWidth else rem
+            val second = first + cycleWidth
+            Pair(first, second)
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(cycleWidth) {
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            isDragging = true
-                        },
-                        onDragEnd = {
-                            isDragging = false
-                            lastTouchTime = System.currentTimeMillis()
-                        },
-                        onDragCancel = {
-                            isDragging = false
-                            lastTouchTime = System.currentTimeMillis()
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            currentOffset += dragAmount
-                        }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(cycleWidth) {
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                            },
+                            onDragEnd = {
+                                isDragging = false
+                                lastTouchTime = System.currentTimeMillis()
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                lastTouchTime = System.currentTimeMillis()
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                currentOffset += dragAmount
+                            }
+                        )
+                    }
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)) {
+                    Text(
+                        text = text,
+                        modifier = Modifier
+                            .layout { measurable, childConstraints ->
+                                val placeable = measurable.measure(childConstraints.copy(maxWidth = Constraints.Infinity))
+                                layout(placeable.width, placeable.height) {
+                                    placeable.place(0, 0)
+                                }
+                            }
+                            .graphicsLayer {
+                                translationX = x1
+                            },
+                        color = color,
+                        style = resolvedStyle,
+                        fontWeight = fontWeight,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
-        ) {
-            Text(
-                text = text,
-                modifier = Modifier
-                    .layout { measurable, childConstraints ->
-                        val placeable = measurable.measure(childConstraints.copy(maxWidth = Constraints.Infinity))
-                        layout(placeable.width, placeable.height) {
-                            placeable.place(0, 0)
-                        }
-                    }
-                    .graphicsLayer {
-                        translationX = x1
-                    },
-                color = color,
-                style = resolvedStyle,
-                fontWeight = fontWeight,
-                maxLines = 1,
-                softWrap = false
-            )
-            Text(
-                text = text,
-                modifier = Modifier
-                    .layout { measurable, childConstraints ->
-                        val placeable = measurable.measure(childConstraints.copy(maxWidth = Constraints.Infinity))
-                        layout(placeable.width, placeable.height) {
-                            placeable.place(0, 0)
-                        }
-                    }
-                    .graphicsLayer {
-                        translationX = x2
-                    },
-                color = color,
-                style = resolvedStyle,
-                fontWeight = fontWeight,
-                maxLines = 1,
-                softWrap = false
-            )
+
+                CompositionLocalProvider(LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)) {
+                    Text(
+                        text = text,
+                        modifier = Modifier
+                            .layout { measurable, childConstraints ->
+                                val placeable = measurable.measure(childConstraints.copy(maxWidth = Constraints.Infinity))
+                                layout(placeable.width, placeable.height) {
+                                    placeable.place(0, 0)
+                                }
+                            }
+                            .graphicsLayer {
+                                translationX = x2
+                            },
+                        color = color,
+                        style = resolvedStyle,
+                        fontWeight = fontWeight,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
         }
     }
 }

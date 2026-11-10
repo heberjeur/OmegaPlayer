@@ -28,7 +28,6 @@ import com.mohamedaminelouati.oplayer.data.Playlist
 import com.mohamedaminelouati.oplayer.viewmodel.VideoViewModel
 import com.mohamedaminelouati.oplayer.data.MediaSortOrder
 import com.mohamedaminelouati.oplayer.data.SearchScope
-import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.*
 import androidx.compose.foundation.pager.PagerState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -116,11 +115,7 @@ fun HomeHeader(
                                 ?: selectedPlaylistForDetails?.name
                                 ?: ""
                         }
-                        MarqueeText(
-                            text = folderName,
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
+                        Text(text = folderName, style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold))
                     } else {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

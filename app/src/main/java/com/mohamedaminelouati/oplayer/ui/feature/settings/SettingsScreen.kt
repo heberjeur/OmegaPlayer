@@ -488,7 +488,7 @@ fun SettingsAboutSection(
                 supportingContent = { Text(stringResource(R.string.view_source_sub)) },
                 leadingContent = { SettingIcon(Icons.Default.Code) },
                 modifier = Modifier.clickable {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/mohamedaminelouati/o-media-player"))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/mohamedaminelouati/O-Media-Player"))
                     context.startActivity(intent)
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)

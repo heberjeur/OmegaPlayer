@@ -61,7 +61,9 @@ import coil.compose.AsyncImage
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.MediaInfoDialog
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.PlayingVisualizer
 import com.mohamedaminelouati.oplayer.ui.feature.library.components.SelectionFooterBar
-import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
+import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
+import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import coil.request.ImageRequest
 import com.mohamedaminelouati.oplayer.R
 import com.mohamedaminelouati.oplayer.media.PlaybackQueueItem
@@ -467,15 +469,18 @@ fun PlaybackQueueSheet(
                             
                             Spacer(modifier = Modifier.width(12.dp))
                             
+                            val truncation = LocalTextTruncationMode.current
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                MarqueeText(
+                                Text(
                                     text = item.title,
                                     color = if (isDragged || isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isDragged || isCurrent) FontWeight.Bold else FontWeight.Medium
+                                    fontWeight = if (isDragged || isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = truncation.maxLines,
+                                    overflow = truncation.overflow
                                 )
                                 if (isCurrent) {
                                     Spacer(modifier = Modifier.height(2.dp))

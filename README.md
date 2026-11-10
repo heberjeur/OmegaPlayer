@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mohamedaminelouati/o-media-player/releases/latest">
+  <a href="https://github.com/mohamedaminelouati/O-Media-Player/releases/latest">
     <img src="https://img.shields.io/badge/Get%20it%20on-GitHub-181717?style=for-the-badge&logo=github" alt="GitHub">
   </a>
   <a href="https://f-droid.org/packages/com.mohamedaminelouati.oplayer/">

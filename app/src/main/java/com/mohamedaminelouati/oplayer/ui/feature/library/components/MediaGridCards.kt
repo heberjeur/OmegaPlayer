@@ -35,7 +35,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.mohamedaminelouati.oplayer.data.AudioModel
 import com.mohamedaminelouati.oplayer.data.VideoModel
-import com.mohamedaminelouati.oplayer.ui.common.MarqueeText
+import com.mohamedaminelouati.oplayer.ui.theme.LocalTextTruncationMode
+import com.mohamedaminelouati.oplayer.ui.theme.maxLines
+import com.mohamedaminelouati.oplayer.ui.theme.overflow
 import com.mohamedaminelouati.oplayer.ui.common.videoThumbImageRequest
 import com.mohamedaminelouati.oplayer.util.MediaUtils
 import com.mohamedaminelouati.oplayer.util.MediaUtils.formatDuration
@@ -120,6 +122,7 @@ fun VideoGridItem(
                     }
                 }
 
+                val truncation = LocalTextTruncationMode.current
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -127,11 +130,14 @@ fun VideoGridItem(
                         .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                         .padding(start = 8.dp, end = 36.dp, top = 8.dp, bottom = 8.dp)
                 ) {
-                    MarqueeText(
+                    Text(
                         text = video.name,
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Justify,
+                        maxLines = truncation.maxLines,
+                        overflow = truncation.overflow
                     )
                 }
 
@@ -434,6 +440,7 @@ fun AudioGridItem(
                 }
             }
 
+            val truncation = LocalTextTruncationMode.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -441,11 +448,14 @@ fun AudioGridItem(
                     .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                     .padding(start = 8.dp, end = 36.dp, top = 8.dp, bottom = 8.dp)
             ) {
-                MarqueeText(
+                Text(
                     text = audio.name,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Justify,
+                    maxLines = truncation.maxLines,
+                    overflow = truncation.overflow
                 )
             }
 
