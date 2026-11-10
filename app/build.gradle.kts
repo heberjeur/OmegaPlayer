@@ -14,10 +14,22 @@ android {
         applicationId = "com.mohamedaminelouati.oplayer"
         minSdk = 25
         targetSdk = 37
-        versionCode = 6
-        versionName = "1.2.1"
+        versionCode = 1
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = file("oplayer-release.jks")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "OMediaPlayer2026!"
+                keyAlias = "oplayer"
+                keyPassword = "OMediaPlayer2026!"
+            }
+        }
     }
 
     buildTypes {
@@ -25,6 +37,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            val keystoreFile = file("oplayer-release.jks")
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         create("fastDebug") {
             initWith(getByName("release"))
