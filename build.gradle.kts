@@ -9,7 +9,7 @@ plugins {
 buildscript {
     configurations.all {
         resolutionStrategy {
-            force("org.bouncycastle:bcprov-jdk18on:1.86")
+            force("org.bouncycastle:bcprov-jdk18on:1.87")
             force("org.bouncycastle:bcpkix-jdk18on:1.86")
             force("org.bitbucket.b_c:jose4j:0.9.7")
             force("org.jdom:jdom2:2.0.6.1")
@@ -22,7 +22,7 @@ buildscript {
 allprojects {
     configurations.all {
         resolutionStrategy {
-            force("org.bouncycastle:bcprov-jdk18on:1.86")
+            force("org.bouncycastle:bcprov-jdk18on:1.87")
             force("org.bouncycastle:bcpkix-jdk18on:1.86")
             force("org.bitbucket.b_c:jose4j:0.9.7")
             force("org.jdom:jdom2:2.0.6.1")
